@@ -88,3 +88,9 @@ public enum NotificationEventType
     OrderStatusChanged,
     PaymentReceived
 }
+
+public enum VoucherDiscountType
+{
+    Percentage,
+    FixedAmount
+}

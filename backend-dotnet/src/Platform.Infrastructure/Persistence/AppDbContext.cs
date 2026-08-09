@@ -51,6 +51,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
     public DbSet<CustomerAddress> CustomerAddresses => Set<CustomerAddress>();
     public DbSet<LoyaltyTransaction> LoyaltyTransactions => Set<LoyaltyTransaction>();
     public DbSet<DeliveryZone> DeliveryZones => Set<DeliveryZone>();
+    public DbSet<CustomerFavoriteMenuItem> CustomerFavoriteMenuItems => Set<CustomerFavoriteMenuItem>();
+
+    // Reviews, vouchers, opening-hour overrides
+    public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<Voucher> Vouchers => Set<Voucher>();
+    public DbSet<OpeningHourException> OpeningHourExceptions => Set<OpeningHourException>();
 
     // Realtime
     public DbSet<NotificationEvent> NotificationEvents => Set<NotificationEvent>();
@@ -105,6 +111,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
         builder.Entity<Table>().HasIndex(t => t.QrToken).IsUnique();
         builder.Entity<Customer>().HasIndex(c => new { c.RestaurantId, c.Email }).IsUnique();
         builder.Entity<ProcessedPaymentEvent>().HasIndex(e => new { e.Provider, e.EventId }).IsUnique();
+        builder.Entity<Voucher>().HasIndex(v => new { v.RestaurantId, v.Code }).IsUnique();
+        builder.Entity<CustomerFavoriteMenuItem>().HasIndex(f => new { f.CustomerId, f.MenuItemId }).IsUnique();
+        builder.Entity<OpeningHourException>().HasIndex(e => new { e.RestaurantId, e.Date }).IsUnique();
 
         // Avoid multiple-cascade-path errors: Order → OrderStatusHistory/Payment cascade,
         // but Order → Table/Customer/DeliveryAddress should not cascade-delete the order's parents.

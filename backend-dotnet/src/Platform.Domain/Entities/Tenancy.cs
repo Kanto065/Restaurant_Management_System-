@@ -42,6 +42,13 @@ public class Restaurant : Entity
     public string TimeZone { get; set; } = "Europe/London";
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Flat processing fee added at checkout (matches the reference site's "Processing Fee").</summary>
+    public decimal ProcessingFeeFlat { get; set; }
+    /// <summary>Percentage processing fee (0-100), applied on top of ProcessingFeeFlat if both are set.</summary>
+    public decimal ProcessingFeePercentage { get; set; }
+    /// <summary>Loyalty points earned per £1 spent (e.g. 1 = "spend £1, earn 1 point").</summary>
+    public decimal LoyaltyPointsPerCurrencyUnit { get; set; } = 1;
+
     public List<RestaurantDomain> Domains { get; set; } = [];
     public List<OpeningHour> OpeningHours { get; set; } = [];
     public List<RestaurantStaff> Staff { get; set; } = [];
