@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
 import { Lock, ChevronRight, Loader2, Image as ImageIcon } from 'lucide-react';
 import { api } from '@/lib/api';
 import { getImageUrl } from '@/config/api';
@@ -29,6 +30,9 @@ interface RestaurantSettings {
   country: string;
   timeZone: string;
   isActive: boolean;
+  supportsDelivery: boolean;
+  supportsCollection: boolean;
+  supportsDineIn: boolean;
   processingFeeFlat: number;
   processingFeePercentage: number;
   loyaltyPointsPerCurrencyUnit: number;
@@ -40,6 +44,7 @@ const emptyForm: FormState = {
   name: '', description: '', logoUrl: '', heroImageUrl: '', themeColorPrimary: '#0b3d2e',
   themeColorSecondary: '#e8823c', phone: '', email: '', addressLine1: '', addressLine2: '',
   city: '', postcode: '', country: 'GB', timeZone: 'Europe/London',
+  supportsDelivery: true, supportsCollection: true, supportsDineIn: true,
   processingFeeFlat: 0, processingFeePercentage: 0, loyaltyPointsPerCurrencyUnit: 1,
 };
 
@@ -62,6 +67,7 @@ const RestaurantSettingsPage = () => {
       themeColorPrimary: r.themeColorPrimary, themeColorSecondary: r.themeColorSecondary,
       phone: r.phone ?? '', email: r.email ?? '', addressLine1: r.addressLine1, addressLine2: r.addressLine2 ?? '',
       city: r.city, postcode: r.postcode, country: r.country, timeZone: r.timeZone,
+      supportsDelivery: r.supportsDelivery, supportsCollection: r.supportsCollection, supportsDineIn: r.supportsDineIn,
       processingFeeFlat: r.processingFeeFlat, processingFeePercentage: r.processingFeePercentage,
       loyaltyPointsPerCurrencyUnit: r.loyaltyPointsPerCurrencyUnit,
     });
@@ -205,6 +211,27 @@ const RestaurantSettingsPage = () => {
               <Label htmlFor="country">Country</Label>
               <Input id="country" value={form.country} onChange={(e) => set('country', e.target.value)} placeholder="GB" />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ordering Options</CardTitle>
+          <CardDescription>Which order types customers can choose on your storefront</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <Label htmlFor="supportsDelivery">Home Delivery</Label>
+            <Switch id="supportsDelivery" checked={form.supportsDelivery} onCheckedChange={(v) => set('supportsDelivery', v)} />
+          </div>
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <Label htmlFor="supportsCollection">Collection</Label>
+            <Switch id="supportsCollection" checked={form.supportsCollection} onCheckedChange={(v) => set('supportsCollection', v)} />
+          </div>
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <Label htmlFor="supportsDineIn">Dine-In (QR tables)</Label>
+            <Switch id="supportsDineIn" checked={form.supportsDineIn} onCheckedChange={(v) => set('supportsDineIn', v)} />
           </div>
         </CardContent>
       </Card>

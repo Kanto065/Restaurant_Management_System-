@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMenu, useFavourites, useLastOrder } from '../lib/queries';
 import { useCartStore } from '../store/cart';
@@ -13,8 +13,10 @@ type ViewMode = 'category' | 'best-sellers' | 'favourites';
 export default function Menu() {
   const { data, isLoading, isError } = useMenu();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('category');
+  const [changingType, setChangingType] = useState(false);
   const [search, setSearch] = useState('');
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
   const [cartOpenMobile, setCartOpenMobile] = useState(false);
@@ -72,9 +74,30 @@ export default function Menu() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      <h1 className="text-lg sm:text-xl mb-4">
-        You are ordering for <span className="text-brand-mint font-semibold">{orderType === 'Delivery' ? 'Home Delivery' : 'Collection'}</span>
-      </h1>
+      <div className="mb-4">
+        <h1 className="text-lg sm:text-xl">
+          You are ordering for <span className="text-brand-mint font-semibold">{orderType === 'Delivery' ? 'Home Delivery' : 'Collection'}</span>{' '}
+          <button onClick={() => setChangingType((v) => !v)} className="text-sm underline text-brand-cream/70 hover:text-brand-cream">
+            Change
+          </button>
+        </h1>
+        {changingType && (
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={() => { navigate('/menu?type=Collection'); setChangingType(false); }}
+              className={`px-4 py-2 rounded text-sm font-medium ${orderType === 'Collection' ? 'bg-brand-green text-white' : 'bg-brand-mint/20 text-brand-cream'}`}
+            >
+              Order for Collection
+            </button>
+            <button
+              onClick={() => { navigate('/menu?type=Delivery'); setChangingType(false); }}
+              className={`px-4 py-2 rounded text-sm font-medium ${orderType === 'Delivery' ? 'bg-brand-orange text-white' : 'bg-brand-mint/20 text-brand-cream'}`}
+            >
+              Order for Home Delivery
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="grid lg:grid-cols-[220px_1fr_320px] gap-6">
         {/* Category sidebar: horizontal scroll on mobile, vertical list on desktop */}

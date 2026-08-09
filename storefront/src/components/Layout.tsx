@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useRestaurant } from '../lib/queries';
 import { useCartStore } from '../store/cart';
@@ -24,8 +24,11 @@ function isOpenNow(hours: OpeningHour[], exceptions: OpeningHourException[]) {
 export default function Layout() {
   const { data: restaurant } = useRestaurant();
   const itemCount = useCartStore((s) => s.itemCount());
+  const setOrderType = useCartStore((s) => s.setOrderType);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [orderingDropdownOpen, setOrderingDropdownOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const loggedIn = customerAuth.isLoggedIn();
 
   const open = restaurant ? isOpenNow(restaurant.openingHours, restaurant.openingHourExceptions) : null;
@@ -43,6 +46,28 @@ export default function Layout() {
     >
       {label}
     </Link>
+  );
+
+  const goOrder = (type: 'Delivery' | 'Collection') => {
+    setOrderType(type);
+    setOrderingDropdownOpen(false);
+    setMenuOpen(false);
+    navigate(`/menu?type=${type}`);
+  };
+
+  const orderingOptions = (
+    <>
+      {(restaurant?.supportsDelivery ?? true) && (
+        <button onClick={() => goOrder('Delivery')} className="block w-full text-left px-4 py-2 text-sm text-brand-bg hover:bg-brand-mint/30">
+          Order for Home Delivery
+        </button>
+      )}
+      {(restaurant?.supportsCollection ?? true) && (
+        <button onClick={() => goOrder('Collection')} className="block w-full text-left px-4 py-2 text-sm text-brand-bg hover:bg-brand-mint/30">
+          Order for Collection
+        </button>
+      )}
+    </>
   );
 
   return (
@@ -65,8 +90,28 @@ export default function Layout() {
 
           <nav className="hidden md:flex items-center gap-3">
             {navLink('/', 'Home')}
-            {navLink('/menu', 'Menu & Ordering')}
+
+            <div className="relative" onMouseLeave={() => setOrderingDropdownOpen(false)}>
+              <button
+                onClick={() => setOrderingDropdownOpen((v) => !v)}
+                onMouseEnter={() => setOrderingDropdownOpen(true)}
+                className={`px-4 py-2 border rounded text-sm transition-colors ${
+                  location.pathname === '/menu'
+                    ? 'bg-brand-mint text-brand-bg border-brand-mint'
+                    : 'border-brand-cream/30 hover:border-brand-cream text-brand-cream'
+                }`}
+              >
+                Menu &amp; Ordering ▾
+              </button>
+              {orderingDropdownOpen && (
+                <div className="absolute left-0 top-full mt-1 w-56 bg-brand-cream rounded shadow-lg overflow-hidden z-30">
+                  {orderingOptions}
+                </div>
+              )}
+            </div>
+
             {navLink('/reviews', 'Reviews')}
+            {navLink('/contact-us', 'Contact Us')}
             {navLink('/account', loggedIn ? 'My Account' : 'Members')}
             {open !== null && (
               <span
@@ -83,8 +128,12 @@ export default function Layout() {
         {menuOpen && (
           <nav className="md:hidden flex flex-col gap-2 px-4 pb-4">
             {navLink('/', 'Home')}
-            {navLink('/menu', 'Menu & Ordering')}
+            <div className="border border-brand-cream/30 rounded overflow-hidden">
+              <p className="px-4 py-2 text-sm font-medium border-b border-brand-cream/10">Menu &amp; Ordering</p>
+              {orderingOptions}
+            </div>
             {navLink('/reviews', 'Reviews')}
+            {navLink('/contact-us', 'Contact Us')}
             {navLink('/account', loggedIn ? 'My Account' : 'Members')}
           </nav>
         )}
@@ -95,8 +144,8 @@ export default function Layout() {
               {loggedIn ? (
                 <Link to="/account" className="underline">My Account</Link>
               ) : (
-                <>Welcome guest! Please <Link to="/account/login" className="underline">login</Link> or{' '}
-                  <Link to="/account/register" className="underline">register</Link> so we know who you are.</>
+                <>Welcome guest! Please <Link to="/account/members" className="underline">login</Link> or{' '}
+                  <Link to="/account/members" className="underline">register</Link> so we know who you are.</>
               )}
             </p>
             {restaurant && (
