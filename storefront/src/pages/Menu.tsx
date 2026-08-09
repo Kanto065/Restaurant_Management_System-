@@ -1,34 +1,71 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useMenu } from '../lib/queries';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMenu, useFavourites, useLastOrder } from '../lib/queries';
 import { useCartStore } from '../store/cart';
+import { api, customerAuth } from '../lib/api';
 import ModifierModal from '../components/ModifierModal';
 import CartPanel from '../components/CartPanel';
 import type { MenuItem, OrderType } from '../types/api';
+
+type ViewMode = 'category' | 'best-sellers' | 'favourites';
 
 export default function Menu() {
   const { data, isLoading, isError } = useMenu();
   const [searchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('category');
   const [search, setSearch] = useState('');
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
   const [cartOpenMobile, setCartOpenMobile] = useState(false);
   const setOrderType = useCartStore((s) => s.setOrderType);
+  const addLine = useCartStore((s) => s.addLine);
   const itemCount = useCartStore((s) => s.itemCount());
   const subtotal = useCartStore((s) => s.subtotal());
+  const isMember = customerAuth.isLoggedIn();
+
+  const favouritesQuery = useFavourites();
+  const lastOrderQuery = useLastOrder();
+  const queryClient = useQueryClient();
+  const favouriteIds = new Set((favouritesQuery.data ?? []).map((f) => f.menuItemId));
+
+  const toggleFavouriteMutation = useMutation({
+    mutationFn: ({ menuItemId, isFavourite }: { menuItemId: string; isFavourite: boolean }) =>
+      isFavourite ? api.delete(`/api/account/favourites/${menuItemId}`) : api.post('/api/account/favourites', { menuItemId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account', 'favourites'] }),
+  });
 
   const orderType = (searchParams.get('type') as OrderType | null) ?? 'Collection';
   useMemo(() => setOrderType(orderType), [orderType, setOrderType]);
 
   const categories = data?.categories ?? [];
+  const allItems = useMemo(() => categories.flatMap((c) => c.items), [categories]);
   const currentCategory = categories.find((c) => c.id === activeCategory) ?? categories[0];
 
+  const bestSellers = useMemo(() => allItems.filter((i) => i.isBestSeller), [allItems]);
+  const favouriteItems = useMemo(() => {
+    const favIds = new Set((favouritesQuery.data ?? []).map((f) => f.menuItemId));
+    return allItems.filter((i) => favIds.has(i.id));
+  }, [allItems, favouritesQuery.data]);
+
+  const baseItems = viewMode === 'best-sellers' ? bestSellers : viewMode === 'favourites' ? favouriteItems : currentCategory?.items ?? [];
+
   const visibleItems = useMemo(() => {
-    if (!currentCategory) return [];
-    if (!search.trim()) return currentCategory.items;
+    if (!search.trim()) return baseItems;
     const q = search.toLowerCase();
-    return currentCategory.items.filter((i) => i.name.toLowerCase().includes(q));
-  }, [currentCategory, search]);
+    return baseItems.filter((i) => i.name.toLowerCase().includes(q));
+  }, [baseItems, search]);
+
+  const heading = viewMode === 'best-sellers' ? 'Best Sellers' : viewMode === 'favourites' ? 'My Favourites' : currentCategory?.name;
+
+  const handleReorderLast = () => {
+    const lastOrder = lastOrderQuery.data as { items?: { nameSnapshot: string }[] } | undefined;
+    if (!lastOrder?.items) return;
+    for (const li of lastOrder.items) {
+      const match = allItems.find((i) => i.name === li.nameSnapshot);
+      if (match) addLine(match, []);
+    }
+  };
 
   if (isLoading) return <div className="max-w-7xl mx-auto px-4 py-12 text-center">Loading menu...</div>;
   if (isError || !data) return <div className="max-w-7xl mx-auto px-4 py-12 text-center">Could not load the menu. Please try again shortly.</div>;
@@ -45,9 +82,9 @@ export default function Menu() {
           {categories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
+              onClick={() => { setActiveCategory(cat.id); setViewMode('category'); }}
               className={`shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium whitespace-nowrap lg:whitespace-normal transition-colors ${
-                (currentCategory?.id ?? categories[0]?.id) === cat.id
+                viewMode === 'category' && (currentCategory?.id ?? categories[0]?.id) === cat.id
                   ? 'bg-brand-green text-white'
                   : 'bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream'
               }`}
@@ -55,12 +92,44 @@ export default function Menu() {
               {cat.name}
             </button>
           ))}
+
+          <div className="h-px bg-brand-cream/10 lg:my-1 shrink-0 w-px lg:w-auto lg:h-px" />
+
+          <button
+            onClick={() => setViewMode('best-sellers')}
+            className={`shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium whitespace-nowrap lg:whitespace-normal transition-colors ${
+              viewMode === 'best-sellers' ? 'bg-brand-orange text-white' : 'bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream'
+            }`}
+          >
+            Best Sellers ★
+          </button>
+
+          {isMember && (
+            <>
+              <button
+                onClick={() => setViewMode('favourites')}
+                className={`shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium whitespace-nowrap lg:whitespace-normal transition-colors ${
+                  viewMode === 'favourites' ? 'bg-brand-orange text-white' : 'bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream'
+                }`}
+              >
+                My Favourites ♥
+              </button>
+              {lastOrderQuery.data && (
+                <button
+                  onClick={handleReorderLast}
+                  className="shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium whitespace-nowrap lg:whitespace-normal bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream"
+                >
+                  My Last Order ⟳
+                </button>
+              )}
+            </>
+          )}
         </nav>
 
         {/* Item list */}
         <div className="bg-brand-cream text-brand-bg rounded-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-brand-bg/10 flex items-center justify-between gap-3">
-            <h2 className="font-display text-lg">{currentCategory?.name}</h2>
+            <h2 className="font-display text-lg">{heading}</h2>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -75,6 +144,7 @@ export default function Menu() {
                   <p className="font-medium">{item.name}</p>
                   {item.description && <p className="text-sm text-brand-bg/70 mt-0.5">{item.description}</p>}
                   <div className="flex gap-1.5 mt-1">
+                    {item.isBestSeller && <span className="text-xs bg-amber-500/10 text-amber-700 px-1.5 py-0.5 rounded">★ Best Seller</span>}
                     {item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Vegan</span>}
                     {item.isVegetarian && !item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Veg</span>}
                     {item.spiceLevel !== 'None' && <span className="text-xs bg-orange-500/10 text-orange-700 px-1.5 py-0.5 rounded">{item.spiceLevel}</span>}
@@ -82,16 +152,31 @@ export default function Menu() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-semibold mb-2">£{item.basePrice.toFixed(2)}</p>
-                  <button
-                    onClick={() => (item.modifierGroups.length > 0 ? setModalItem(item) : useCartStore.getState().addLine(item, []))}
-                    className="bg-brand-green text-white text-xs font-medium px-3 py-1.5 rounded"
-                  >
-                    ADD
-                  </button>
+                  <div className="flex items-center gap-2 justify-end">
+                    {isMember && (
+                      <button
+                        onClick={() => toggleFavouriteMutation.mutate({ menuItemId: item.id, isFavourite: favouriteIds.has(item.id) })}
+                        aria-label="Toggle favourite"
+                        className={favouriteIds.has(item.id) ? 'text-brand-orange' : 'text-brand-bg/30'}
+                      >
+                        ♥
+                      </button>
+                    )}
+                    <button
+                      onClick={() => (item.modifierGroups.length > 0 ? setModalItem(item) : addLine(item, []))}
+                      className="bg-brand-green text-white text-xs font-medium px-3 py-1.5 rounded"
+                    >
+                      ADD
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
-            {visibleItems.length === 0 && <p className="p-4 text-sm text-brand-bg/60">No items found.</p>}
+            {visibleItems.length === 0 && (
+              <p className="p-4 text-sm text-brand-bg/60">
+                {viewMode === 'favourites' ? "You haven't added any favourites yet." : 'No items found.'}
+              </p>
+            )}
           </div>
         </div>
 

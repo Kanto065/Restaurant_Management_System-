@@ -5,6 +5,14 @@ export interface OpeningHour {
   isClosed: boolean;
 }
 
+export interface OpeningHourException {
+  date: string;
+  openTime: string | null;
+  closeTime: string | null;
+  isClosed: boolean;
+  note: string | null;
+}
+
 export interface RestaurantPublic {
   id: string;
   name: string;
@@ -20,7 +28,28 @@ export interface RestaurantPublic {
   addressLine2: string | null;
   city: string;
   postcode: string;
+  processingFeeFlat: number;
+  processingFeePercentage: number;
+  loyaltyPointsPerCurrencyUnit: number;
   openingHours: OpeningHour[];
+  openingHourExceptions: OpeningHourException[];
+}
+
+export interface Review {
+  id: string;
+  authorName: string;
+  authorLocation: string | null;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+}
+
+export interface ReviewPage {
+  reviews: Review[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  averageRating: number;
 }
 
 export interface DeliveryZone {
@@ -57,6 +86,7 @@ export interface MenuItem {
   imageUrl: string | null;
   isVegetarian: boolean;
   isVegan: boolean;
+  isBestSeller: boolean;
   spiceLevel: SpiceLevel;
   preparationTimeMinutes: number;
   modifierGroups: ModifierGroup[];
@@ -113,6 +143,7 @@ export interface CreateOrderRequest {
   items: CreateOrderItem[];
   specialRequests?: string | null;
   paymentMethod: PaymentMethod;
+  voucherCode?: string | null;
 }
 
 export interface CreatedOrder {
@@ -121,7 +152,10 @@ export interface CreatedOrder {
   status: OrderStatus;
   subtotal: number;
   deliveryFee: number;
+  processingFee: number;
+  discountAmount: number;
   totalAmount: number;
+  loyaltyPointsEarned: number;
 }
 
 export interface TrackOrder {

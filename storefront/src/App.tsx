@@ -7,6 +7,7 @@ import OrderTracking from './pages/OrderTracking';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Account from './pages/Account';
+import Reviews from './pages/Reviews';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/menu" element={<Menu />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order/:orderId/track" element={<OrderTracking />} />
+        <Route path="/reviews" element={<Reviews />} />
         <Route path="/account" element={<Account />} />
         <Route path="/account/login" element={<Login />} />
         <Route path="/account/register" element={<Register />} />

@@ -3,10 +3,17 @@ import { useState } from 'react';
 import { useRestaurant } from '../lib/queries';
 import { useCartStore } from '../store/cart';
 import { customerAuth } from '../lib/api';
+import type { OpeningHour, OpeningHourException } from '../types/api';
 
-function isOpenNow(hours: { dayOfWeek: number; openTime: string | null; closeTime: string | null; isClosed: boolean }[]) {
+function todaysException(exceptions: OpeningHourException[]): OpeningHourException | undefined {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  return exceptions.find((e) => e.date.slice(0, 10) === todayIso);
+}
+
+function isOpenNow(hours: OpeningHour[], exceptions: OpeningHourException[]) {
   const now = new Date();
-  const today = hours.find((h) => h.dayOfWeek === now.getDay());
+  const exception = todaysException(exceptions);
+  const today = exception ?? hours.find((h) => h.dayOfWeek === now.getDay());
   if (!today || today.isClosed || !today.openTime || !today.closeTime) return false;
   const [oh, om] = today.openTime.split(':').map(Number);
   const [ch, cm] = today.closeTime.split(':').map(Number);
@@ -21,7 +28,8 @@ export default function Layout() {
   const location = useLocation();
   const loggedIn = customerAuth.isLoggedIn();
 
-  const open = restaurant ? isOpenNow(restaurant.openingHours) : null;
+  const open = restaurant ? isOpenNow(restaurant.openingHours, restaurant.openingHourExceptions) : null;
+  const exceptionToday = restaurant ? todaysException(restaurant.openingHourExceptions) : undefined;
 
   const navLink = (to: string, label: string) => (
     <Link
@@ -58,10 +66,15 @@ export default function Layout() {
           <nav className="hidden md:flex items-center gap-3">
             {navLink('/', 'Home')}
             {navLink('/menu', 'Menu & Ordering')}
+            {navLink('/reviews', 'Reviews')}
             {navLink('/account', loggedIn ? 'My Account' : 'Members')}
             {open !== null && (
-              <span className={`ml-2 text-sm font-medium ${open ? 'text-brand-mint' : 'text-red-400'}`}>
+              <span
+                className={`ml-2 text-sm font-medium ${open ? 'text-brand-mint' : 'text-red-400'}`}
+                title={exceptionToday?.note ?? undefined}
+              >
                 {open ? "We're Open" : "We're Closed"}
+                {exceptionToday?.note && <span className="ml-1 text-xs text-brand-orange">({exceptionToday.note})</span>}
               </span>
             )}
           </nav>
@@ -71,6 +84,7 @@ export default function Layout() {
           <nav className="md:hidden flex flex-col gap-2 px-4 pb-4">
             {navLink('/', 'Home')}
             {navLink('/menu', 'Menu & Ordering')}
+            {navLink('/reviews', 'Reviews')}
             {navLink('/account', loggedIn ? 'My Account' : 'Members')}
           </nav>
         )}
