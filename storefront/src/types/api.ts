@@ -1,0 +1,137 @@
+export interface OpeningHour {
+  dayOfWeek: number; // 0=Sunday .. 6=Saturday (matches .NET DayOfWeek)
+  openTime: string | null;
+  closeTime: string | null;
+  isClosed: boolean;
+}
+
+export interface RestaurantPublic {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logoUrl: string | null;
+  heroImageUrl: string | null;
+  themeColorPrimary: string;
+  themeColorSecondary: string;
+  phone: string | null;
+  email: string | null;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  postcode: string;
+  openingHours: OpeningHour[];
+}
+
+export interface DeliveryZone {
+  id: string;
+  name: string;
+  maxMileage: number;
+  deliveryFee: number;
+  minimumOrderAmount: number;
+}
+
+export type SpiceLevel = 'None' | 'Mild' | 'Medium' | 'Hot' | 'ExtraHot';
+
+export interface ModifierOption {
+  id: string;
+  name: string;
+  priceDelta: number;
+  isDefault: boolean;
+}
+
+export interface ModifierGroup {
+  id: string;
+  name: string;
+  minSelect: number;
+  maxSelect: number;
+  isRequired: boolean;
+  options: ModifierOption[];
+}
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  description: string | null;
+  basePrice: number;
+  imageUrl: string | null;
+  isVegetarian: boolean;
+  isVegan: boolean;
+  spiceLevel: SpiceLevel;
+  preparationTimeMinutes: number;
+  modifierGroups: ModifierGroup[];
+}
+
+export interface MenuCategory {
+  id: string;
+  name: string;
+  displayOrder: number;
+  items: MenuItem[];
+}
+
+export interface Deal {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  price: number;
+  components: { menuItemId: string | null; categoryId: string | null; quantity: number }[];
+}
+
+export interface MenuResponse {
+  categories: MenuCategory[];
+  deals: Deal[];
+}
+
+export type OrderType = 'DineIn' | 'Collection' | 'Delivery';
+export type PaymentMethod = 'Card' | 'Cash' | 'ApplePay' | 'GooglePay';
+export type OrderStatus =
+  | 'Pending' | 'Confirmed' | 'Preparing' | 'Ready'
+  | 'OutForDeliveryOrServed' | 'Completed' | 'Cancelled';
+
+export interface CreateOrderItem {
+  menuItemId: string;
+  quantity: number;
+  selectedModifierOptionIds: string[];
+  specialInstructions?: string | null;
+}
+
+export interface CreateOrderAddress {
+  line1: string;
+  line2?: string | null;
+  city: string;
+  postcode: string;
+}
+
+export interface CreateOrderRequest {
+  orderType: OrderType;
+  tableQrToken?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
+  deliveryAddress?: CreateOrderAddress | null;
+  items: CreateOrderItem[];
+  specialRequests?: string | null;
+  paymentMethod: PaymentMethod;
+}
+
+export interface CreatedOrder {
+  id: string;
+  orderNumber: number;
+  status: OrderStatus;
+  subtotal: number;
+  deliveryFee: number;
+  totalAmount: number;
+}
+
+export interface TrackOrder {
+  id: string;
+  orderNumber: number;
+  orderType: OrderType;
+  status: OrderStatus;
+  paymentStatus: string;
+  totalAmount: number;
+  estimatedReadyAt: string | null;
+  createdAt: string;
+  items: { nameSnapshot: string; quantity: number; lineTotal: number }[];
+}

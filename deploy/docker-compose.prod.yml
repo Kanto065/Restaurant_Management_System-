@@ -50,6 +50,17 @@ services:
     restart: unless-stopped
     networks: [internal]
 
+  storefront:
+    build:
+      context: ../storefront
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [internal]
+    # No VITE_API_BASE_URL build arg - the storefront calls /api and /hubs on its
+    # OWN origin (the tenant's branded domain), which Caddy splits to the api
+    # container below. This keeps the Host header the tenant-resolution
+    # middleware sees equal to the customer's actual domain.
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -63,7 +74,8 @@ services:
     environment:
       API_HOST: ${API_HOST}
       ADMIN_HOST: ${ADMIN_HOST}
-    depends_on: [api, admin-frontend]
+      STOREFRONT_HOST: ${STOREFRONT_HOST}
+    depends_on: [api, admin-frontend, storefront]
     networks: [internal]
 
 networks:
