@@ -10,6 +10,18 @@
 	reverse_proxy admin-frontend:80
 }
 
-# www.porttennanttandoori.co.uk (the storefront) is added here once the
-# client-facing React app exists (Phase 2) - for now it has no container to
-# route to, so it is intentionally left out rather than pointed at a stub.
+{$STOREFRONT_HOST} {
+	# /api and /hubs stay on this same domain and proxy straight to the API
+	# container, so the tenant-resolution middleware sees the real customer
+	# domain as the Host header (not a shared platform api.* host) and can
+	# resolve the tenant via the Domain table. Everything else is the static SPA.
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+	handle /hubs/* {
+		reverse_proxy api:8080
+	}
+	handle {
+		reverse_proxy storefront:80
+	}
+}

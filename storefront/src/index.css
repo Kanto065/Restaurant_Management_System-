@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Rakkas&family=Host+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Reference-site palette (spice-village.uk/pontardawe), sampled from computed styles */
+  --color-brand-bg: #031f21;       /* page background */
+  --color-brand-bg-light: #0b3d2e; /* header / footer band */
+  --color-brand-mint: #7cceb7;     /* light mint feature card */
+  --color-brand-green: #31826f;    /* primary green (collection button, deliver card) */
+  --color-brand-orange: #f07402;   /* accent orange (delivery button, loyalty card) */
+  --color-brand-cream: #f7f0e8;    /* warm off-white text/cards on dark bg */
+
+  --font-display: "Rakkas", serif;
+  --font-body: "Host Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-brand-bg);
+  color: var(--color-brand-cream);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
