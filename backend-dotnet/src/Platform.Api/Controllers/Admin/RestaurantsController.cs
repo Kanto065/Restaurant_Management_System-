@@ -11,13 +11,15 @@ public record RestaurantSettingsDto(
     Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? HeroImageUrl,
     string ThemeColorPrimary, string ThemeColorSecondary, string? Phone, string? Email,
     string AddressLine1, string? AddressLine2, string City, string Postcode, string Country,
-    string TimeZone, bool IsActive);
+    string TimeZone, bool IsActive, decimal ProcessingFeeFlat, decimal ProcessingFeePercentage,
+    decimal LoyaltyPointsPerCurrencyUnit);
 
 public record UpdateRestaurantSettingsRequest(
     string Name, string? Description, string? LogoUrl, string? HeroImageUrl,
     string ThemeColorPrimary, string ThemeColorSecondary, string? Phone, string? Email,
     string AddressLine1, string? AddressLine2, string City, string Postcode, string Country,
-    string TimeZone);
+    string TimeZone, decimal ProcessingFeeFlat, decimal ProcessingFeePercentage,
+    decimal LoyaltyPointsPerCurrencyUnit);
 
 [ApiController]
 [Route("api/admin/restaurant")]
@@ -35,7 +37,8 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
             restaurant.Id, restaurant.Name, restaurant.Slug, restaurant.Description, restaurant.LogoUrl,
             restaurant.HeroImageUrl, restaurant.ThemeColorPrimary, restaurant.ThemeColorSecondary,
             restaurant.Phone, restaurant.Email, restaurant.AddressLine1, restaurant.AddressLine2,
-            restaurant.City, restaurant.Postcode, restaurant.Country, restaurant.TimeZone, restaurant.IsActive);
+            restaurant.City, restaurant.Postcode, restaurant.Country, restaurant.TimeZone, restaurant.IsActive,
+            restaurant.ProcessingFeeFlat, restaurant.ProcessingFeePercentage, restaurant.LoyaltyPointsPerCurrencyUnit);
 
         return Ok(ApiResponse<RestaurantSettingsDto>.Ok(dto));
     }
@@ -62,6 +65,9 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
         restaurant.Postcode = request.Postcode;
         restaurant.Country = request.Country;
         restaurant.TimeZone = request.TimeZone;
+        restaurant.ProcessingFeeFlat = request.ProcessingFeeFlat;
+        restaurant.ProcessingFeePercentage = request.ProcessingFeePercentage;
+        restaurant.LoyaltyPointsPerCurrencyUnit = request.LoyaltyPointsPerCurrencyUnit;
 
         await db.SaveChangesAsync();
 
