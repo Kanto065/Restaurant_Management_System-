@@ -9,6 +9,7 @@ using Platform.Application.Common;
 using Platform.Infrastructure.Identity;
 using Platform.Infrastructure.Multitenancy;
 using Platform.Infrastructure.Persistence;
+using Platform.Infrastructure.Realtime;
 
 namespace Platform.Infrastructure;
 
@@ -80,6 +81,17 @@ public static class DependencyInjection
             .AddPolicy("StaffOnly", p => p.RequireClaim("token_type", "staff"))
             .AddPolicy("CustomerOnly", p => p.RequireClaim("token_type", "customer"))
             .AddPolicy("PosDeviceOnly", p => p.RequireClaim("token_type", "device").RequireClaim("scope", "pos"));
+
+        var signalR = services.AddSignalR();
+        var redisConnection = configuration.GetConnectionString("Redis");
+        if (!string.IsNullOrWhiteSpace(redisConnection))
+        {
+            // Backplane so the API can run multiple replicas behind the reverse proxy
+            // for zero-downtime deploys without splitting SignalR groups across instances.
+            signalR.AddStackExchangeRedis(redisConnection);
+        }
+
+        services.AddScoped<IOrderNotifier, OrderNotifier>();
 
         return services;
     }
