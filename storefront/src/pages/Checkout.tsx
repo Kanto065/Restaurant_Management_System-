@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../store/cart';
-import { useCreateOrder } from '../lib/queries';
+import { useCreateOrder, useRestaurant } from '../lib/queries';
+import { customerAuth } from '../lib/api';
 import type { CreateOrderRequest, PaymentMethod } from '../types/api';
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { orderType, lines, subtotal, clear } = useCartStore();
   const createOrder = useCreateOrder();
+  const { data: restaurant } = useRestaurant();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -18,9 +20,17 @@ export default function Checkout() {
   const [postcode, setPostcode] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Card');
+  const [voucherCode, setVoucherCode] = useState('');
+  const [showFeeInfo, setShowFeeInfo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const total = subtotal();
+  const rawSubtotal = subtotal();
+  const processingFee = restaurant
+    ? Math.round((restaurant.processingFeeFlat + (rawSubtotal * restaurant.processingFeePercentage) / 100) * 100) / 100
+    : 0;
+  const estimatedTotal = rawSubtotal + processingFee;
+  const estimatedLoyaltyPoints = restaurant ? Math.floor(estimatedTotal * restaurant.loyaltyPointsPerCurrencyUnit) : 0;
+  const isMember = customerAuth.isLoggedIn();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,6 +43,7 @@ export default function Checkout() {
       customerEmail: email || undefined,
       paymentMethod,
       specialRequests: specialRequests || undefined,
+      voucherCode: voucherCode.trim() || undefined,
       deliveryAddress:
         orderType === 'Delivery' ? { line1: addressLine1, line2: addressLine2 || undefined, city, postcode } : undefined,
       items: lines.map((l) => ({
@@ -47,8 +58,8 @@ export default function Checkout() {
       const order = await createOrder.mutateAsync(request);
       clear();
       navigate(`/order/${order.id}/track`);
-    } catch {
-      setError('Something went wrong placing your order. Please check your details and try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong placing your order. Please check your details and try again.');
     }
   }
 
@@ -68,20 +79,73 @@ export default function Checkout() {
       <h1 className="font-display text-2xl sm:text-3xl mb-6">Checkout &ndash; Confirm your order</h1>
 
       <form onSubmit={handleSubmit} className="grid md:grid-cols-[1fr_1.4fr] gap-6">
-        <div className="bg-brand-cream text-brand-bg rounded-lg p-5 h-fit">
-          <h2 className="font-semibold mb-3">Your order for {orderType === 'Delivery' ? 'Delivery' : 'Collection'}</h2>
-          <div className="divide-y divide-brand-bg/10 text-sm">
-            {lines.map((l) => (
-              <div key={l.lineId} className="py-2 flex justify-between">
-                <span>{l.quantity} x {l.menuItem.name}</span>
-                <span>£{((l.menuItem.basePrice + l.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * l.quantity).toFixed(2)}</span>
+        <div className="space-y-4">
+          <div className="bg-brand-cream text-brand-bg rounded-lg p-5 h-fit">
+            <h2 className="font-semibold mb-3">Your order for {orderType === 'Delivery' ? 'Delivery' : 'Collection'}</h2>
+            <div className="divide-y divide-brand-bg/10 text-sm">
+              {lines.map((l) => (
+                <div key={l.lineId} className="py-2 flex justify-between">
+                  <span>{l.quantity} x {l.menuItem.name}</span>
+                  <span>£{((l.menuItem.basePrice + l.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * l.quantity).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="pt-3 mt-2 border-t border-brand-bg/10 text-sm space-y-1.5">
+              <div className="flex justify-between"><span>Subtotal</span><span>£{rawSubtotal.toFixed(2)}</span></div>
+              {processingFee > 0 && (
+                <div className="flex justify-between items-center relative">
+                  <span className="flex items-center gap-1">
+                    Processing Fee
+                    <button
+                      type="button"
+                      onClick={() => setShowFeeInfo((v) => !v)}
+                      className="w-4 h-4 rounded-full bg-brand-bg/20 text-[10px] leading-4 text-center"
+                      aria-label="What is a processing fee?"
+                    >
+                      ?
+                    </button>
+                  </span>
+                  <span>£{processingFee.toFixed(2)}</span>
+                  {showFeeInfo && (
+                    <div className="absolute left-0 top-6 z-10 w-64 bg-brand-bg text-brand-cream text-xs rounded-lg p-3 shadow-lg">
+                      This fee applies to all orders to help cover the operational costs of handling your order online.
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex justify-between font-semibold pt-1.5 border-t border-brand-bg/10">
+                <span>Total</span>
+                <span>£{estimatedTotal.toFixed(2)}</span>
               </div>
-            ))}
+              {voucherCode.trim() && (
+                <p className="text-xs text-brand-bg/60 pt-1">Voucher discount (if valid) applied when you place the order.</p>
+              )}
+            </div>
           </div>
-          <div className="pt-3 mt-2 border-t border-brand-bg/10 font-semibold flex justify-between">
-            <span>Total</span>
-            <span>£{total.toFixed(2)}</span>
+
+          <div className="bg-brand-cream text-brand-bg rounded-lg p-5">
+            <h2 className="font-semibold mb-3">Got a voucher or coupon code?</h2>
+            <input
+              value={voucherCode}
+              onChange={(e) => setVoucherCode(e.target.value)}
+              placeholder="Enter code here..."
+              className="w-full rounded border border-brand-bg/20 px-3 py-2 text-sm uppercase"
+            />
           </div>
+
+          {restaurant && restaurant.loyaltyPointsPerCurrencyUnit > 0 && (
+            <div className="bg-brand-green text-white rounded-lg p-5">
+              <h2 className="font-semibold mb-1">Earn Loyalty Points</h2>
+              {isMember ? (
+                <p className="text-sm text-white/90">You'll earn approximately {estimatedLoyaltyPoints} points for this order.</p>
+              ) : (
+                <p className="text-sm text-white/90">
+                  <a href="/account/register" className="underline font-medium">Register</a> or{' '}
+                  <a href="/account/login" className="underline font-medium">sign in</a> to collect points with this order.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -145,7 +209,7 @@ export default function Checkout() {
             disabled={createOrder.isPending}
             className="w-full bg-brand-green text-white rounded-lg py-3.5 font-semibold disabled:opacity-50"
           >
-            {createOrder.isPending ? 'Placing order...' : `Confirm and Place Order (£${total.toFixed(2)})`}
+            {createOrder.isPending ? 'Placing order...' : `Confirm and Place Order (£${estimatedTotal.toFixed(2)})`}
           </button>
         </div>
       </form>

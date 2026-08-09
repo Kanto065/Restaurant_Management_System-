@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { api } from './api';
+import { api, customerAuth } from './api';
 import type {
-  RestaurantPublic, MenuResponse, DeliveryZone, CreateOrderRequest, CreatedOrder, TrackOrder,
+  RestaurantPublic, MenuResponse, DeliveryZone, CreateOrderRequest, CreatedOrder, TrackOrder, ReviewPage,
 } from '../types/api';
 
 export function useRestaurant() {
@@ -37,5 +37,29 @@ export function useTrackOrder(orderId: string | undefined) {
     queryFn: () => api.get<TrackOrder>(`/api/public/orders/${orderId}/track`),
     enabled: !!orderId,
     refetchInterval: 15_000,
+  });
+}
+
+export function useReviews(page: number) {
+  return useQuery({
+    queryKey: ['public', 'reviews', page],
+    queryFn: () => api.get<ReviewPage>(`/api/public/reviews?page=${page}&pageSize=10`),
+  });
+}
+
+export function useFavourites() {
+  return useQuery({
+    queryKey: ['account', 'favourites'],
+    queryFn: () => api.get<{ menuItemId: string; name: string; basePrice: number; imageUrl: string | null }[]>('/api/account/favourites'),
+    enabled: customerAuth.isLoggedIn(),
+  });
+}
+
+export function useLastOrder() {
+  return useQuery({
+    queryKey: ['account', 'orders', 'last'],
+    queryFn: () => api.get('/api/account/orders/last'),
+    enabled: customerAuth.isLoggedIn(),
+    retry: false,
   });
 }
