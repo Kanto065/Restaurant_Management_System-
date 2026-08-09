@@ -6,7 +6,13 @@ public record SwitchRestaurantRequest(Guid RestaurantId);
 
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
-public record CustomerRegisterRequest(string Email, string Password, string FullName, string? Phone);
+public record CustomerRegisterAddressRequest(string Line1, string? Line2, string City, string? County, string Postcode);
+
+public record CustomerRegisterRequest(
+    string Email, string Password, string FullName, string? Phone,
+    string? Title = null, string? LandlinePhone = null, DateOnly? DateOfBirth = null,
+    bool MarketingEmailOptIn = false, bool MarketingSmsOptIn = false,
+    CustomerRegisterAddressRequest? DeliveryAddress = null);
 
 public record CustomerLoginRequest(string Email, string Password);
 

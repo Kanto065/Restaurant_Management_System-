@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Platform.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Platform.Infrastructure.Persistence;
 namespace Platform.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260809234123_AddRestaurantOrderTypeSupport")]
+    partial class AddRestaurantOrderTypeSupport
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -161,9 +164,6 @@ namespace Platform.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateOnly?>("DateOfBirth")
-                        .HasColumnType("date");
-
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("text");
@@ -175,26 +175,14 @@ namespace Platform.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("IdentityUserId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("LandlinePhone")
-                        .HasColumnType("text");
-
                     b.Property<int>("LoyaltyPointsBalance")
                         .HasColumnType("integer");
-
-                    b.Property<bool>("MarketingEmailOptIn")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("MarketingSmsOptIn")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("Phone")
                         .HasColumnType("text");
 
                     b.Property<Guid>("RestaurantId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("Title")
-                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -217,9 +205,6 @@ namespace Platform.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("City")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("County")
                         .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
