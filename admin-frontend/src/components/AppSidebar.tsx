@@ -95,10 +95,10 @@ export function AppSidebar() {
                     <User className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-medium truncate">
-                      {user.username.charAt(0).toUpperCase() + user.username.slice(1)}
+                    <p className="text-sm font-medium truncate">{user.fullName || user.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {user.restaurants.find((r) => r.restaurantId === user.activeRestaurantId)?.role ?? 'Staff'}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">Administrator</p>
                   </div>
                 </button>
               </DropdownMenuTrigger>
