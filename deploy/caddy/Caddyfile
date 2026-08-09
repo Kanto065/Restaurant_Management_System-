@@ -11,14 +11,13 @@
 }
 
 {$STOREFRONT_HOST} {
-	# /api and /hubs stay on this same domain and proxy straight to the API
-	# container, so the tenant-resolution middleware sees the real customer
-	# domain as the Host header (not a shared platform api.* host) and can
-	# resolve the tenant via the Domain table. Everything else is the static SPA.
+	# /api (including /api/events, the SSE stream) stays on this same domain and
+	# proxies straight to the API container, so the tenant-resolution middleware
+	# sees the real customer domain as the Host header (not a shared platform
+	# api.* host) and can resolve the tenant via the Domain table. Caddy detects
+	# text/event-stream responses and disables buffering automatically, so SSE
+	# needs no special config here. Everything else is the static SPA.
 	handle /api/* {
-		reverse_proxy api:8080
-	}
-	handle /hubs/* {
 		reverse_proxy api:8080
 	}
 	handle {

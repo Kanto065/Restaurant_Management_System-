@@ -3,7 +3,6 @@ using Microsoft.OpenApi;
 using Platform.Infrastructure;
 using Platform.Infrastructure.Multitenancy;
 using Platform.Infrastructure.Persistence;
-using Platform.Infrastructure.Realtime;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -71,7 +70,6 @@ app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<OrderHub>("/hubs/orders");
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 app.Run();

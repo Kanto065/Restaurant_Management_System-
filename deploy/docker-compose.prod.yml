@@ -14,11 +14,6 @@ services:
     # Deliberately no "ports:" mapping — Postgres is reachable only from other
     # containers on the internal network, never from the host/public internet.
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    networks: [internal]
-
   api:
     build:
       context: ../backend-dotnet
@@ -27,7 +22,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-platform};Username=${POSTGRES_USER:-platform};Password=${POSTGRES_PASSWORD}"
-      ConnectionStrings__Redis: "redis:6379"
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -37,9 +31,14 @@ services:
       Seed__OwnerPassword: ${SEED_OWNER_PASSWORD}
       Cors__AllowedOrigins__0: https://${SEED_HOST:-www.porttennanttandoori.co.uk}
       Cors__AllowedOrigins__1: https://${ADMIN_HOST}
-    depends_on: [postgres, redis]
+    depends_on: [postgres]
     networks: [internal]
     # No published ports — only reachable via the Caddy reverse proxy.
+    # No Redis: realtime is now Server-Sent Events fanned out in-memory
+    # (see SseConnectionManager) - fine for a single API replica. If this
+    # ever runs multiple replicas, that in-memory fan-out needs a shared
+    # backplane (Postgres LISTEN/NOTIFY is the natural fit) same as SignalR
+    # would have needed Redis for.
 
   admin-frontend:
     build:

@@ -64,15 +64,16 @@ public static class DependencyInjection
                     ClockSkew = TimeSpan.FromSeconds(30),
                 };
 
-                // Allow SignalR clients to pass the JWT via query string (WebSocket connections
-                // can't set an Authorization header) for the /hubs/* paths only.
+                // Browser EventSource (and the Android POS's OkHttp SSE client) can't set a
+                // custom Authorization header, so allow the token via query string for the
+                // SSE stream path only.
                 options.Events = new JwtBearerEvents
                 {
                     OnMessageReceived = context =>
                     {
                         var accessToken = context.Request.Query["access_token"];
                         if (!string.IsNullOrEmpty(accessToken) &&
-                            context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                            context.HttpContext.Request.Path.StartsWithSegments("/api/events"))
                         {
                             context.Token = accessToken;
                         }
@@ -87,15 +88,7 @@ public static class DependencyInjection
             .AddPolicy("CustomerOnly", p => p.RequireClaim("token_type", "customer"))
             .AddPolicy("PosDeviceOnly", p => p.RequireClaim("token_type", "device").RequireClaim("scope", "pos"));
 
-        var signalR = services.AddSignalR();
-        var redisConnection = configuration.GetConnectionString("Redis");
-        if (!string.IsNullOrWhiteSpace(redisConnection))
-        {
-            // Backplane so the API can run multiple replicas behind the reverse proxy
-            // for zero-downtime deploys without splitting SignalR groups across instances.
-            signalR.AddStackExchangeRedis(redisConnection);
-        }
-
+        services.AddSingleton<SseConnectionManager>();
         services.AddScoped<IOrderNotifier, OrderNotifier>();
 
         return services;
