@@ -48,6 +48,7 @@ public class AccountController(AppDbContext db) : ControllerBase
 
         var order = await db.Orders
             .Include(o => o.Items)
+            .Include(o => o.StatusHistory)
             .Where(o => o.CustomerId == customerId)
             .OrderByDescending(o => o.CreatedAt)
             .FirstOrDefaultAsync();
@@ -56,10 +57,12 @@ public class AccountController(AppDbContext db) : ControllerBase
             return NotFound(ApiResponse<Admin.OrderDetailDto>.Fail("No previous orders.", 404));
 
         var dto = new Admin.OrderDetailDto(
-            order.Id, order.OrderNumber, order.OrderType, order.Status, order.PaymentStatus, order.Subtotal,
-            order.DeliveryFee, order.DiscountAmount, order.TotalAmount, order.CustomerName, order.CustomerPhone,
-            order.CustomerEmail, order.SpecialRequests, order.EstimatedReadyAt, order.CreatedAt,
-            order.Items.Select(i => new Admin.OrderItemDto(i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.LineTotal)).ToList());
+            order.Id, order.OrderNumber, order.OrderType, order.Status, order.PaymentStatus, order.PaymentMethod,
+            order.Subtotal, order.DeliveryFee, order.ProcessingFee, order.DiscountAmount, order.TotalAmount,
+            order.CustomerName, order.CustomerPhone, order.CustomerEmail, order.SpecialRequests,
+            order.EstimatedReadyAt, order.CreatedAt,
+            order.Items.Select(i => new Admin.OrderItemDto(i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.LineTotal)).ToList(),
+            order.StatusHistory.OrderBy(h => h.Timestamp).Select(h => new Admin.OrderStatusHistoryDto(h.Status, h.Note, h.Timestamp)).ToList());
 
         return Ok(ApiResponse<Admin.OrderDetailDto>.Ok(dto));
     }
