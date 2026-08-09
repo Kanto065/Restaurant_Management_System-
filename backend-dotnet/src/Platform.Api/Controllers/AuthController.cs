@@ -77,6 +77,36 @@ public class AuthController(
         return Ok(ApiResponse<TokenResponse>.Ok(tokens));
     }
 
+    /// <summary>
+    /// Reissues a token for a different restaurant the already-authenticated staff user has
+    /// access to (multi-branch switcher) — no password required since they're already signed in.
+    /// </summary>
+    [HttpPost("staff/switch-restaurant")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<ActionResult<ApiResponse<TokenResponse>>> SwitchRestaurant(SwitchRestaurantRequest request)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+
+        var staffRows = await db.RestaurantStaff
+            .IgnoreQueryFilters()
+            .Where(s => s.UserId == userId && s.IsActive)
+            .Include(s => s.Restaurant)
+            .ToListAsync();
+
+        var active = staffRows.FirstOrDefault(s => s.RestaurantId == request.RestaurantId);
+        if (active is null)
+            return Unauthorized(ApiResponse<TokenResponse>.Fail("No access to the requested restaurant.", 401));
+
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        var restaurantClaims = staffRows.Select(s => new StaffRestaurantClaim(s.RestaurantId, s.Role)).ToList();
+
+        var accessToken = tokenService.CreateStaffAccessToken(
+            userId, user!.Email!, restaurantClaims, active.RestaurantId, active.Restaurant!.OrganizationId);
+
+        var tokens = await IssueRefreshTokenAsync(userId, accessToken);
+        return Ok(ApiResponse<TokenResponse>.Ok(tokens));
+    }
+
     [HttpPost("customer/register")]
     public async Task<ActionResult<ApiResponse<TokenResponse>>> CustomerRegister(CustomerRegisterRequest request)
     {

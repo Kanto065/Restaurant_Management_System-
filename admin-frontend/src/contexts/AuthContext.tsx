@@ -1,118 +1,142 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '@/config/api';
+import { api, ApiError } from '@/lib/api';
 
-interface Owner {
-  _id: string;
-  username: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  lastLogin?: string;
+interface RestaurantSummary {
+  restaurantId: string;
+  restaurantName: string;
+  role: string;
+}
+
+interface StaffUser {
+  userId: string;
+  email: string;
+  fullName: string;
+  activeRestaurantId: string | null;
+  restaurants: RestaurantSummary[];
 }
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: Owner | null;
+  user: StaffUser | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<{ success: boolean; message: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
+  switchRestaurant: (restaurantId: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const ACCESS_TOKEN_KEY = 'admin_token';
+const REFRESH_TOKEN_KEY = 'admin_refresh_token';
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<Owner | null>(null);
+  const [user, setUser] = useState<StaffUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Check if user is authenticated on mount
+  const clearSession = () => {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    setIsAuthenticated(false);
+    setUser(null);
+  };
+
+  // Restore session on mount by asking the backend who we are — avoids trusting
+  // a stale/tampered token payload decoded client-side.
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('admin_token');
-      
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
       if (!token) {
         setIsLoading(false);
         return;
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          setUser(result.data.owner);
+        const result = await api.get<StaffUser>('/api/auth/me');
+        if (result.success && result.data) {
+          setUser(result.data);
           setIsAuthenticated(true);
         } else {
-          // Token is invalid, clear it
-          localStorage.removeItem('admin_token');
-          localStorage.removeItem('admin_user');
-          setIsAuthenticated(false);
-          setUser(null);
+          clearSession();
         }
       } catch (error) {
         console.error('Auth check failed:', error);
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
-        setIsAuthenticated(false);
-        setUser(null);
+        clearSession();
       } finally {
         setIsLoading(false);
       }
     };
 
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = async (username: string, password: string): Promise<{ success: boolean; message: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
+      const result = await api.post<{ accessToken: string; refreshToken: string }>('/api/auth/staff/login', {
+        email,
+        password,
       });
 
-      const result = await response.json();
+      if (result.success && result.data) {
+        localStorage.setItem(ACCESS_TOKEN_KEY, result.data.accessToken);
+        localStorage.setItem(REFRESH_TOKEN_KEY, result.data.refreshToken);
 
-      if (response.ok && result.success) {
-        const { token, owner } = result.data;
-        
-        // Store token and user data
-        localStorage.setItem('admin_token', token);
-        localStorage.setItem('admin_user', JSON.stringify(owner));
-        
-        setUser(owner);
-        setIsAuthenticated(true);
-        
+        const me = await api.get<StaffUser>('/api/auth/me');
+        if (me.success && me.data) {
+          setUser(me.data);
+          setIsAuthenticated(true);
+        }
+
         return { success: true, message: result.message || 'Login successful' };
-      } else {
-        return { success: false, message: result.message || 'Invalid credentials' };
       }
+
+      return { success: false, message: result.message || 'Invalid credentials' };
     } catch (error) {
+      if (error instanceof ApiError) {
+        return { success: false, message: error.message };
+      }
       console.error('Login error:', error);
       return { success: false, message: 'Failed to connect to server. Please try again.' };
     }
   };
 
+  // Re-logs in against a different restaurant the staff user has access to
+  // (multi-branch staff switcher) — single-restaurant staff never need this.
+  const switchRestaurant = async (restaurantId: string): Promise<{ success: boolean; message: string }> => {
+    if (!user) return { success: false, message: 'Not signed in.' };
+
+    try {
+      const result = await api.post<{ accessToken: string; refreshToken: string }>(
+        '/api/auth/staff/switch-restaurant',
+        { restaurantId }
+      );
+
+      if (result.success && result.data) {
+        localStorage.setItem(ACCESS_TOKEN_KEY, result.data.accessToken);
+        localStorage.setItem(REFRESH_TOKEN_KEY, result.data.refreshToken);
+
+        const me = await api.get<StaffUser>('/api/auth/me');
+        if (me.success && me.data) setUser(me.data);
+
+        return { success: true, message: 'Switched restaurant.' };
+      }
+
+      return { success: false, message: result.message || 'Could not switch restaurant.' };
+    } catch (error) {
+      return { success: false, message: error instanceof ApiError ? error.message : 'Failed to switch restaurant.' };
+    }
+  };
+
   const logout = () => {
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_user');
-    setIsAuthenticated(false);
-    setUser(null);
+    clearSession();
     navigate('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, isLoading, login, logout, switchRestaurant }}>
       {children}
     </AuthContext.Provider>
   );
