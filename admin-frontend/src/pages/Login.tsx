@@ -61,7 +61,7 @@ const Login = () => {
           <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center">
             <UtensilsCrossed className="w-8 h-8 text-primary-foreground" />
           </div>
-          <CardTitle className="text-3xl font-bold">Takeout Admin</CardTitle>
+          <CardTitle className="text-3xl font-bold">Port Tennant Tandoori</CardTitle>
           <CardDescription>Sign in to manage your restaurant</CardDescription>
         </CardHeader>
         <CardContent>
