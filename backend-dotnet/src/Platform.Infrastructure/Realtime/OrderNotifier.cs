@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.AspNetCore.SignalR;
 using Platform.Application.Common;
 using Platform.Domain.Entities;
 using Platform.Domain.Enums;
@@ -7,7 +6,7 @@ using Platform.Infrastructure.Persistence;
 
 namespace Platform.Infrastructure.Realtime;
 
-public class OrderNotifier(IHubContext<OrderHub> hub, AppDbContext db) : IOrderNotifier
+public class OrderNotifier(SseConnectionManager sse, AppDbContext db) : IOrderNotifier
 {
     public Task OrderCreatedAsync(Guid restaurantId, Guid orderId, CancellationToken ct = default) =>
         SendAndPersist(restaurantId, NotificationEventType.NewOrder, "OrderCreated", new { orderId }, ct);
@@ -18,7 +17,7 @@ public class OrderNotifier(IHubContext<OrderHub> hub, AppDbContext db) : IOrderN
     public Task PaymentReceivedAsync(Guid restaurantId, Guid orderId, CancellationToken ct = default) =>
         SendAndPersist(restaurantId, NotificationEventType.PaymentReceived, "PaymentReceived", new { orderId }, ct);
 
-    private async Task SendAndPersist(Guid restaurantId, NotificationEventType type, string method, object payload, CancellationToken ct)
+    private async Task SendAndPersist(Guid restaurantId, NotificationEventType type, string eventName, object payload, CancellationToken ct)
     {
         db.NotificationEvents.Add(new NotificationEvent
         {
@@ -28,6 +27,7 @@ public class OrderNotifier(IHubContext<OrderHub> hub, AppDbContext db) : IOrderN
         });
         await db.SaveChangesAsync(ct);
 
-        await hub.Clients.Group(OrderHub.GroupName(restaurantId.ToString())).SendAsync(method, payload, ct);
+        var envelope = JsonSerializer.Serialize(new { @event = eventName, data = payload });
+        sse.Publish(restaurantId, envelope);
     }
 }

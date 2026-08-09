@@ -25,6 +25,7 @@ android-pos/.idea/
 .vs/
 .vscode/
 .idea/
+.claude/
 *.suo
 .DS_Store
 Thumbs.db
