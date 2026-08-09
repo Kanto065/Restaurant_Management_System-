@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi;
 using Platform.Infrastructure;
 using Platform.Infrastructure.Multitenancy;
+using Platform.Infrastructure.Persistence;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.Configure<SeedOptions>(builder.Configuration.GetSection(SeedOptions.SectionName));
 
 builder.Services.AddCors(options =>
 {
@@ -43,6 +45,14 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+// Applies pending migrations and seeds the first tenant. Safe to run on every boot
+// (idempotent) — set Seed:Enabled=false in production once onboarding is self-service.
+if (builder.Configuration.GetValue("Seed:Enabled", true))
+{
+    var seedOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<SeedOptions>>().Value;
+    await DbSeeder.SeedFirstTenantAsync(app.Services, seedOptions);
+}
 
 if (app.Environment.IsDevelopment())
 {
