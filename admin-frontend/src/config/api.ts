@@ -1,11 +1,11 @@
 /**
  * API Configuration
- * Change the base URL here to update it across the entire application
+ * Base URL comes from the environment (VITE_API_BASE_URL) so the same build
+ * can point at local/staging/production backends without a code change.
  */
 
 export const API_CONFIG = {
-  // BASE_URL: 'http://localhost:7878', // local
-  BASE_URL: 'https://apitakeout.memobook.shop',
+  BASE_URL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000',
 } as const;
 
 export const API_BASE_URL = API_CONFIG.BASE_URL;
