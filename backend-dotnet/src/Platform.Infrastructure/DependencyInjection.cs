@@ -47,6 +47,11 @@ public static class DependencyInjection
             })
             .AddJwtBearer(options =>
             {
+                // Without this, the handler remaps short claim types ("sub", "role", etc.) to
+                // long legacy XML-namespace URIs on the way in, so User.FindFirstValue("sub")
+                // returns null even though the token has it. Keep claim types exactly as issued.
+                options.MapInboundClaims = false;
+
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,

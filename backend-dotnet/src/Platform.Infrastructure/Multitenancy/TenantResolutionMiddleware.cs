@@ -28,8 +28,8 @@ public class TenantResolutionMiddleware(RequestDelegate next)
         {
             // Platform/admin host: fall back to the token's restaurant claim (single-restaurant
             // staff get exactly one; multi-restaurant staff pick one client-side per request/header).
-            var claimRestaurantId = context.User.FindFirstValue("restaurant_id");
-            var claimOrgId = context.User.FindFirstValue("organization_id");
+            var claimRestaurantId = context.User.FindFirstValue("active_restaurant_id");
+            var claimOrgId = context.User.FindFirstValue("active_organization_id");
             if (Guid.TryParse(claimRestaurantId, out var restaurantId) && Guid.TryParse(claimOrgId, out var orgId))
             {
                 ((CurrentTenant)currentTenant).Set(restaurantId, orgId, null);
