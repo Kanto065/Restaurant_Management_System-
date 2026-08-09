@@ -1,226 +1,93 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Lock, ChevronRight, Loader2, X, Image as ImageIcon } from 'lucide-react';
+import { Lock, ChevronRight, Loader2, Image as ImageIcon } from 'lucide-react';
 import { api } from '@/lib/api';
-import { API_BASE_URL, getImageUrl } from '@/config/api';
+import { getImageUrl } from '@/config/api';
 
-interface Address {
-  street?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
-  country?: string;
-}
-
-interface Restaurant {
-  _id: string;
+interface RestaurantSettings {
+  id: string;
   name: string;
-  description?: string;
-  phone?: string;
-  email?: string;
-  logo?: string | null;
-  address?: Address;
-  openingHours?: Record<string, any>;
+  slug: string;
+  description: string | null;
+  logoUrl: string | null;
+  heroImageUrl: string | null;
+  themeColorPrimary: string;
+  themeColorSecondary: string;
+  phone: string | null;
+  email: string | null;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  postcode: string;
+  country: string;
+  timeZone: string;
+  isActive: boolean;
+  processingFeeFlat: number;
+  processingFeePercentage: number;
+  loyaltyPointsPerCurrencyUnit: number;
 }
 
-const RestaurantSettings = () => {
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [isDeletingLogo, setIsDeletingLogo] = useState(false);
-  
-  // Form fields
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [street, setStreet] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [zipCode, setZipCode] = useState('');
-  const [country, setCountry] = useState('');
-  
+type FormState = Omit<RestaurantSettings, 'id' | 'slug' | 'isActive'>;
+
+const emptyForm: FormState = {
+  name: '', description: '', logoUrl: '', heroImageUrl: '', themeColorPrimary: '#0b3d2e',
+  themeColorSecondary: '#e8823c', phone: '', email: '', addressLine1: '', addressLine2: '',
+  city: '', postcode: '', country: 'GB', timeZone: 'Europe/London',
+  processingFeeFlat: 0, processingFeePercentage: 0, loyaltyPointsPerCurrencyUnit: 1,
+};
+
+const RestaurantSettingsPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<FormState>(emptyForm);
 
-  // Fetch restaurant data
+  const restaurantQuery = useQuery({
+    queryKey: ['admin', 'restaurant'],
+    queryFn: () => api.get<RestaurantSettings>('/api/admin/restaurant'),
+  });
+
   useEffect(() => {
-    fetchRestaurant();
-  }, []);
+    const r = restaurantQuery.data?.data;
+    if (!r) return;
+    setForm({
+      name: r.name, description: r.description ?? '', logoUrl: r.logoUrl ?? '', heroImageUrl: r.heroImageUrl ?? '',
+      themeColorPrimary: r.themeColorPrimary, themeColorSecondary: r.themeColorSecondary,
+      phone: r.phone ?? '', email: r.email ?? '', addressLine1: r.addressLine1, addressLine2: r.addressLine2 ?? '',
+      city: r.city, postcode: r.postcode, country: r.country, timeZone: r.timeZone,
+      processingFeeFlat: r.processingFeeFlat, processingFeePercentage: r.processingFeePercentage,
+      loyaltyPointsPerCurrencyUnit: r.loyaltyPointsPerCurrencyUnit,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantQuery.data]);
 
-  const fetchRestaurant = async () => {
-    try {
-      setIsLoading(true);
-      const response = await api.get<{ restaurant: Restaurant }>('/api/restaurant');
-      
-      if (response.success && response.data) {
-        const restaurantData = response.data.restaurant;
-        setRestaurant(restaurantData);
-        
-        // Populate form fields
-        setName(restaurantData.name || '');
-        setDescription(restaurantData.description || '');
-        setPhone(restaurantData.phone || '');
-        setEmail(restaurantData.email || '');
-        setStreet(restaurantData.address?.street || '');
-        setCity(restaurantData.address?.city || '');
-        setState(restaurantData.address?.state || '');
-        setZipCode(restaurantData.address?.zipCode || '');
-        setCountry(restaurantData.address?.country || '');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to fetch restaurant data',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const saveMutation = useMutation({
+    mutationFn: () => api.put('/api/admin/restaurant', {
+      ...form,
+      description: form.description || null,
+      logoUrl: form.logoUrl || null,
+      heroImageUrl: form.heroImageUrl || null,
+      phone: form.phone || null,
+      email: form.email || null,
+      addressLine2: form.addressLine2 || null,
+    }),
+    onSuccess: () => {
+      toast({ title: 'Success', description: 'Restaurant information updated.' });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'restaurant'] });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
+  });
 
-  const handleSave = async () => {
-    try {
-      setIsSaving(true);
-      
-      const updateData = {
-        name,
-        description,
-        phone,
-        email,
-        address: {
-          street,
-          city,
-          state,
-          zipCode,
-          country,
-        },
-        openingHours: restaurant?.openingHours || {},
-      };
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
 
-      const response = await api.put('/api/restaurant', updateData);
-      
-      if (response.success) {
-        toast({
-          title: 'Success',
-          description: response.message || 'Restaurant information updated successfully',
-        });
-        
-        // Refresh data
-        await fetchRestaurant();
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update restaurant information',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Invalid file type',
-        description: 'Please upload an image file',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File too large',
-        description: 'Please upload an image smaller than 5MB',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setIsUploadingLogo(true);
-      
-      const formData = new FormData();
-      formData.append('logo', file);
-
-      const token = localStorage.getItem('admin_token');
-      const response = await fetch(`${API_BASE_URL}/api/restaurant/logo`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        toast({
-          title: 'Success',
-          description: result.message || 'Logo uploaded successfully',
-        });
-        
-        // Refresh data
-        await fetchRestaurant();
-      } else {
-        throw new Error(result.message || 'Failed to upload logo');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to upload logo',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploadingLogo(false);
-      // Reset file input
-      e.target.value = '';
-    }
-  };
-
-  const handleDeleteLogo = async () => {
-    if (!restaurant?.logo) return;
-
-    try {
-      setIsDeletingLogo(true);
-      
-      const response = await api.delete('/api/restaurant/logo');
-      
-      if (response.success) {
-        toast({
-          title: 'Success',
-          description: response.message || 'Logo deleted successfully',
-        });
-        
-        // Refresh data
-        await fetchRestaurant();
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete logo',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeletingLogo(false);
-    }
-  };
-
-  if (isLoading) {
+  if (restaurantQuery.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-2">
@@ -238,79 +105,52 @@ const RestaurantSettings = () => {
         <p className="text-muted-foreground">Manage your restaurant information</p>
       </div>
 
-      {/* Logo Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Restaurant Logo</CardTitle>
-          <CardDescription>Upload and manage your restaurant logo</CardDescription>
+          <CardTitle>Branding</CardTitle>
+          <CardDescription>Logo, hero image, and theme colors shown on your storefront</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex items-start gap-6">
-            {restaurant?.logo ? (
-              <div className="relative">
-                <div className="w-32 h-32 border rounded-lg overflow-hidden bg-muted">
-                  <img
-                    src={getImageUrl(restaurant.logo)}
-                    alt="Restaurant Logo"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute -top-2 -right-2 h-8 w-8 rounded-full"
-                  onClick={handleDeleteLogo}
-                  disabled={isDeletingLogo}
-                >
-                  {isDeletingLogo ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <X className="h-4 w-4" />
-                  )}
-                </Button>
+            {form.logoUrl ? (
+              <div className="w-32 h-32 border rounded-lg overflow-hidden bg-muted">
+                <img src={getImageUrl(form.logoUrl)} alt="Restaurant Logo" className="w-full h-full object-cover" />
               </div>
             ) : (
               <div className="w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted">
                 <ImageIcon className="w-12 h-12 text-muted-foreground" />
               </div>
             )}
-            
-            <div className="flex-1">
-              <Label htmlFor="logo-upload" className="cursor-pointer">
-                <div className="border-2 border-dashed rounded-lg p-6 hover:bg-muted/50 transition-colors">
-                  <div className="flex flex-col items-center gap-2">
-                    {isUploadingLogo ? (
-                      <>
-                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                        <div className="text-sm text-muted-foreground">Uploading...</div>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-8 h-8 text-muted-foreground" />
-                        <div className="text-sm text-muted-foreground text-center">
-                          Click to upload logo
-                          <br />
-                          <span className="text-xs">PNG, JPG, SVG up to 5MB</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <input
-                  id="logo-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleLogoUpload}
-                  disabled={isUploadingLogo}
-                />
-              </Label>
+            <div className="flex-1 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="logoUrl">Logo URL</Label>
+                <Input id="logoUrl" value={form.logoUrl ?? ''} onChange={(e) => set('logoUrl', e.target.value)} placeholder="https://..." />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="heroImageUrl">Hero Image URL</Label>
+                <Input id="heroImageUrl" value={form.heroImageUrl ?? ''} onChange={(e) => set('heroImageUrl', e.target.value)} placeholder="https://..." />
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="themeColorPrimary">Primary Color</Label>
+              <div className="flex items-center gap-2">
+                <Input id="themeColorPrimary" type="color" className="w-16 h-10 p-1" value={form.themeColorPrimary} onChange={(e) => set('themeColorPrimary', e.target.value)} />
+                <Input value={form.themeColorPrimary} onChange={(e) => set('themeColorPrimary', e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="themeColorSecondary">Secondary Color</Label>
+              <div className="flex items-center gap-2">
+                <Input id="themeColorSecondary" type="color" className="w-16 h-10 p-1" value={form.themeColorSecondary} onChange={(e) => set('themeColorSecondary', e.target.value)} />
+                <Input value={form.themeColorSecondary} onChange={(e) => set('themeColorSecondary', e.target.value)} />
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* General Information */}
       <Card>
         <CardHeader>
           <CardTitle>General Information</CardTitle>
@@ -320,52 +160,24 @@ const RestaurantSettings = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Restaurant Name *</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter restaurant name"
-                required
-              />
+              <Input id="name" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter restaurant name" required />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="restaurant@example.com"
-              />
+              <Input id="email" type="email" value={form.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="restaurant@example.com" />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 (555) 123-4567"
-              />
+              <Input id="phone" type="tel" value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="01792 358850" />
             </div>
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe your restaurant..."
-              rows={3}
-            />
+            <Textarea id="description" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder="Describe your restaurant..." rows={3} />
           </div>
         </CardContent>
       </Card>
 
-      {/* Address Information */}
       <Card>
         <CardHeader>
           <CardTitle>Address</CardTitle>
@@ -373,82 +185,68 @@ const RestaurantSettings = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="street">Street Address</Label>
-            <Input
-              id="street"
-              value={street}
-              onChange={(e) => setStreet(e.target.value)}
-              placeholder="123 Main Street"
-            />
+            <Label htmlFor="addressLine1">Address Line 1</Label>
+            <Input id="addressLine1" value={form.addressLine1} onChange={(e) => set('addressLine1', e.target.value)} placeholder="113-115 High Street" />
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="addressLine2">Address Line 2</Label>
+            <Input id="addressLine2" value={form.addressLine2 ?? ''} onChange={(e) => set('addressLine2', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="New York"
-              />
+              <Input id="city" value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="Swansea" />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="state">State/Province</Label>
-              <Input
-                id="state"
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                placeholder="NY"
-              />
+              <Label htmlFor="postcode">Postcode</Label>
+              <Input id="postcode" value={form.postcode} onChange={(e) => set('postcode', e.target.value)} placeholder="SA8 4JN" />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="zipCode">ZIP/Postal Code</Label>
-              <Input
-                id="zipCode"
-                value={zipCode}
-                onChange={(e) => setZipCode(e.target.value)}
-                placeholder="10001"
-              />
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="country">Country</Label>
-              <Input
-                id="country"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                placeholder="United States"
-              />
+              <Input id="country" value={form.country} onChange={(e) => set('country', e.target.value)} placeholder="GB" />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Save Button */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Fees & Loyalty</CardTitle>
+          <CardDescription>Checkout processing fee and loyalty points earn rate</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="processingFeeFlat">Processing Fee (flat, £)</Label>
+            <Input id="processingFeeFlat" type="number" step="0.01" min="0" value={form.processingFeeFlat}
+              onChange={(e) => set('processingFeeFlat', parseFloat(e.target.value) || 0)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="processingFeePercentage">Processing Fee (%)</Label>
+            <Input id="processingFeePercentage" type="number" step="0.1" min="0" value={form.processingFeePercentage}
+              onChange={(e) => set('processingFeePercentage', parseFloat(e.target.value) || 0)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="loyaltyPointsPerCurrencyUnit">Loyalty Points per £1</Label>
+            <Input id="loyaltyPointsPerCurrencyUnit" type="number" step="0.1" min="0" value={form.loyaltyPointsPerCurrencyUnit}
+              onChange={(e) => set('loyaltyPointsPerCurrencyUnit', parseFloat(e.target.value) || 0)} />
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end">
-        <Button onClick={handleSave} size="lg" disabled={isSaving || !name}>
-          {isSaving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            'Save Changes'
-          )}
+        <Button onClick={() => saveMutation.mutate()} size="lg" disabled={saveMutation.isPending || !form.name}>
+          {saveMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : 'Save Changes'}
         </Button>
       </div>
 
-      {/* Security Section */}
       <Card>
         <CardHeader>
           <CardTitle>Security</CardTitle>
           <CardDescription>Manage your account security settings</CardDescription>
         </CardHeader>
         <CardContent>
-          <div 
-            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" 
+          <div
+            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
             onClick={() => navigate('/dashboard/change-password')}
           >
             <div className="flex items-center gap-3">
@@ -468,4 +266,4 @@ const RestaurantSettings = () => {
   );
 };
 
-export default RestaurantSettings;
+export default RestaurantSettingsPage;
