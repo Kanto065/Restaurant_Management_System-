@@ -13,6 +13,7 @@ import Menus from "./pages/Menus";
 import Orders from "./pages/Orders";
 import Reviews from "./pages/Reviews";
 import Vouchers from "./pages/Vouchers";
+import DeliveryZones from "./pages/DeliveryZones";
 import OpeningHours from "./pages/OpeningHours";
 import Notifications from "./pages/Notifications";
 import ChangePassword from "./pages/ChangePassword";
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="orders" element={<Orders />} />
               <Route path="reviews" element={<Reviews />} />
               <Route path="vouchers" element={<Vouchers />} />
+              <Route path="delivery-zones" element={<DeliveryZones />} />
               <Route path="opening-hours" element={<OpeningHours />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="takeout" element={<Takeout />} />
