@@ -17,9 +17,11 @@ public record CreateOrderAddressRequest(string Line1, string? Line2, string City
 public record CreatePublicOrderRequest(
     OrderType OrderType, string? TableQrToken, string? CustomerName, string? CustomerPhone, string? CustomerEmail,
     CreateOrderAddressRequest? DeliveryAddress, List<CreateOrderItemRequest> Items, string? SpecialRequests,
-    PaymentMethod PaymentMethod);
+    PaymentMethod PaymentMethod, string? VoucherCode);
 
-public record CreatedOrderDto(Guid Id, long OrderNumber, OrderStatus Status, decimal Subtotal, decimal DeliveryFee, decimal TotalAmount);
+public record CreatedOrderDto(
+    Guid Id, long OrderNumber, OrderStatus Status, decimal Subtotal, decimal DeliveryFee, decimal ProcessingFee,
+    decimal DiscountAmount, decimal TotalAmount, int LoyaltyPointsEarned);
 
 public record TrackOrderItemDto(string NameSnapshot, int Quantity, decimal LineTotal);
 public record TrackOrderDto(
@@ -140,7 +142,37 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
 
         order.Subtotal = subtotal;
         order.DeliveryFee = 0; // TODO: compute from DeliveryZone once postcode-distance lookup exists.
-        order.TotalAmount = order.Subtotal + order.DeliveryFee;
+
+        var restaurant = await db.Restaurants.FirstOrDefaultAsync(r => r.Id == currentTenant.RestaurantId);
+        order.ProcessingFee = restaurant is null
+            ? 0
+            : Math.Round(restaurant.ProcessingFeeFlat + subtotal * restaurant.ProcessingFeePercentage / 100m, 2);
+
+        if (!string.IsNullOrWhiteSpace(request.VoucherCode))
+        {
+            var voucher = await db.Vouchers.FirstOrDefaultAsync(v => v.Code == request.VoucherCode && v.IsActive);
+            var now = DateTimeOffset.UtcNow;
+            var valid = voucher is not null
+                && (voucher.ValidFrom is null || voucher.ValidFrom <= now)
+                && (voucher.ValidTo is null || voucher.ValidTo >= now)
+                && (voucher.MaxRedemptions is null || voucher.TimesRedeemed < voucher.MaxRedemptions)
+                && subtotal >= voucher.MinimumOrderAmount;
+
+            if (!valid)
+                return BadRequest(ApiResponse<CreatedOrderDto>.Fail("This voucher code is not valid for this order.", 400));
+
+            order.DiscountAmount = voucher!.DiscountType == VoucherDiscountType.Percentage
+                ? Math.Round(subtotal * voucher.DiscountValue / 100m, 2)
+                : voucher.DiscountValue;
+            order.VoucherId = voucher.Id;
+            order.VoucherCodeSnapshot = voucher.Code;
+            voucher.TimesRedeemed += 1;
+        }
+
+        order.TotalAmount = Math.Max(0, order.Subtotal + order.DeliveryFee + order.ProcessingFee - order.DiscountAmount);
+
+        if (restaurant is not null)
+            order.LoyaltyPointsEarned = (int)Math.Floor(order.TotalAmount * restaurant.LoyaltyPointsPerCurrencyUnit);
 
         var lastOrderNumber = await db.Orders.OrderByDescending(o => o.OrderNumber).Select(o => o.OrderNumber).FirstOrDefaultAsync();
         order.OrderNumber = lastOrderNumber + 1;
@@ -150,10 +182,26 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
         db.Orders.Add(order);
         await db.SaveChangesAsync();
 
+        if (order.CustomerId.HasValue && order.LoyaltyPointsEarned > 0)
+        {
+            db.LoyaltyTransactions.Add(new LoyaltyTransaction
+            {
+                RestaurantId = currentTenant.RestaurantId.Value,
+                CustomerId = order.CustomerId.Value,
+                OrderId = order.Id,
+                PointsDelta = order.LoyaltyPointsEarned,
+                Reason = LoyaltyTransactionReason.Earned,
+            });
+            var customer = await db.Customers.FirstAsync(c => c.Id == order.CustomerId.Value);
+            customer.LoyaltyPointsBalance += order.LoyaltyPointsEarned;
+            await db.SaveChangesAsync();
+        }
+
         await notifier.OrderCreatedAsync(currentTenant.RestaurantId.Value, order.Id);
 
         return Ok(ApiResponse<CreatedOrderDto>.Ok(
-            new CreatedOrderDto(order.Id, order.OrderNumber, order.Status, order.Subtotal, order.DeliveryFee, order.TotalAmount),
+            new CreatedOrderDto(order.Id, order.OrderNumber, order.Status, order.Subtotal, order.DeliveryFee,
+                order.ProcessingFee, order.DiscountAmount, order.TotalAmount, order.LoyaltyPointsEarned),
             statusCode: 201));
     }
 
