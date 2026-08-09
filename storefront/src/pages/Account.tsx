@@ -3,7 +3,7 @@ import { customerAuth } from '../lib/api';
 
 export default function Account() {
   if (!customerAuth.isLoggedIn()) {
-    return <Navigate to="/account/login" replace />;
+    return <Navigate to="/account/members" replace />;
   }
 
   return (

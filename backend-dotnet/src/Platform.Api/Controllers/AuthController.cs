@@ -150,12 +150,33 @@ public class AuthController(
         {
             RestaurantId = restaurantId,
             IdentityUserId = user.Id,
+            Title = request.Title,
             Email = request.Email,
             FullName = request.FullName,
             Phone = request.Phone,
+            LandlinePhone = request.LandlinePhone,
+            DateOfBirth = request.DateOfBirth,
+            MarketingEmailOptIn = request.MarketingEmailOptIn,
+            MarketingSmsOptIn = request.MarketingSmsOptIn,
         };
         db.Customers.Add(customer);
         await db.SaveChangesAsync();
+
+        if (request.DeliveryAddress is not null)
+        {
+            db.CustomerAddresses.Add(new CustomerAddress
+            {
+                RestaurantId = restaurantId,
+                CustomerId = customer.Id,
+                Line1 = request.DeliveryAddress.Line1,
+                Line2 = request.DeliveryAddress.Line2,
+                City = request.DeliveryAddress.City,
+                County = request.DeliveryAddress.County,
+                Postcode = request.DeliveryAddress.Postcode,
+                IsDefault = true,
+            });
+            await db.SaveChangesAsync();
+        }
 
         var accessToken = tokenService.CreateCustomerAccessToken(user.Id, customer.Id, restaurantId);
         var tokens = await IssueRefreshTokenAsync(user.Id, accessToken);

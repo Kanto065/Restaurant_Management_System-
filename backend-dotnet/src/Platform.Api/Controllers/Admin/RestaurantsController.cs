@@ -11,15 +11,15 @@ public record RestaurantSettingsDto(
     Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? HeroImageUrl,
     string ThemeColorPrimary, string ThemeColorSecondary, string? Phone, string? Email,
     string AddressLine1, string? AddressLine2, string City, string Postcode, string Country,
-    string TimeZone, bool IsActive, decimal ProcessingFeeFlat, decimal ProcessingFeePercentage,
-    decimal LoyaltyPointsPerCurrencyUnit);
+    string TimeZone, bool IsActive, bool SupportsDelivery, bool SupportsCollection, bool SupportsDineIn,
+    decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit);
 
 public record UpdateRestaurantSettingsRequest(
     string Name, string? Description, string? LogoUrl, string? HeroImageUrl,
     string ThemeColorPrimary, string ThemeColorSecondary, string? Phone, string? Email,
     string AddressLine1, string? AddressLine2, string City, string Postcode, string Country,
-    string TimeZone, decimal ProcessingFeeFlat, decimal ProcessingFeePercentage,
-    decimal LoyaltyPointsPerCurrencyUnit);
+    string TimeZone, bool SupportsDelivery, bool SupportsCollection, bool SupportsDineIn,
+    decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit);
 
 [ApiController]
 [Route("api/admin/restaurant")]
@@ -38,6 +38,7 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
             restaurant.HeroImageUrl, restaurant.ThemeColorPrimary, restaurant.ThemeColorSecondary,
             restaurant.Phone, restaurant.Email, restaurant.AddressLine1, restaurant.AddressLine2,
             restaurant.City, restaurant.Postcode, restaurant.Country, restaurant.TimeZone, restaurant.IsActive,
+            restaurant.SupportsDelivery, restaurant.SupportsCollection, restaurant.SupportsDineIn,
             restaurant.ProcessingFeeFlat, restaurant.ProcessingFeePercentage, restaurant.LoyaltyPointsPerCurrencyUnit);
 
         return Ok(ApiResponse<RestaurantSettingsDto>.Ok(dto));
@@ -65,6 +66,9 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
         restaurant.Postcode = request.Postcode;
         restaurant.Country = request.Country;
         restaurant.TimeZone = request.TimeZone;
+        restaurant.SupportsDelivery = request.SupportsDelivery;
+        restaurant.SupportsCollection = request.SupportsCollection;
+        restaurant.SupportsDineIn = request.SupportsDineIn;
         restaurant.ProcessingFeeFlat = request.ProcessingFeeFlat;
         restaurant.ProcessingFeePercentage = request.ProcessingFeePercentage;
         restaurant.LoyaltyPointsPerCurrencyUnit = request.LoyaltyPointsPerCurrencyUnit;

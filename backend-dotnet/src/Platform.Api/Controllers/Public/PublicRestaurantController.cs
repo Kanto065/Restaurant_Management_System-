@@ -14,6 +14,7 @@ public record RestaurantPublicDto(
     Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? HeroImageUrl,
     string ThemeColorPrimary, string ThemeColorSecondary, string? Phone, string? Email,
     string AddressLine1, string? AddressLine2, string City, string Postcode,
+    bool SupportsDelivery, bool SupportsCollection, bool SupportsDineIn,
     decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit,
     List<OpeningHourDto> OpeningHours, List<OpeningHourExceptionDto> OpeningHourExceptions);
 
@@ -51,6 +52,7 @@ public class PublicRestaurantController(AppDbContext db, ICurrentTenant currentT
             restaurant.HeroImageUrl, restaurant.ThemeColorPrimary, restaurant.ThemeColorSecondary,
             restaurant.Phone, restaurant.Email, restaurant.AddressLine1, restaurant.AddressLine2,
             restaurant.City, restaurant.Postcode,
+            restaurant.SupportsDelivery, restaurant.SupportsCollection, restaurant.SupportsDineIn,
             restaurant.ProcessingFeeFlat, restaurant.ProcessingFeePercentage, restaurant.LoyaltyPointsPerCurrencyUnit,
             restaurant.OpeningHours
                 .OrderBy(h => h.DayOfWeek)

@@ -10,9 +10,14 @@ namespace Platform.Domain.Entities;
 public class Customer : TenantEntity
 {
     public Guid? IdentityUserId { get; set; }
+    public string? Title { get; set; }
     public string Email { get; set; } = default!;
     public string? Phone { get; set; }
+    public string? LandlinePhone { get; set; }
     public string FullName { get; set; } = default!;
+    public DateOnly? DateOfBirth { get; set; }
+    public bool MarketingEmailOptIn { get; set; }
+    public bool MarketingSmsOptIn { get; set; }
     public int LoyaltyPointsBalance { get; set; }
 
     public Restaurant? Restaurant { get; set; }
@@ -28,6 +33,7 @@ public class CustomerAddress : TenantEntity
     public string Line1 { get; set; } = default!;
     public string? Line2 { get; set; }
     public string City { get; set; } = default!;
+    public string? County { get; set; }
     public string Postcode { get; set; } = default!;
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }

@@ -28,6 +28,9 @@ export interface RestaurantPublic {
   addressLine2: string | null;
   city: string;
   postcode: string;
+  supportsDelivery: boolean;
+  supportsCollection: boolean;
+  supportsDineIn: boolean;
   processingFeeFlat: number;
   processingFeePercentage: number;
   loyaltyPointsPerCurrencyUnit: number;

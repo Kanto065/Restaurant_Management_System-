@@ -42,6 +42,13 @@ public class Restaurant : Entity
     public string TimeZone { get; set; } = "Europe/London";
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Which order types this restaurant currently accepts online - admin-controlled,
+    /// drives the storefront's "Menu &amp; Ordering" dropdown (matches the reference site's
+    /// "Order for Home Delivery" / "Order for Collection" options).</summary>
+    public bool SupportsDelivery { get; set; } = true;
+    public bool SupportsCollection { get; set; } = true;
+    public bool SupportsDineIn { get; set; } = true;
+
     /// <summary>Flat processing fee added at checkout (matches the reference site's "Processing Fee").</summary>
     public decimal ProcessingFeeFlat { get; set; }
     /// <summary>Percentage processing fee (0-100), applied on top of ProcessingFeeFlat if both are set.</summary>
