@@ -1,0 +1,15 @@
+# Phase 1 topology: explicit hosts, standard automatic HTTPS (Let's Encrypt).
+# Revisit with on-demand TLS (see plan doc §7) once Phase 5 self-service tenant
+# onboarding lands and domains are no longer known ahead of time in this file.
+
+{$API_HOST} {
+	reverse_proxy api:8080
+}
+
+{$ADMIN_HOST} {
+	reverse_proxy admin-frontend:80
+}
+
+# www.porttennanttandoori.co.uk (the storefront) is added here once the
+# client-facing React app exists (Phase 2) - for now it has no container to
+# route to, so it is intentionally left out rather than pointed at a stub.

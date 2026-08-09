@@ -1,0 +1,75 @@
+name: platform
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
+      POSTGRES_USER: ${POSTGRES_USER:-platform}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [internal]
+    # Deliberately no "ports:" mapping — Postgres is reachable only from other
+    # containers on the internal network, never from the host/public internet.
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [internal]
+
+  api:
+    build:
+      context: ../backend-dotnet
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-platform};Username=${POSTGRES_USER:-platform};Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__Redis: "redis:6379"
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      Seed__Enabled: ${SEED_ENABLED:-true}
+      Seed__Host: ${SEED_HOST:-www.porttennanttandoori.co.uk}
+      Seed__OwnerEmail: ${SEED_OWNER_EMAIL}
+      Seed__OwnerPassword: ${SEED_OWNER_PASSWORD}
+      Cors__AllowedOrigins__0: https://${SEED_HOST:-www.porttennanttandoori.co.uk}
+      Cors__AllowedOrigins__1: https://${ADMIN_HOST}
+    depends_on: [postgres, redis]
+    networks: [internal]
+    # No published ports — only reachable via the Caddy reverse proxy.
+
+  admin-frontend:
+    build:
+      context: ../admin-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: https://${API_HOST}
+    restart: unless-stopped
+    networks: [internal]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      API_HOST: ${API_HOST}
+      ADMIN_HOST: ${ADMIN_HOST}
+    depends_on: [api, admin-frontend]
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
