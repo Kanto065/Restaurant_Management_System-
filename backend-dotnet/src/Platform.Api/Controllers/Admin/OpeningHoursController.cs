@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Contracts;
-using Platform.Application.Common;
 using Platform.Domain.Entities;
 using Platform.Infrastructure.Persistence;
 
@@ -17,7 +16,7 @@ public record UpsertOpeningHourExceptionRequest(DateOnly Date, string? OpenTime,
 [ApiController]
 [Route("api/admin/opening-hours")]
 [Authorize(Policy = "StaffOnly")]
-public class OpeningHoursController(AppDbContext db, ICurrentTenant currentTenant) : ControllerBase
+public class OpeningHoursController(AppDbContext db) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ApiResponse<List<OpeningHourDto>>>> List()
