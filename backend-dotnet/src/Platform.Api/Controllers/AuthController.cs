@@ -1,3 +1,6 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +20,29 @@ public class AuthController(
     AppDbContext db,
     ICurrentTenant currentTenant) : ControllerBase
 {
+    [HttpGet("me")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<ActionResult<ApiResponse<StaffMeResponse>>> Me()
+    {
+        var userId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+            return Unauthorized(ApiResponse<StaffMeResponse>.Fail("User not found.", 401));
+
+        var staffRows = await db.RestaurantStaff
+            .IgnoreQueryFilters()
+            .Where(s => s.UserId == user.Id && s.IsActive)
+            .Include(s => s.Restaurant)
+            .ToListAsync();
+
+        var restaurants = staffRows
+            .Select(s => new StaffRestaurantSummary(s.RestaurantId, s.Restaurant!.Name, s.Role.ToString()))
+            .ToList();
+
+        var response = new StaffMeResponse(user.Id, user.Email!, user.FullName, currentTenant.RestaurantId, restaurants);
+        return Ok(ApiResponse<StaffMeResponse>.Ok(response));
+    }
+
     [HttpPost("staff/login")]
     public async Task<ActionResult<ApiResponse<TokenResponse>>> StaffLogin(StaffLoginRequest request)
     {
