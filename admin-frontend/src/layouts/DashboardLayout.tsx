@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationBell } from '@/components/NotificationBell';
+import { useOrderEvents } from '@/hooks/useOrderEvents';
 import { Loader2 } from 'lucide-react';
 
 const DashboardLayout = () => {
@@ -15,6 +16,10 @@ const DashboardLayout = () => {
       navigate('/login');
     }
   }, [isAuthenticated, isLoading, navigate]);
+
+  // Live order/notification updates for every authenticated page - subscribes once
+  // the user is logged in, regardless of which admin page they're viewing.
+  useOrderEvents();
 
   if (isLoading) {
     return (
