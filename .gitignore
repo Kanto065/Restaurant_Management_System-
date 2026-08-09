@@ -1,0 +1,40 @@
+# --- Node / React (admin-frontend, storefront) ---
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+*.local
+bun.lockb.bak
+
+# --- .NET (backend-dotnet) ---
+backend-dotnet/**/bin/
+backend-dotnet/**/obj/
+backend-dotnet/**/*.user
+backend-dotnet/**/appsettings.*.local.json
+
+# --- Android (Sunmi POS app) ---
+android-pos/**/build/
+android-pos/.gradle/
+android-pos/local.properties
+android-pos/**/*.iml
+android-pos/.idea/
+
+# --- IDE / OS ---
+.vs/
+.vscode/
+.idea/
+*.suo
+.DS_Store
+Thumbs.db
+
+# --- Secrets / infra ---
+vps.txt
+*.pem
+*.key
+.env.production
+
+# --- Old Node backend (kept for reference, but its own node_modules ignored) ---
+backend/node_modules/
+backend/.vercel/
