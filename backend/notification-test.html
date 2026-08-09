@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FoodMonk - Real-time Notification Test</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .status {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .status.connected {
+            background: #10b981;
+            color: white;
+        }
+        .status.disconnected {
+            background: #ef4444;
+            color: white;
+        }
+        .setup {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .notifications {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .notifications h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .badge {
+            background: #ef4444;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+        }
+        .notification-item {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            animation: slideIn 0.3s ease-out;
+        }
+        .notification-item.new {
+            background: #fef3c7;
+            border-left-color: #f59e0b;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .notification-title {
+            font-weight: bold;
+            color: #1f2937;
+            font-size: 16px;
+        }
+        .notification-time {
+            color: #6b7280;
+            font-size: 12px;
+        }
+        .notification-message {
+            color: #4b5563;
+            margin-bottom: 8px;
+        }
+        .notification-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .detail-item {
+            font-size: 13px;
+        }
+        .detail-label {
+            color: #6b7280;
+            font-weight: 600;
+        }
+        .detail-value {
+            color: #1f2937;
+        }
+        .no-notifications {
+            text-align: center;
+            color: #9ca3af;
+            padding: 40px;
+        }
+        .sound-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍽️ FoodMonk Notification System</h1>
+            <p>Real-time Order Notifications via Socket.io</p>
+            <div style="margin-top: 15px;">
+                <span class="status disconnected" id="status">● Disconnected</span>
+            </div>
+        </div>
+
+        <div class="setup">
+            <h3 style="margin-bottom: 15px;">🔧 Setup</h3>
+            <div class="input-group">
+                <label>Restaurant ID (get from your restaurant data)</label>
+                <input type="text" id="restaurantId" placeholder="e.g., 6901db804837166e608118bd" value="6901db804837166e608118bd">
+            </div>
+            <button id="connectBtn" onclick="connectToSocket()">Connect to Notifications</button>
+        </div>
+
+        <div class="notifications">
+            <h2>
+                <span>🔔 Live Notifications</span>
+                <span class="badge" id="notificationCount">0</span>
+            </h2>
+            <div id="notificationList">
+                <div class="no-notifications">
+                    <p>🎯 Connect to restaurant and wait for new orders...</p>
+                    <p style="margin-top: 10px; font-size: 14px;">When a customer places an order, you'll see it here instantly!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="notificationSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZTA0PVqzn77BdGQdBm9/wurJaFhJQqObwsWAXCEKY3/K3ayIGN5DX8tGHOgkXbLzt6JhMDxBWquTusVkVB0GZ3vO2ayIGOI/W8dKIMQkYbrvs56dUEgxLpOPwtGEdBjiP1vDShi8HHGy57OedUQ0OTqXh8LFeFQhDl93ytWsdBjiP1fHSiC8JGGm57OKfUQ0OTqXg77BdFgdBl93xtmsdBjiP1fLTiC4JGGq56+KfUQwPTqPg77BdFQdBl93xtGwdBjiO1vLThy4JGGu56+GgUQwOS6Lg8LFdFgZBl93xtGwdBjiO1vLTiC4JGGu56+KgUQwOTKPf8LJeFQZCmN3xtGocBjiO1vLThy4JGWu56+KhUQsOS6Pf8LJdFQZBl93xtGscBjiO1vLShy8JGWu46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsOTKPf77FeFQZBlt3xtGscBjeO1vLShy8JGWq46+OgUQsO" type="audio/wav">
+    </audio>
+
+    <script>
+        let socket = null;
+        let notificationCount = 0;
+
+        function connectToSocket() {
+            const restaurantId = document.getElementById('restaurantId').value;
+            
+            if (!restaurantId) {
+                alert('Please enter a Restaurant ID');
+                return;
+            }
+
+            // Connect to Socket.io server
+            socket = io('http://localhost:7878');
+
+            socket.on('connect', () => {
+                console.log('✅ Connected to Socket.io server');
+                updateStatus(true);
+                
+                // Join restaurant room
+                socket.emit('join-restaurant', restaurantId);
+            });
+
+            socket.on('joined', (data) => {
+                console.log('✅ Joined room:', data.room);
+                addSystemNotification(`Connected to restaurant notifications!`);
+            });
+
+            // Listen for new order notifications
+            socket.on('new-order-notification', (data) => {
+                console.log('🔔 New order notification received:', data);
+                playNotificationSound();
+                addNotification(data);
+            });
+
+            // Also listen to legacy order-created event
+            socket.on('order-created', (data) => {
+                console.log('📦 Order created:', data);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('❌ Disconnected from server');
+                updateStatus(false);
+            });
+
+            socket.on('error', (error) => {
+                console.error('Socket error:', error);
+            });
+
+            document.getElementById('connectBtn').disabled = true;
+            document.getElementById('connectBtn').textContent = 'Connected ✓';
+        }
+
+        function updateStatus(connected) {
+            const statusEl = document.getElementById('status');
+            if (connected) {
+                statusEl.className = 'status connected';
+                statusEl.textContent = '● Connected';
+            } else {
+                statusEl.className = 'status disconnected';
+                statusEl.textContent = '● Disconnected';
+            }
+        }
+
+        function playNotificationSound() {
+            const audio = document.getElementById('notificationSound');
+            audio.play().catch(e => console.log('Audio play failed:', e));
+        }
+
+        function addNotification(data) {
+            notificationCount++;
+            document.getElementById('notificationCount').textContent = notificationCount;
+
+            const listEl = document.getElementById('notificationList');
+            
+            // Remove "no notifications" message
+            if (listEl.querySelector('.no-notifications')) {
+                listEl.innerHTML = '';
+            }
+
+            const notificationEl = document.createElement('div');
+            notificationEl.className = 'notification-item new';
+            
+            const itemsHtml = data.items.map(item => 
+                `${item.quantity}x ${item.name} (৳${item.price})`
+            ).join(', ');
+
+            notificationEl.innerHTML = `
+                <div class="notification-header">
+                    <span class="notification-title">🔔 ${data.message}</span>
+                    <span class="notification-time">${new Date(data.timestamp).toLocaleTimeString()}</span>
+                </div>
+                <div class="notification-message">
+                    Order #${data.orderNumber} - ${data.customerName || 'Guest'}
+                </div>
+                <div class="notification-details">
+                    <div class="detail-item">
+                        <div class="detail-label">Table</div>
+                        <div class="detail-value">${data.table.tableNumber}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Amount</div>
+                        <div class="detail-value">৳${data.totalAmount}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Payment</div>
+                        <div class="detail-value">${data.paymentMethod.toUpperCase()}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value">${data.orderStatus}</div>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 13px; color: #6b7280;">
+                    <strong>Items:</strong> ${itemsHtml}
+                </div>
+            `;
+
+            listEl.insertBefore(notificationEl, listEl.firstChild);
+
+            // Remove 'new' class after 3 seconds
+            setTimeout(() => {
+                notificationEl.classList.remove('new');
+            }, 3000);
+        }
+
+        function addSystemNotification(message) {
+            const listEl = document.getElementById('notificationList');
+            
+            if (listEl.querySelector('.no-notifications')) {
+                listEl.innerHTML = '';
+            }
+
+            const notificationEl = document.createElement('div');
+            notificationEl.className = 'notification-item';
+            notificationEl.style.borderLeftColor = '#10b981';
+            notificationEl.innerHTML = `
+                <div class="notification-header">
+                    <span class="notification-title">✅ System</span>
+                    <span class="notification-time">${new Date().toLocaleTimeString()}</span>
+                </div>
+                <div class="notification-message">${message}</div>
+            `;
+
+            listEl.insertBefore(notificationEl, listEl.firstChild);
+        }
+
+        // Auto-connect on page load if restaurant ID is pre-filled
+        window.addEventListener('load', () => {
+            const restaurantId = document.getElementById('restaurantId').value;
+            if (restaurantId) {
+                console.log('Auto-connecting with restaurant ID:', restaurantId);
+            }
+        });
+    </script>
+</body>
+</html>

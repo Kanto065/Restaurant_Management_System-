@@ -1,0 +1,51 @@
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import RestaurantSettings from "./pages/RestaurantSettings";
+import Tables from "./pages/Tables";
+import Menu from "./pages/Menu";
+import Menus from "./pages/Menus";
+import Orders from "./pages/Orders";
+import Notifications from "./pages/Notifications";
+import ChangePassword from "./pages/ChangePassword";
+import Takeout from "./pages/Takeout";
+import DashboardLayout from "./layouts/DashboardLayout";
+import NotFound from "./pages/NotFound";
+
+const queryClient = new QueryClient();
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/dashboard" element={<DashboardLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="settings" element={<RestaurantSettings />} />
+              <Route path="tables" element={<Tables />} />
+              <Route path="menu" element={<Menu />} />
+              <Route path="menus" element={<Menus />} />
+              <Route path="orders" element={<Orders />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="takeout" element={<Takeout />} />
+              <Route path="change-password" element={<ChangePassword />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;

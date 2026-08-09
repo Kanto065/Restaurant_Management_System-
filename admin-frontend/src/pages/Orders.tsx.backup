@@ -1,0 +1,238 @@
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { api } from '@/lib/api';
+import { Loader2, ShoppingCart, DollarSign, Clock, CheckCircle2, Eye, Timer, RefreshCw, UtensilsCrossed, User, Phone, Mail, MapPin } from 'lucide-react';
+
+const API_BASE_URL = 'http://localhost:7878';
+
+interface OrderItem {
+  food: {
+    _id: string;
+    name: string;
+    image?: string;
+    category: string;
+  };
+  name: string;
+  price: number;
+  quantity: number;
+  specialInstructions?: string;
+  _id: string;
+}
+
+interface Order {
+  _id: string;
+  restaurant: string;
+  table: {
+    _id: string;
+    tableNumber: string;
+    location: string;
+    capacity?: number;
+  };
+  items: OrderItem[];
+  totalAmount: number;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  orderStatus: string;
+  estimatedTime: number | null;
+  specialRequests?: string;
+  orderNumber: string;
+  statusHistory: Array<{
+    status: string;
+    timestamp: string;
+    note?: string;
+    _id: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface OrderStats {
+  totalOrders: number;
+  pendingOrders: number;
+  completedOrders: number;
+  totalRevenue: number;
+}
+
+const ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled'] as const;
+const PAYMENT_STATUSES = ['all', 'pending', 'paid', 'failed'] as const;
+const PAYMENT_METHODS = ['all', 'cash', 'card', 'online'] as const;
+
+const statusColors: Record<string, string> = {
+  pending: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-300',
+  confirmed: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-300',
+  preparing: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-300',
+  ready: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-300',
+  served: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-300',
+  completed: 'bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-300',
+  cancelled: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-300',
+};
+
+const paymentStatusColors: Record<string, string> = {
+  pending: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
+  paid: 'bg-green-500/10 text-green-700 dark:text-green-400',
+  failed: 'bg-red-500/10 text-red-700 dark:text-red-400',
+};
+
+const Orders = () => {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [stats, setStats] = useState<OrderStats>({
+    totalOrders: 0,
+    pendingOrders: 0,
+    completedOrders: 0,
+    totalRevenue: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [isTimeDialogOpen, setIsTimeDialogOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState('');
+  const [statusNote, setStatusNote] = useState('');
+  const [estimatedTime, setEstimatedTime] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState('all');
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState('all');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchStats();
+    fetchOrders();
+  }, [filterStatus, filterPaymentStatus, filterPaymentMethod]);
+
+  const fetchStats = async () => {
+    try {
+      const response = await api.get<{ stats: OrderStats }>('/api/orders/stats');
+      setStats(response.data?.stats || { totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 });
+    } catch (error: any) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchOrders = async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filterStatus !== 'all') params.append('status', filterStatus);
+      if (filterPaymentStatus !== 'all') params.append('paymentStatus', filterPaymentStatus);
+      if (filterPaymentMethod !== 'all') params.append('paymentMethod', filterPaymentMethod);
+      const queryString = params.toString();
+      const url = `/api/orders${queryString ? `?${queryString}` : ''}`;
+      const response = await api.get<{ orders: Order[]; count: number }>(url);
+      setOrders(response.data?.orders || []);
+    } catch (error: any) {
+      console.error('Error fetching orders:', error);
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to fetch orders' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchOrderDetails = async (orderId: string) => {
+    try {
+      const response = await api.get<{ order: Order }>(`/api/orders/${orderId}`);
+      if (response.data?.order) {
+        setSelectedOrder(response.data.order);
+        setIsDetailsOpen(true);
+      }
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to fetch order details' });
+    }
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!selectedOrder || !newStatus) return;
+    setIsSubmitting(true);
+    try {
+      const response = await api.put<{ order: Order }>(`/api/orders/${selectedOrder._id}/status`, {
+        status: newStatus,
+        ...(statusNote && { note: statusNote })
+      });
+      if (response.data?.order) {
+        setOrders(orders.map(o => o._id === selectedOrder._id ? response.data!.order : o));
+        setSelectedOrder(response.data.order);
+      }
+      toast({ title: 'Success', description: 'Order status updated successfully' });
+      setIsStatusDialogOpen(false);
+      setNewStatus('');
+      setStatusNote('');
+      fetchStats();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to update order status' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSetEstimatedTime = async () => {
+    if (!selectedOrder || !estimatedTime) return;
+    setIsSubmitting(true);
+    try {
+      const response = await api.put<{ order: Order }>(`/api/orders/${selectedOrder._id}/estimated-time`, {
+        estimatedTime: parseInt(estimatedTime)
+      });
+      if (response.data?.order) {
+        setOrders(orders.map(o => o._id === selectedOrder._id ? response.data!.order : o));
+        setSelectedOrder(response.data.order);
+      }
+      toast({ title: 'Success', description: `Estimated time set to ${estimatedTime} minutes` });
+      setIsTimeDialogOpen(false);
+      setEstimatedTime('');
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to set estimated time' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openStatusDialog = (order: Order) => {
+    setSelectedOrder(order);
+    setNewStatus(order.orderStatus);
+    setIsStatusDialogOpen(true);
+  };
+
+  const openTimeDialog = (order: Order) => {
+    setSelectedOrder(order);
+    setEstimatedTime(order.estimatedTime?.toString() || '');
+    setIsTimeDialogOpen(true);
+  };
+
+  const formatTime = (date: string) => {
+    return new Date(date).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `$${amount.toFixed(2)}`;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading orders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <div>Orders Component - JSX Coming Next</div>;
+};
+
+export default Orders;
