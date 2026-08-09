@@ -33,6 +33,7 @@ public class MenuItem : TenantEntity
     public string? ImageUrl { get; set; }
     public bool IsVegetarian { get; set; }
     public bool IsVegan { get; set; }
+    public bool IsBestSeller { get; set; }
     public SpiceLevel SpiceLevel { get; set; } = SpiceLevel.None;
     public bool IsAvailable { get; set; } = true;
     public int DisplayOrder { get; set; }
