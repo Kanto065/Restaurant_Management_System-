@@ -13,4 +13,5 @@ public class NotificationEvent : TenantEntity
     public string PayloadJson { get; set; } = "{}";
     public bool DeliveredToPos { get; set; }
     public bool DeliveredToAdmin { get; set; }
+    public DateTimeOffset? ReadAt { get; set; }
 }

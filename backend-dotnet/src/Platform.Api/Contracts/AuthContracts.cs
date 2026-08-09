@@ -4,6 +4,8 @@ public record StaffLoginRequest(string Email, string Password, Guid? RestaurantI
 
 public record SwitchRestaurantRequest(Guid RestaurantId);
 
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
 public record CustomerRegisterRequest(string Email, string Password, string FullName, string? Phone);
 
 public record CustomerLoginRequest(string Email, string Password);

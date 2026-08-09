@@ -43,6 +43,25 @@ public class AuthController(
         return Ok(ApiResponse<StaffMeResponse>.Ok(response));
     }
 
+    [HttpPost("staff/change-password")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<ActionResult<ApiResponse<object>>> ChangePassword(ChangePasswordRequest request)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+            return Unauthorized(ApiResponse<object>.Fail("User not found.", 401));
+
+        var result = await userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join("; ", result.Errors.Select(e => e.Description));
+            return BadRequest(ApiResponse<object>.Fail(errors, 400));
+        }
+
+        return Ok(ApiResponse<object>.Ok(new { }, "Password changed successfully."));
+    }
+
     [HttpPost("staff/login")]
     public async Task<ActionResult<ApiResponse<TokenResponse>>> StaffLogin(StaffLoginRequest request)
     {
