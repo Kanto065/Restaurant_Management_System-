@@ -34,7 +34,10 @@ public class Order : TenantEntity
 
     public decimal Subtotal { get; set; }
     public decimal DeliveryFee { get; set; }
+    public decimal ProcessingFee { get; set; }
     public decimal DiscountAmount { get; set; }
+    public Guid? VoucherId { get; set; }
+    public string? VoucherCodeSnapshot { get; set; }
     public int LoyaltyPointsRedeemed { get; set; }
     public int LoyaltyPointsEarned { get; set; }
     public decimal TotalAmount { get; set; }
