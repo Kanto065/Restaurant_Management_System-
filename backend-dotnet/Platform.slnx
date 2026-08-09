@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Platform.Api/Platform.Api.csproj" />
+    <Project Path="src/Platform.Application/Platform.Application.csproj" />
+    <Project Path="src/Platform.Domain/Platform.Domain.csproj" />
+    <Project Path="src/Platform.Infrastructure/Platform.Infrastructure.csproj" />
+  </Folder>
+</Solution>
