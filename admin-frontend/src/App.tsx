@@ -11,6 +11,9 @@ import Tables from "./pages/Tables";
 import Menu from "./pages/Menu";
 import Menus from "./pages/Menus";
 import Orders from "./pages/Orders";
+import Reviews from "./pages/Reviews";
+import Vouchers from "./pages/Vouchers";
+import OpeningHours from "./pages/OpeningHours";
 import Notifications from "./pages/Notifications";
 import ChangePassword from "./pages/ChangePassword";
 import Takeout from "./pages/Takeout";
@@ -36,6 +39,9 @@ const App = () => (
               <Route path="menu" element={<Menu />} />
               <Route path="menus" element={<Menus />} />
               <Route path="orders" element={<Orders />} />
+              <Route path="reviews" element={<Reviews />} />
+              <Route path="vouchers" element={<Vouchers />} />
+              <Route path="opening-hours" element={<OpeningHours />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="takeout" element={<Takeout />} />
               <Route path="change-password" element={<ChangePassword />} />

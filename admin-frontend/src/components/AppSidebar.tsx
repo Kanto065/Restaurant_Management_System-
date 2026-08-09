@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, UtensilsCrossed, ShoppingBag, Table2, LogOut, User, Lock, Bell, BookOpen, PackageOpen } from 'lucide-react';
+import { LayoutDashboard, Settings, UtensilsCrossed, ShoppingBag, Table2, LogOut, User, Lock, Bell, BookOpen, PackageOpen, Star, Ticket, Clock3 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
@@ -30,8 +30,11 @@ const menuItems = [
   { title: 'Tables', url: '/dashboard/tables', icon: Table2 },
   { title: 'Takeout', url: '/dashboard/takeout', icon: PackageOpen },
   { title: 'Menu Items', url: '/dashboard/menu', icon: UtensilsCrossed },
-  { title: 'Menus', url: '/dashboard/menus', icon: BookOpen },
+  { title: 'Categories', url: '/dashboard/menus', icon: BookOpen },
   { title: 'Orders', url: '/dashboard/orders', icon: ShoppingBag },
+  { title: 'Reviews', url: '/dashboard/reviews', icon: Star },
+  { title: 'Vouchers', url: '/dashboard/vouchers', icon: Ticket },
+  { title: 'Opening Hours', url: '/dashboard/opening-hours', icon: Clock3 },
   { title: 'Notifications', url: '/dashboard/notifications', icon: Bell },
 ];
 
