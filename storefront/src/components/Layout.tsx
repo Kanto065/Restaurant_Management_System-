@@ -94,7 +94,6 @@ export default function Layout() {
             <div className="relative" onMouseLeave={() => setOrderingDropdownOpen(false)}>
               <button
                 onClick={() => setOrderingDropdownOpen((v) => !v)}
-                onMouseEnter={() => setOrderingDropdownOpen(true)}
                 className={`px-4 py-2 border rounded text-sm transition-colors ${
                   location.pathname === '/menu'
                     ? 'bg-brand-mint text-brand-bg border-brand-mint'
