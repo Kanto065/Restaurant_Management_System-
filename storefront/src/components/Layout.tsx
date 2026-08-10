@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRestaurant } from '../lib/queries';
 import { useCartStore } from '../store/cart';
 import { customerAuth } from '../lib/api';
@@ -27,9 +27,21 @@ export default function Layout() {
   const setOrderType = useCartStore((s) => s.setOrderType);
   const [menuOpen, setMenuOpen] = useState(false);
   const [orderingDropdownOpen, setOrderingDropdownOpen] = useState(false);
+  const orderingDropdownRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const loggedIn = customerAuth.isLoggedIn();
+
+  useEffect(() => {
+    if (!orderingDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (orderingDropdownRef.current && !orderingDropdownRef.current.contains(e.target as Node)) {
+        setOrderingDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [orderingDropdownOpen]);
 
   const open = restaurant ? isOpenNow(restaurant.openingHours, restaurant.openingHourExceptions) : null;
   const exceptionToday = restaurant ? todaysException(restaurant.openingHourExceptions) : undefined;
@@ -91,8 +103,9 @@ export default function Layout() {
           <nav className="hidden md:flex items-center gap-3">
             {navLink('/', 'Home')}
 
-            <div className="relative" onMouseLeave={() => setOrderingDropdownOpen(false)}>
+            <div className="relative" ref={orderingDropdownRef}>
               <button
+                type="button"
                 onClick={() => setOrderingDropdownOpen((v) => !v)}
                 className={`px-4 py-2 border rounded text-sm transition-colors ${
                   location.pathname === '/menu'
