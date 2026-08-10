@@ -34,6 +34,7 @@ export interface RestaurantPublic {
   processingFeeFlat: number;
   processingFeePercentage: number;
   loyaltyPointsPerCurrencyUnit: number;
+  currency: string;
   openingHours: OpeningHour[];
   openingHourExceptions: OpeningHourException[];
 }
