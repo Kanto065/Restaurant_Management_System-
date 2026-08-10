@@ -42,6 +42,10 @@ public class Restaurant : Entity
     public string TimeZone { get; set; } = "Europe/London";
     public bool IsActive { get; set; } = true;
 
+    /// <summary>ISO 4217 currency code (e.g. "GBP", "USD", "EUR") — drives the currency symbol
+    /// shown for all prices across admin and storefront.</summary>
+    public string Currency { get; set; } = "GBP";
+
     /// <summary>Which order types this restaurant currently accepts online - admin-controlled,
     /// drives the storefront's "Menu &amp; Ordering" dropdown (matches the reference site's
     /// "Order for Home Delivery" / "Order for Collection" options).</summary>
