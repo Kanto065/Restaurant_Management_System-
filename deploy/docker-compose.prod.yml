@@ -31,6 +31,8 @@ services:
       Seed__OwnerPassword: ${SEED_OWNER_PASSWORD}
       Cors__AllowedOrigins__0: https://${SEED_HOST:-www.porttennanttandoori.co.uk}
       Cors__AllowedOrigins__1: https://${ADMIN_HOST}
+    volumes:
+      - uploads_data:/app/wwwroot/uploads
     depends_on: [postgres]
     networks: [internal]
     # No published ports — only reachable via the Caddy reverse proxy.
@@ -84,3 +86,4 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+  uploads_data:

@@ -18,7 +18,9 @@ WORKDIR /app
 
 RUN useradd --uid 5678 --user-group --system --no-create-home appuser
 COPY --from=build /app .
-RUN chown -R appuser:appuser /app
+# Pre-create wwwroot/uploads with appuser ownership so the named volume mounted here
+# at runtime (see docker-compose.prod.yml) inherits writable permissions on first run.
+RUN mkdir -p /app/wwwroot/uploads && chown -R appuser:appuser /app
 USER appuser
 
 ENV ASPNETCORE_URLS=http://+:8080

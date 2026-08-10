@@ -20,6 +20,12 @@
 	handle /api/* {
 		reverse_proxy api:8080
 	}
+	# Admin-uploaded images (hero slides, etc) are served by the API from
+	# wwwroot/uploads but referenced as relative /uploads/... URLs in storefront
+	# content, so they need the same same-origin proxy treatment as /api/*.
+	handle /uploads/* {
+		reverse_proxy api:8080
+	}
 	handle {
 		reverse_proxy storefront:80
 	}
