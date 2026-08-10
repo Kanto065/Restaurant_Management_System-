@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
 using Platform.Infrastructure;
 using Platform.Infrastructure.Multitenancy;
@@ -59,6 +60,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Serves admin-uploaded images (hero slides, logo, etc) from wwwroot/uploads. wwwroot may
+// not have existed yet when the host built its static-file provider, so (re)create the
+// directory and file provider explicitly rather than relying on the build-time default.
+var webRootPath = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+Directory.CreateDirectory(Path.Combine(webRootPath, "uploads"));
+app.Environment.WebRootPath = webRootPath;
+app.Environment.WebRootFileProvider = new PhysicalFileProvider(webRootPath);
+app.UseStaticFiles();
 
 app.UseHttpsRedirection();
 app.UseCors("Default");
