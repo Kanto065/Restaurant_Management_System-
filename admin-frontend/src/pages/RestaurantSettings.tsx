@@ -9,9 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Lock, ChevronRight, Loader2, Image as ImageIcon, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Lock, ChevronRight, Loader2, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { api } from '@/lib/api';
-import { getImageUrl } from '@/config/api';
 import { currencySymbol } from '@/lib/currency';
 import { ImageUploadField } from '@/components/ImageUploadField';
 
@@ -221,27 +220,16 @@ const RestaurantSettingsPage = () => {
           <CardDescription>Logo, hero image, and theme colors shown on your storefront</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-start gap-6">
-            {form.logoUrl ? (
-              <div className="w-32 h-32 border rounded-lg overflow-hidden bg-muted">
-                <img src={getImageUrl(form.logoUrl)} alt="Restaurant Logo" className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <div className="w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted">
-                <ImageIcon className="w-12 h-12 text-muted-foreground" />
-              </div>
-            )}
-            <div className="flex-1 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="logoUrl">Logo URL</Label>
-                <Input id="logoUrl" value={form.logoUrl ?? ''} onChange={(e) => set('logoUrl', e.target.value)} placeholder="https://..." />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="heroImageUrl">Hero Image URL</Label>
-                <Input id="heroImageUrl" value={form.heroImageUrl ?? ''} onChange={(e) => set('heroImageUrl', e.target.value)} placeholder="https://..." />
-              </div>
-            </div>
-          </div>
+          <ImageUploadField label="Logo" value={form.logoUrl} onChange={(url) => set('logoUrl', url)} />
+          <ImageUploadField
+            label="Hero Image (fallback)"
+            value={form.heroImageUrl}
+            onChange={(url) => set('heroImageUrl', url)}
+            className="pt-2 border-t"
+          />
+          <p className="text-xs text-muted-foreground -mt-2">
+            Only used if no hero banners are configured below. Add banners in Homepage Content for the full rotating hero.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="themeColorPrimary">Primary Color</Label>
