@@ -8,9 +8,21 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Lock, ChevronRight, Loader2, Image as ImageIcon } from 'lucide-react';
 import { api } from '@/lib/api';
 import { getImageUrl } from '@/config/api';
+import { currencySymbol } from '@/lib/currency';
+
+const CURRENCIES = [
+  { code: 'GBP', label: 'British Pound (£)' },
+  { code: 'USD', label: 'US Dollar ($)' },
+  { code: 'EUR', label: 'Euro (€)' },
+  { code: 'AUD', label: 'Australian Dollar ($)' },
+  { code: 'CAD', label: 'Canadian Dollar ($)' },
+  { code: 'INR', label: 'Indian Rupee (₹)' },
+  { code: 'BDT', label: 'Bangladeshi Taka (৳)' },
+];
 
 interface RestaurantSettings {
   id: string;
@@ -36,6 +48,7 @@ interface RestaurantSettings {
   processingFeeFlat: number;
   processingFeePercentage: number;
   loyaltyPointsPerCurrencyUnit: number;
+  currency: string;
 }
 
 type FormState = Omit<RestaurantSettings, 'id' | 'slug' | 'isActive'>;
@@ -46,6 +59,7 @@ const emptyForm: FormState = {
   city: '', postcode: '', country: 'GB', timeZone: 'Europe/London',
   supportsDelivery: true, supportsCollection: true, supportsDineIn: true,
   processingFeeFlat: 0, processingFeePercentage: 0, loyaltyPointsPerCurrencyUnit: 1,
+  currency: 'GBP',
 };
 
 const RestaurantSettingsPage = () => {
@@ -70,6 +84,7 @@ const RestaurantSettingsPage = () => {
       supportsDelivery: r.supportsDelivery, supportsCollection: r.supportsCollection, supportsDineIn: r.supportsDineIn,
       processingFeeFlat: r.processingFeeFlat, processingFeePercentage: r.processingFeePercentage,
       loyaltyPointsPerCurrencyUnit: r.loyaltyPointsPerCurrencyUnit,
+      currency: r.currency,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantQuery.data]);
@@ -181,6 +196,20 @@ const RestaurantSettingsPage = () => {
             <Label htmlFor="description">Description</Label>
             <Textarea id="description" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder="Describe your restaurant..." rows={3} />
           </div>
+          <div className="space-y-2 max-w-xs">
+            <Label htmlFor="currency">Currency</Label>
+            <Select value={form.currency} onValueChange={(v) => set('currency', v)}>
+              <SelectTrigger id="currency">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Changes the currency symbol shown across admin and your storefront.</p>
+          </div>
         </CardContent>
       </Card>
 
@@ -243,7 +272,7 @@ const RestaurantSettingsPage = () => {
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="processingFeeFlat">Processing Fee (flat, £)</Label>
+            <Label htmlFor="processingFeeFlat">Processing Fee (flat, {currencySymbol(form.currency)})</Label>
             <Input id="processingFeeFlat" type="number" step="0.01" min="0" value={form.processingFeeFlat}
               onChange={(e) => set('processingFeeFlat', parseFloat(e.target.value) || 0)} />
           </div>
@@ -253,7 +282,7 @@ const RestaurantSettingsPage = () => {
               onChange={(e) => set('processingFeePercentage', parseFloat(e.target.value) || 0)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="loyaltyPointsPerCurrencyUnit">Loyalty Points per £1</Label>
+            <Label htmlFor="loyaltyPointsPerCurrencyUnit">Loyalty Points per {currencySymbol(form.currency)}1</Label>
             <Input id="loyaltyPointsPerCurrencyUnit" type="number" step="0.1" min="0" value={form.loyaltyPointsPerCurrencyUnit}
               onChange={(e) => set('loyaltyPointsPerCurrencyUnit', parseFloat(e.target.value) || 0)} />
           </div>
