@@ -12,14 +12,16 @@ public record RestaurantSettingsDto(
     string ThemeColorPrimary, string ThemeColorSecondary, string? Phone, string? Email,
     string AddressLine1, string? AddressLine2, string City, string Postcode, string Country,
     string TimeZone, bool IsActive, bool SupportsDelivery, bool SupportsCollection, bool SupportsDineIn,
-    decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit);
+    decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit,
+    string Currency);
 
 public record UpdateRestaurantSettingsRequest(
     string Name, string? Description, string? LogoUrl, string? HeroImageUrl,
     string ThemeColorPrimary, string ThemeColorSecondary, string? Phone, string? Email,
     string AddressLine1, string? AddressLine2, string City, string Postcode, string Country,
     string TimeZone, bool SupportsDelivery, bool SupportsCollection, bool SupportsDineIn,
-    decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit);
+    decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit,
+    string Currency);
 
 [ApiController]
 [Route("api/admin/restaurant")]
@@ -39,7 +41,8 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
             restaurant.Phone, restaurant.Email, restaurant.AddressLine1, restaurant.AddressLine2,
             restaurant.City, restaurant.Postcode, restaurant.Country, restaurant.TimeZone, restaurant.IsActive,
             restaurant.SupportsDelivery, restaurant.SupportsCollection, restaurant.SupportsDineIn,
-            restaurant.ProcessingFeeFlat, restaurant.ProcessingFeePercentage, restaurant.LoyaltyPointsPerCurrencyUnit);
+            restaurant.ProcessingFeeFlat, restaurant.ProcessingFeePercentage, restaurant.LoyaltyPointsPerCurrencyUnit,
+            restaurant.Currency);
 
         return Ok(ApiResponse<RestaurantSettingsDto>.Ok(dto));
     }
@@ -72,6 +75,7 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
         restaurant.ProcessingFeeFlat = request.ProcessingFeeFlat;
         restaurant.ProcessingFeePercentage = request.ProcessingFeePercentage;
         restaurant.LoyaltyPointsPerCurrencyUnit = request.LoyaltyPointsPerCurrencyUnit;
+        restaurant.Currency = request.Currency;
 
         await db.SaveChangesAsync();
 
