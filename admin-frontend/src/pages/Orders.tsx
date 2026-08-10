@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { api } from '@/lib/api';
+import { useCurrency } from '@/hooks/useCurrency';
 import { Loader2, ShoppingCart, DollarSign, Clock, CheckCircle2, Eye, Timer, RefreshCw, UtensilsCrossed, User, Phone, Mail } from 'lucide-react';
 
 type OrderType = 'DineIn' | 'Collection' | 'Delivery';
@@ -58,10 +59,11 @@ const paymentStatusColors: Record<PaymentStatus, string> = {
 };
 
 const formatTime = (date: string) => new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-const formatCurrency = (amount: number) => `£${amount.toFixed(2)}`;
 
 const Orders = () => {
   const { toast } = useToast();
+  const currency = useCurrency();
+  const formatCurrency = (amount: number) => `${currency}${amount.toFixed(2)}`;
   const queryClient = useQueryClient();
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);

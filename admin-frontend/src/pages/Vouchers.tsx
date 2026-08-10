@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface Voucher {
   id: string;
@@ -40,6 +41,7 @@ const emptyForm: FormState = { code: '', discountType: 'Percentage', discountVal
 
 const Vouchers = () => {
   const { toast } = useToast();
+  const currency = useCurrency();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Voucher | null>(null);
@@ -151,7 +153,7 @@ const Vouchers = () => {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Percentage">Percentage (%)</SelectItem>
-                      <SelectItem value="FixedAmount">Fixed Amount (£)</SelectItem>
+                      <SelectItem value="FixedAmount">Fixed Amount ({currency})</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -162,7 +164,7 @@ const Vouchers = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="minimumOrderAmount">Minimum Order (£)</Label>
+                  <Label htmlFor="minimumOrderAmount">Minimum Order ({currency})</Label>
                   <Input id="minimumOrderAmount" type="number" step="0.01" min="0" value={form.minimumOrderAmount} onChange={(e) => setForm((f) => ({ ...f, minimumOrderAmount: e.target.value }))} disabled={isSubmitting} />
                 </div>
                 <div className="space-y-2">
@@ -207,12 +209,12 @@ const Vouchers = () => {
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-semibold">{v.code}</span>
                       <Badge variant="outline">
-                        {v.discountType === 'Percentage' ? `${v.discountValue}% off` : `£${v.discountValue.toFixed(2)} off`}
+                        {v.discountType === 'Percentage' ? `${v.discountValue}% off` : `${currency}${v.discountValue.toFixed(2)} off`}
                       </Badge>
                       {!v.isActive && <Badge variant="secondary">Inactive</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Min order £{v.minimumOrderAmount.toFixed(2)} · Used {v.timesRedeemed}{v.maxRedemptions ? ` / ${v.maxRedemptions}` : ''} times
+                      Min order {currency}{v.minimumOrderAmount.toFixed(2)} · Used {v.timesRedeemed}{v.maxRedemptions ? ` / ${v.maxRedemptions}` : ''} times
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

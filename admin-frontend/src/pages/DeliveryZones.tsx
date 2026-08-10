@@ -15,6 +15,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface DeliveryZone {
   id: string;
@@ -30,6 +31,7 @@ const emptyForm: FormState = { name: '', maxMileage: '', deliveryFee: '', minimu
 
 const DeliveryZones = () => {
   const { toast } = useToast();
+  const currency = useCurrency();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DeliveryZone | null>(null);
@@ -136,11 +138,11 @@ const DeliveryZones = () => {
                   <Input id="maxMileage" type="number" step="0.1" min="0" value={form.maxMileage} onChange={(e) => setForm((f) => ({ ...f, maxMileage: e.target.value }))} required disabled={isSubmitting} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="deliveryFee">Delivery Fee (£)</Label>
+                  <Label htmlFor="deliveryFee">Delivery Fee ({currency})</Label>
                   <Input id="deliveryFee" type="number" step="0.01" min="0" value={form.deliveryFee} onChange={(e) => setForm((f) => ({ ...f, deliveryFee: e.target.value }))} disabled={isSubmitting} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="minimumOrderAmount">Min Order (£)</Label>
+                  <Label htmlFor="minimumOrderAmount">Min Order ({currency})</Label>
                   <Input id="minimumOrderAmount" type="number" step="0.01" min="0" value={form.minimumOrderAmount} onChange={(e) => setForm((f) => ({ ...f, minimumOrderAmount: e.target.value }))} disabled={isSubmitting} />
                 </div>
               </div>
@@ -178,7 +180,7 @@ const DeliveryZones = () => {
                   <div>
                     <p className="font-medium">{z.name} {!z.isActive && <span className="text-xs text-muted-foreground">(inactive)</span>}</p>
                     <p className="text-xs text-muted-foreground">
-                      Up to {z.maxMileage} miles · £{z.deliveryFee.toFixed(2)} delivery · £{z.minimumOrderAmount.toFixed(2)} min order
+                      Up to {z.maxMileage} miles · {currency}{z.deliveryFee.toFixed(2)} delivery · {currency}{z.minimumOrderAmount.toFixed(2)} min order
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

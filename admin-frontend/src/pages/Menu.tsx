@@ -19,6 +19,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { getImageUrl } from '@/config/api';
+import { useCurrency } from '@/hooks/useCurrency';
 
 const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Hot', 'ExtraHot'] as const;
 
@@ -68,6 +69,7 @@ const emptyForm: ItemFormState = {
 
 const Menu = () => {
   const { toast } = useToast();
+  const currency = useCurrency();
   const queryClient = useQueryClient();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -237,7 +239,7 @@ const Menu = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price (£) *</Label>
+                  <Label htmlFor="price">Price ({currency}) *</Label>
                   <Input id="price" type="number" step="0.01" value={form.basePrice}
                     onChange={(e) => setForm((f) => ({ ...f, basePrice: e.target.value }))}
                     placeholder="0.00" required disabled={isSubmitting} />
@@ -377,7 +379,7 @@ const Menu = () => {
               <CardHeader>
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-lg">{item.name}</CardTitle>
-                  <span className="text-primary font-bold whitespace-nowrap">£{item.basePrice.toFixed(2)}</span>
+                  <span className="text-primary font-bold whitespace-nowrap">{currency}{item.basePrice.toFixed(2)}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline">{categoryName(item.categoryId)}</Badge>

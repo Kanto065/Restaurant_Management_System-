@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { api } from '@/lib/api';
+import { useCurrency } from '@/hooks/useCurrency';
 import {
   DollarSign, ShoppingCart, Clock, CheckCircle2, TrendingUp, UtensilsCrossed,
   LayoutGrid, Loader2, AlertCircle, Calendar, Activity,
@@ -13,10 +14,11 @@ interface TableRow { id: string; tableNumber: string; isActive: boolean }
 interface MenuItemRow { id: string; name: string; isAvailable: boolean }
 interface RecentOrder { id: string; orderNumber: number; totalAmount: number; status: string; createdAt: string }
 
-const formatCurrency = (amount: number) => `£${amount.toFixed(2)}`;
 const formatDate = (date: string) => new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 const Dashboard = () => {
+  const currency = useCurrency();
+  const formatCurrency = (amount: number) => `${currency}${amount.toFixed(2)}`;
   const statsQuery = useQuery({ queryKey: ['admin', 'orders', 'stats'], queryFn: () => api.get<OrderStats>('/api/admin/orders/stats') });
   const tablesQuery = useQuery({ queryKey: ['admin', 'tables'], queryFn: () => api.get<TableRow[]>('/api/admin/tables') });
   const itemsQuery = useQuery({ queryKey: ['admin', 'menu-items'], queryFn: () => api.get<MenuItemRow[]>('/api/admin/menu-items') });
