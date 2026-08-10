@@ -3,7 +3,16 @@
 # onboarding lands and domains are no longer known ahead of time in this file.
 
 {$API_HOST} {
-	reverse_proxy api:8080
+	# Admin-uploaded images (hero slides, logo, etc) live in the MinIO "uploads"
+	# bucket, not the api container - the bucket's public-read policy plus
+	# path-style S3 addressing means GET /uploads/{key} on MinIO IS the object,
+	# so this proxies straight there instead of through the API.
+	handle /uploads/* {
+		reverse_proxy minio:9000
+	}
+	handle {
+		reverse_proxy api:8080
+	}
 }
 
 {$ADMIN_HOST} {
@@ -20,11 +29,11 @@
 	handle /api/* {
 		reverse_proxy api:8080
 	}
-	# Admin-uploaded images (hero slides, etc) are served by the API from
-	# wwwroot/uploads but referenced as relative /uploads/... URLs in storefront
-	# content, so they need the same same-origin proxy treatment as /api/*.
+	# Admin-uploaded images are referenced as relative /uploads/... URLs in
+	# storefront content, so they need the same same-origin proxy treatment as
+	# /api/* - straight to MinIO, same as the API_HOST block above.
 	handle /uploads/* {
-		reverse_proxy api:8080
+		reverse_proxy minio:9000
 	}
 	handle {
 		reverse_proxy storefront:80

@@ -14,6 +14,20 @@ services:
     # Deliberately no "ports:" mapping — Postgres is reachable only from other
     # containers on the internal network, never from the host/public internet.
 
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    networks: [internal]
+    # No published ports — the S3 API (9000) is reached only via the api container (as an S3
+    # client) and the Caddy /uploads/* proxy (as a public GET route, see Caddyfile); the admin
+    # console (9001) is deliberately not exposed anywhere.
+
   api:
     build:
       context: ../backend-dotnet
@@ -31,9 +45,12 @@ services:
       Seed__OwnerPassword: ${SEED_OWNER_PASSWORD}
       Cors__AllowedOrigins__0: https://${SEED_HOST:-www.porttennanttandoori.co.uk}
       Cors__AllowedOrigins__1: https://${ADMIN_HOST}
-    volumes:
-      - uploads_data:/app/wwwroot/uploads
-    depends_on: [postgres]
+      Storage__Provider: S3
+      Storage__S3__ServiceUrl: http://minio:9000
+      Storage__S3__AccessKey: ${MINIO_ROOT_USER}
+      Storage__S3__SecretKey: ${MINIO_ROOT_PASSWORD}
+      Storage__S3__Bucket: uploads
+    depends_on: [postgres, minio]
     networks: [internal]
     # No published ports — only reachable via the Caddy reverse proxy.
     # No Redis: realtime is now Server-Sent Events fanned out in-memory
@@ -76,7 +93,7 @@ services:
       API_HOST: ${API_HOST}
       ADMIN_HOST: ${ADMIN_HOST}
       STOREFRONT_HOST: ${STOREFRONT_HOST}
-    depends_on: [api, admin-frontend, storefront]
+    depends_on: [api, admin-frontend, storefront, minio]
     networks: [internal]
 
 networks:
@@ -86,4 +103,4 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
-  uploads_data:
+  minio_data:
