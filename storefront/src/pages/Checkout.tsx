@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../store/cart';
 import { useCreateOrder, useRestaurant } from '../lib/queries';
 import { customerAuth } from '../lib/api';
+import { currencySymbol } from '../lib/currency';
 import type { CreateOrderRequest, PaymentMethod } from '../types/api';
 
 export default function Checkout() {
@@ -31,6 +32,7 @@ export default function Checkout() {
   const estimatedTotal = rawSubtotal + processingFee;
   const estimatedLoyaltyPoints = restaurant ? Math.floor(estimatedTotal * restaurant.loyaltyPointsPerCurrencyUnit) : 0;
   const isMember = customerAuth.isLoggedIn();
+  const currency = currencySymbol(restaurant?.currency);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -86,12 +88,12 @@ export default function Checkout() {
               {lines.map((l) => (
                 <div key={l.lineId} className="py-2 flex justify-between">
                   <span>{l.quantity} x {l.menuItem.name}</span>
-                  <span>£{((l.menuItem.basePrice + l.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * l.quantity).toFixed(2)}</span>
+                  <span>{currency}{((l.menuItem.basePrice + l.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * l.quantity).toFixed(2)}</span>
                 </div>
               ))}
             </div>
             <div className="pt-3 mt-2 border-t border-brand-bg/10 text-sm space-y-1.5">
-              <div className="flex justify-between"><span>Subtotal</span><span>£{rawSubtotal.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Subtotal</span><span>{currency}{rawSubtotal.toFixed(2)}</span></div>
               {processingFee > 0 && (
                 <div className="flex justify-between items-center relative">
                   <span className="flex items-center gap-1">
@@ -105,7 +107,7 @@ export default function Checkout() {
                       ?
                     </button>
                   </span>
-                  <span>£{processingFee.toFixed(2)}</span>
+                  <span>{currency}{processingFee.toFixed(2)}</span>
                   {showFeeInfo && (
                     <div className="absolute left-0 top-6 z-10 w-64 bg-brand-bg text-brand-cream text-xs rounded-lg p-3 shadow-lg">
                       This fee applies to all orders to help cover the operational costs of handling your order online.
@@ -115,7 +117,7 @@ export default function Checkout() {
               )}
               <div className="flex justify-between font-semibold pt-1.5 border-t border-brand-bg/10">
                 <span>Total</span>
-                <span>£{estimatedTotal.toFixed(2)}</span>
+                <span>{currency}{estimatedTotal.toFixed(2)}</span>
               </div>
               {voucherCode.trim() && (
                 <p className="text-xs text-brand-bg/60 pt-1">Voucher discount (if valid) applied when you place the order.</p>
@@ -209,7 +211,7 @@ export default function Checkout() {
             disabled={createOrder.isPending}
             className="w-full bg-brand-green text-white rounded-lg py-3.5 font-semibold disabled:opacity-50"
           >
-            {createOrder.isPending ? 'Placing order...' : `Confirm and Place Order (£${estimatedTotal.toFixed(2)})`}
+            {createOrder.isPending ? 'Placing order...' : `Confirm and Place Order (${currency}${estimatedTotal.toFixed(2)})`}
           </button>
         </div>
       </form>

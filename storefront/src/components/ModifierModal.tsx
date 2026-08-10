@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import type { MenuItem, ModifierOption } from '../types/api';
 import { useCartStore } from '../store/cart';
+import { useRestaurant } from '../lib/queries';
+import { currencySymbol } from '../lib/currency';
 
 export default function ModifierModal({ item, onClose }: { item: MenuItem; onClose: () => void }) {
   const addLine = useCartStore((s) => s.addLine);
+  const { data: restaurant } = useRestaurant();
+  const currency = currencySymbol(restaurant?.currency);
   const [selected, setSelected] = useState<Record<string, ModifierOption[]>>(() =>
     Object.fromEntries(item.modifierGroups.map((g) => [g.id, g.options.filter((o) => o.isDefault)]))
   );
@@ -56,7 +60,7 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
                       }`}
                     >
                       {option.name}
-                      {option.priceDelta !== 0 && ` (${option.priceDelta > 0 ? '+' : ''}£${option.priceDelta.toFixed(2)})`}
+                      {option.priceDelta !== 0 && ` (${option.priceDelta > 0 ? '+' : ''}${currency}${option.priceDelta.toFixed(2)})`}
                     </button>
                   );
                 })}
@@ -66,7 +70,7 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
         </div>
 
         <div className="border-t border-brand-bg/10 px-5 py-4 flex items-center justify-between">
-          <p className="font-semibold">Total: £{total.toFixed(2)}</p>
+          <p className="font-semibold">Total: {currency}{total.toFixed(2)}</p>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 rounded border border-brand-bg/20 text-sm">
               Cancel

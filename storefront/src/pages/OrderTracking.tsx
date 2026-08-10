@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
-import { useTrackOrder } from '../lib/queries';
+import { useTrackOrder, useRestaurant } from '../lib/queries';
+import { currencySymbol } from '../lib/currency';
 import type { OrderStatus } from '../types/api';
 
 const STEPS: OrderStatus[] = ['Pending', 'Confirmed', 'Preparing', 'Ready', 'OutForDeliveryOrServed', 'Completed'];
@@ -17,6 +18,8 @@ const STEP_LABELS: Record<OrderStatus, string> = {
 export default function OrderTracking() {
   const { orderId } = useParams<{ orderId: string }>();
   const { data: order, isLoading } = useTrackOrder(orderId);
+  const { data: restaurant } = useRestaurant();
+  const currency = currencySymbol(restaurant?.currency);
 
   if (isLoading) return <div className="max-w-2xl mx-auto px-4 py-16 text-center">Loading order...</div>;
   if (!order) return <div className="max-w-2xl mx-auto px-4 py-16 text-center">Order not found.</div>;
@@ -51,13 +54,13 @@ export default function OrderTracking() {
           {order.items.map((item, i) => (
             <div key={i} className="py-2 flex justify-between">
               <span>{item.quantity} x {item.nameSnapshot}</span>
-              <span>£{item.lineTotal.toFixed(2)}</span>
+              <span>{currency}{item.lineTotal.toFixed(2)}</span>
             </div>
           ))}
         </div>
         <div className="pt-3 mt-2 border-t border-brand-bg/10 font-semibold flex justify-between">
           <span>Total</span>
-          <span>£{order.totalAmount.toFixed(2)}</span>
+          <span>{currency}{order.totalAmount.toFixed(2)}</span>
         </div>
         {order.estimatedReadyAt && (
           <p className="mt-3 text-sm text-brand-bg/70">

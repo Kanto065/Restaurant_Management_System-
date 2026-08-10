@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMenu, useFavourites, useLastOrder } from '../lib/queries';
+import { useMenu, useFavourites, useLastOrder, useRestaurant } from '../lib/queries';
 import { useCartStore } from '../store/cart';
 import { api, customerAuth } from '../lib/api';
+import { currencySymbol } from '../lib/currency';
 import ModifierModal from '../components/ModifierModal';
 import CartPanel from '../components/CartPanel';
 import type { MenuItem, OrderType } from '../types/api';
@@ -25,6 +26,8 @@ export default function Menu() {
   const itemCount = useCartStore((s) => s.itemCount());
   const subtotal = useCartStore((s) => s.subtotal());
   const isMember = customerAuth.isLoggedIn();
+  const { data: restaurant } = useRestaurant();
+  const currency = currencySymbol(restaurant?.currency);
 
   const favouritesQuery = useFavourites();
   const lastOrderQuery = useLastOrder();
@@ -174,7 +177,7 @@ export default function Menu() {
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-semibold mb-2">£{item.basePrice.toFixed(2)}</p>
+                  <p className="font-semibold mb-2">{currency}{item.basePrice.toFixed(2)}</p>
                   <div className="flex items-center gap-2 justify-end">
                     {isMember && (
                       <button
@@ -211,7 +214,7 @@ export default function Menu() {
 
       {/* Mobile cart bar */}
       <div className="lg:hidden fixed bottom-0 inset-x-0 bg-brand-green text-white px-4 py-3 flex items-center justify-between z-30">
-        <span className="text-sm font-medium">{itemCount} item{itemCount === 1 ? '' : 's'} · £{subtotal.toFixed(2)}</span>
+        <span className="text-sm font-medium">{itemCount} item{itemCount === 1 ? '' : 's'} · {currency}{subtotal.toFixed(2)}</span>
         <button onClick={() => setCartOpenMobile(true)} className="bg-white text-brand-green text-sm font-semibold px-4 py-1.5 rounded">
           View Order
         </button>

@@ -1,9 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useCartStore } from '../store/cart';
+import { useRestaurant } from '../lib/queries';
+import { currencySymbol } from '../lib/currency';
 
 export default function CartPanel() {
   const { lines, incrementLine, decrementLine, removeLine, clear, subtotal } = useCartStore();
   const total = subtotal();
+  const { data: restaurant } = useRestaurant();
+  const currency = currencySymbol(restaurant?.currency);
 
   return (
     <div className="bg-brand-cream text-brand-bg rounded-lg overflow-hidden">
@@ -32,7 +36,7 @@ export default function CartPanel() {
               </div>
             </div>
             <p className="font-medium shrink-0">
-              £{((line.menuItem.basePrice + line.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * line.quantity).toFixed(2)}
+              {currency}{((line.menuItem.basePrice + line.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * line.quantity).toFixed(2)}
             </p>
           </div>
         ))}
@@ -40,7 +44,7 @@ export default function CartPanel() {
 
       <div className="px-4 py-3 border-t border-brand-bg/10 flex items-center justify-between text-sm font-semibold">
         <span>Subtotal:</span>
-        <span>£{total.toFixed(2)}</span>
+        <span>{currency}{total.toFixed(2)}</span>
       </div>
 
       <div className="p-3 flex gap-2">

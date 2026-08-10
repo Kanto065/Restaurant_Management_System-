@@ -1,4 +1,5 @@
 import { useRestaurant, useDeliveryZones } from '../lib/queries';
+import { currencySymbol } from '../lib/currency';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -13,6 +14,7 @@ function formatTime(t: string | null) {
 export default function ContactUs() {
   const { data: restaurant } = useRestaurant();
   const { data: deliveryZones } = useDeliveryZones();
+  const currency = currencySymbol(restaurant?.currency);
 
   const today = new Date().getDay();
   const fullAddress = restaurant
@@ -50,8 +52,8 @@ export default function ContactUs() {
                   {deliveryZones.map((z) => (
                     <tr key={z.id}>
                       <td className="py-2">Up to {z.maxMileage} miles</td>
-                      <td className="py-2">£{z.minimumOrderAmount.toFixed(2)}</td>
-                      <td className="py-2">£{z.deliveryFee.toFixed(2)}</td>
+                      <td className="py-2">{currency}{z.minimumOrderAmount.toFixed(2)}</td>
+                      <td className="py-2">{currency}{z.deliveryFee.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
