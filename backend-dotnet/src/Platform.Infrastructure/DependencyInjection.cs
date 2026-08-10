@@ -10,6 +10,7 @@ using Platform.Infrastructure.Identity;
 using Platform.Infrastructure.Multitenancy;
 using Platform.Infrastructure.Persistence;
 using Platform.Infrastructure.Realtime;
+using Platform.Infrastructure.Storage;
 
 namespace Platform.Infrastructure;
 
@@ -90,6 +91,17 @@ public static class DependencyInjection
 
         services.AddSingleton<SseConnectionManager>();
         services.AddScoped<IOrderNotifier, OrderNotifier>();
+
+        services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
+        var storageProvider = configuration.GetSection(StorageOptions.SectionName)["Provider"];
+        if (string.Equals(storageProvider, "S3", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IFileStorage, S3FileStorage>();
+        }
+        else
+        {
+            services.AddScoped<IFileStorage, LocalFileStorage>();
+        }
 
         return services;
     }
