@@ -3,11 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { api } from '@/lib/api';
-import { useCurrency } from '@/hooks/useCurrency';
+import { useCurrency, useCurrencyCode } from '@/hooks/useCurrency';
 import {
-  DollarSign, ShoppingCart, Clock, CheckCircle2, TrendingUp, UtensilsCrossed,
+  DollarSign, PoundSterling, Euro, IndianRupee, ShoppingCart, Clock, CheckCircle2, TrendingUp, UtensilsCrossed,
   LayoutGrid, Loader2, AlertCircle, Calendar, Activity,
 } from 'lucide-react';
+
+const CURRENCY_ICONS: Record<string, typeof DollarSign> = {
+  GBP: PoundSterling,
+  EUR: Euro,
+  INR: IndianRupee,
+};
 
 interface OrderStats { totalOrders: number; pendingOrders: number; completedOrders: number; totalRevenue: number }
 interface TableRow { id: string; tableNumber: string; isActive: boolean }
@@ -18,6 +24,8 @@ const formatDate = (date: string) => new Date(date).toLocaleString('en-GB', { da
 
 const Dashboard = () => {
   const currency = useCurrency();
+  const currencyCode = useCurrencyCode();
+  const CurrencyIcon = CURRENCY_ICONS[currencyCode] ?? DollarSign;
   const formatCurrency = (amount: number) => `${currency}${amount.toFixed(2)}`;
   const statsQuery = useQuery({ queryKey: ['admin', 'orders', 'stats'], queryFn: () => api.get<OrderStats>('/api/admin/orders/stats') });
   const tablesQuery = useQuery({ queryKey: ['admin', 'tables'], queryFn: () => api.get<TableRow[]>('/api/admin/tables') });
@@ -63,7 +71,7 @@ const Dashboard = () => {
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
-            <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center"><DollarSign className="h-4 w-4" /></div>
+            <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center"><CurrencyIcon className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold tracking-tight">{formatCurrency(stats.totalRevenue)}</div>
@@ -97,7 +105,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold tracking-tight">{formatCurrency(avgOrderValue)}</div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><DollarSign className="h-3 w-3" />Per order average</p>
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><CurrencyIcon className="h-3 w-3" />Per order average</p>
           </CardContent>
         </Card>
       </div>
