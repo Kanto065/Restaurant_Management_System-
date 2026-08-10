@@ -23,7 +23,11 @@ public record OrderDetailDto(
     string? CustomerEmail, string? SpecialRequests, DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt,
     List<OrderItemDto> Items, List<OrderStatusHistoryDto> StatusHistory);
 
-public record OrderItemDto(Guid Id, string NameSnapshot, decimal UnitPriceSnapshot, int Quantity, decimal LineTotal);
+public record OrderItemModifierDto(Guid Id, string NameSnapshot, decimal PriceDeltaSnapshot);
+
+public record OrderItemDto(
+    Guid Id, string NameSnapshot, decimal UnitPriceSnapshot, int Quantity, string? SpecialInstructions,
+    decimal LineTotal, List<OrderItemModifierDto> Modifiers);
 
 public record UpdateOrderStatusRequest(OrderStatus Status, string? Note);
 public record UpdateEstimatedTimeRequest(int EstimatedMinutesFromNow);
@@ -33,7 +37,9 @@ public record OrderStatsDto(int TotalOrders, int PendingOrders, int CompletedOrd
 
 [ApiController]
 [Route("api/admin/orders")]
-[Authorize(Policy = "StaffOnly")]
+// StaffOrDevice, not StaffOnly - paired Sunmi POS terminals need to list, read, and update
+// orders the same as the admin dashboard does.
+[Authorize(Policy = "StaffOrDevice")]
 public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOrderNotifier notifier) : ControllerBase
 {
     [HttpGet]
@@ -68,7 +74,7 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ApiResponse<OrderDetailDto>>> Get(Guid id)
     {
-        var order = await db.Orders.Include(o => o.Items).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
+        var order = await db.Orders.Include(o => o.Items).ThenInclude(i => i.Modifiers).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
         if (order is null)
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
@@ -78,7 +84,7 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
     [HttpPut("{id:guid}/status")]
     public async Task<ActionResult<ApiResponse<OrderDetailDto>>> UpdateStatus(Guid id, UpdateOrderStatusRequest request)
     {
-        var order = await db.Orders.Include(o => o.Items).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
+        var order = await db.Orders.Include(o => o.Items).ThenInclude(i => i.Modifiers).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
         if (order is null)
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
@@ -109,7 +115,7 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
     [HttpPut("{id:guid}/estimated-time")]
     public async Task<ActionResult<ApiResponse<OrderDetailDto>>> SetEstimatedTime(Guid id, UpdateEstimatedTimeRequest request)
     {
-        var order = await db.Orders.Include(o => o.Items).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
+        var order = await db.Orders.Include(o => o.Items).ThenInclude(i => i.Modifiers).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
         if (order is null)
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
@@ -122,7 +128,7 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
     [HttpPut("{id:guid}/payment-status")]
     public async Task<ActionResult<ApiResponse<OrderDetailDto>>> UpdatePaymentStatus(Guid id, UpdatePaymentStatusRequest request)
     {
-        var order = await db.Orders.Include(o => o.Items).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
+        var order = await db.Orders.Include(o => o.Items).ThenInclude(i => i.Modifiers).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
         if (order is null)
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
@@ -137,6 +143,8 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
         o.Id, o.OrderNumber, o.OrderType, o.Status, o.PaymentStatus, o.PaymentMethod, o.Subtotal, o.DeliveryFee,
         o.ProcessingFee, o.DiscountAmount, o.TotalAmount, o.CustomerName, o.CustomerPhone, o.CustomerEmail,
         o.SpecialRequests, o.EstimatedReadyAt, o.CreatedAt,
-        o.Items.Select(i => new OrderItemDto(i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.LineTotal)).ToList(),
+        o.Items.Select(i => new OrderItemDto(
+            i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.SpecialInstructions, i.LineTotal,
+            i.Modifiers.Select(m => new OrderItemModifierDto(m.Id, m.NameSnapshot, m.PriceDeltaSnapshot)).ToList())).ToList(),
         o.StatusHistory.OrderBy(h => h.Timestamp).Select(h => new OrderStatusHistoryDto(h.Status, h.Note, h.Timestamp)).ToList());
 }

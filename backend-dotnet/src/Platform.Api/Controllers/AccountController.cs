@@ -47,7 +47,7 @@ public class AccountController(AppDbContext db) : ControllerBase
             return NotFound(ApiResponse<Admin.OrderDetailDto>.Fail("Customer account not found.", 404));
 
         var order = await db.Orders
-            .Include(o => o.Items)
+            .Include(o => o.Items).ThenInclude(i => i.Modifiers)
             .Include(o => o.StatusHistory)
             .Where(o => o.CustomerId == customerId)
             .OrderByDescending(o => o.CreatedAt)
@@ -61,7 +61,9 @@ public class AccountController(AppDbContext db) : ControllerBase
             order.Subtotal, order.DeliveryFee, order.ProcessingFee, order.DiscountAmount, order.TotalAmount,
             order.CustomerName, order.CustomerPhone, order.CustomerEmail, order.SpecialRequests,
             order.EstimatedReadyAt, order.CreatedAt,
-            order.Items.Select(i => new Admin.OrderItemDto(i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.LineTotal)).ToList(),
+            order.Items.Select(i => new Admin.OrderItemDto(
+                i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.SpecialInstructions, i.LineTotal,
+                i.Modifiers.Select(m => new Admin.OrderItemModifierDto(m.Id, m.NameSnapshot, m.PriceDeltaSnapshot)).ToList())).ToList(),
             order.StatusHistory.OrderBy(h => h.Timestamp).Select(h => new Admin.OrderStatusHistoryDto(h.Status, h.Note, h.Timestamp)).ToList());
 
         return Ok(ApiResponse<Admin.OrderDetailDto>.Ok(dto));
