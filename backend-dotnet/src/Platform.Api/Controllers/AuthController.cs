@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Platform.Api.Contracts;
 using Platform.Application.Common;
 using Platform.Domain.Entities;
@@ -18,7 +19,8 @@ public class AuthController(
     UserManager<AppUser> userManager,
     IJwtTokenService tokenService,
     AppDbContext db,
-    ICurrentTenant currentTenant) : ControllerBase
+    ICurrentTenant currentTenant,
+    IOptions<JwtOptions> jwtOptions) : ControllerBase
 {
     [HttpGet("me")]
     [Authorize(Policy = "StaffOnly")]
@@ -201,6 +203,31 @@ public class AuthController(
         var accessToken = tokenService.CreateCustomerAccessToken(user.Id, customer.Id, currentTenant.RestaurantId.Value);
         var tokens = await IssueRefreshTokenAsync(user.Id, accessToken);
         return Ok(ApiResponse<TokenResponse>.Ok(tokens));
+    }
+
+    [HttpPost("device/login")]
+    public async Task<ActionResult<ApiResponse<DeviceTokenResponse>>> DeviceLogin(DeviceLoginRequest request)
+    {
+        var device = await db.Devices
+            .IgnoreQueryFilters() // no tenant context resolved yet - the device id IS the lookup
+            .Include(d => d.Restaurant)
+            .FirstOrDefaultAsync(d => d.Id == request.DeviceId && d.IsActive);
+
+        if (device is null)
+            return Unauthorized(ApiResponse<DeviceTokenResponse>.Fail("Invalid device credentials.", 401));
+
+        var hasher = new PasswordHasher<object>();
+        var verifyResult = hasher.VerifyHashedPassword(new object(), device.DeviceSecretHash, request.Secret);
+        if (verifyResult == PasswordVerificationResult.Failed)
+            return Unauthorized(ApiResponse<DeviceTokenResponse>.Fail("Invalid device credentials.", 401));
+
+        device.LastSeenAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+
+        var accessToken = tokenService.CreateDeviceAccessToken(device.Id, device.RestaurantId, device.Restaurant!.OrganizationId);
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(jwtOptions.Value.DeviceAccessTokenMinutes);
+
+        return Ok(ApiResponse<DeviceTokenResponse>.Ok(new DeviceTokenResponse(accessToken, expiresAt, device.Restaurant.Name)));
     }
 
     [HttpPost("refresh")]

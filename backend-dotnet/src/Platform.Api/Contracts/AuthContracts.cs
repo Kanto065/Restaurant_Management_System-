@@ -23,3 +23,13 @@ public record TokenResponse(string AccessToken, string RefreshToken, DateTimeOff
 public record StaffRestaurantSummary(Guid RestaurantId, string RestaurantName, string Role);
 
 public record StaffMeResponse(Guid UserId, string Email, string FullName, Guid? ActiveRestaurantId, List<StaffRestaurantSummary> Restaurants);
+
+/// <summary>A device authenticates with the id + secret it was issued at pairing time (see
+/// Admin/DevicesController) - no email/password, no host-based tenant resolution (the POS app
+/// talks to the API host directly, not a customer's branded domain).</summary>
+public record DeviceLoginRequest(Guid DeviceId, string Secret);
+
+/// <summary>No refresh token - device tokens are short-lived (JwtOptions.DeviceAccessTokenMinutes)
+/// and the device already holds its secret locally, so it just calls device/login again rather
+/// than needing refresh-token rotation.</summary>
+public record DeviceTokenResponse(string AccessToken, DateTimeOffset AccessTokenExpiresAt, string RestaurantName);

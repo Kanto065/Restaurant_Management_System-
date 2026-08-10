@@ -87,7 +87,11 @@ public static class DependencyInjection
         services.AddAuthorizationBuilder()
             .AddPolicy("StaffOnly", p => p.RequireClaim("token_type", "staff"))
             .AddPolicy("CustomerOnly", p => p.RequireClaim("token_type", "customer"))
-            .AddPolicy("PosDeviceOnly", p => p.RequireClaim("token_type", "device").RequireClaim("scope", "pos"));
+            .AddPolicy("PosDeviceOnly", p => p.RequireClaim("token_type", "device").RequireClaim("scope", "pos"))
+            // Orders endpoints POS terminals need directly (list/read/update status) - staff
+            // dashboard and paired Sunmi devices both allowed, nothing else.
+            .AddPolicy("StaffOrDevice", p => p.RequireAssertion(ctx =>
+                ctx.User.HasClaim(c => c.Type == "token_type" && (c.Value == "staff" || c.Value == "device"))));
 
         services.AddSingleton<SseConnectionManager>();
         services.AddScoped<IOrderNotifier, OrderNotifier>();
