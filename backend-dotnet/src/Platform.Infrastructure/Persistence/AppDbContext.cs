@@ -107,6 +107,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
 
         builder.Entity<RestaurantDomain>().HasIndex(d => d.Host).IsUnique();
         builder.Entity<Restaurant>().HasIndex(r => r.Slug).IsUnique();
+        builder.Entity<Restaurant>().Property(r => r.Currency).HasDefaultValue("GBP");
         builder.Entity<Order>().HasIndex(o => new { o.RestaurantId, o.OrderNumber }).IsUnique();
         builder.Entity<Table>().HasIndex(t => t.QrToken).IsUnique();
         builder.Entity<Customer>().HasIndex(c => new { c.RestaurantId, c.Email }).IsUnique();
