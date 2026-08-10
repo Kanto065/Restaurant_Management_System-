@@ -1,8 +1,10 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Contracts;
 using Platform.Application.Common;
+using Platform.Application.Homepage;
 using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers.Admin;
@@ -13,7 +15,7 @@ public record RestaurantSettingsDto(
     string AddressLine1, string? AddressLine2, string City, string Postcode, string Country,
     string TimeZone, bool IsActive, bool SupportsDelivery, bool SupportsCollection, bool SupportsDineIn,
     decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit,
-    string Currency);
+    string Currency, HomepageContent? HomepageContent);
 
 public record UpdateRestaurantSettingsRequest(
     string Name, string? Description, string? LogoUrl, string? HeroImageUrl,
@@ -21,7 +23,7 @@ public record UpdateRestaurantSettingsRequest(
     string AddressLine1, string? AddressLine2, string City, string Postcode, string Country,
     string TimeZone, bool SupportsDelivery, bool SupportsCollection, bool SupportsDineIn,
     decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit,
-    string Currency);
+    string Currency, HomepageContent? HomepageContent);
 
 [ApiController]
 [Route("api/admin/restaurant")]
@@ -42,7 +44,10 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
             restaurant.City, restaurant.Postcode, restaurant.Country, restaurant.TimeZone, restaurant.IsActive,
             restaurant.SupportsDelivery, restaurant.SupportsCollection, restaurant.SupportsDineIn,
             restaurant.ProcessingFeeFlat, restaurant.ProcessingFeePercentage, restaurant.LoyaltyPointsPerCurrencyUnit,
-            restaurant.Currency);
+            restaurant.Currency,
+            restaurant.HomepageContentJson is null
+                ? null
+                : JsonSerializer.Deserialize<HomepageContent>(restaurant.HomepageContentJson));
 
         return Ok(ApiResponse<RestaurantSettingsDto>.Ok(dto));
     }
@@ -76,6 +81,9 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
         restaurant.ProcessingFeePercentage = request.ProcessingFeePercentage;
         restaurant.LoyaltyPointsPerCurrencyUnit = request.LoyaltyPointsPerCurrencyUnit;
         restaurant.Currency = request.Currency;
+        restaurant.HomepageContentJson = request.HomepageContent is null
+            ? null
+            : JsonSerializer.Serialize(request.HomepageContent);
 
         await db.SaveChangesAsync();
 

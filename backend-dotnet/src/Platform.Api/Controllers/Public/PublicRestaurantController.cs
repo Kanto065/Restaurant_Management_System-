@@ -1,7 +1,9 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Contracts;
 using Platform.Application.Common;
+using Platform.Application.Homepage;
 using Platform.Domain.Enums;
 using Platform.Infrastructure.Persistence;
 
@@ -16,7 +18,7 @@ public record RestaurantPublicDto(
     string AddressLine1, string? AddressLine2, string City, string Postcode,
     bool SupportsDelivery, bool SupportsCollection, bool SupportsDineIn,
     decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit,
-    string Currency,
+    string Currency, HomepageContent? HomepageContent,
     List<OpeningHourDto> OpeningHours, List<OpeningHourExceptionDto> OpeningHourExceptions);
 
 public record DeliveryZoneDto(Guid Id, string Name, double MaxMileage, decimal DeliveryFee, decimal MinimumOrderAmount);
@@ -56,6 +58,9 @@ public class PublicRestaurantController(AppDbContext db, ICurrentTenant currentT
             restaurant.SupportsDelivery, restaurant.SupportsCollection, restaurant.SupportsDineIn,
             restaurant.ProcessingFeeFlat, restaurant.ProcessingFeePercentage, restaurant.LoyaltyPointsPerCurrencyUnit,
             restaurant.Currency,
+            restaurant.HomepageContentJson is null
+                ? null
+                : JsonSerializer.Deserialize<HomepageContent>(restaurant.HomepageContentJson),
             restaurant.OpeningHours
                 .OrderBy(h => h.DayOfWeek)
                 .Select(h => new OpeningHourDto(h.DayOfWeek, h.OpenTime?.ToString("HH:mm"), h.CloseTime?.ToString("HH:mm"), h.IsClosed))
