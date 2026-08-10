@@ -9,10 +9,39 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Lock, ChevronRight, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Lock, ChevronRight, Loader2, Image as ImageIcon, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { api } from '@/lib/api';
 import { getImageUrl } from '@/config/api';
 import { currencySymbol } from '@/lib/currency';
+import { ImageUploadField } from '@/components/ImageUploadField';
+
+interface HeroSlide {
+  imageUrl: string;
+  heading: string;
+  subheading: string | null;
+}
+
+interface HomepageContent {
+  heroSlides: HeroSlide[];
+  orderOnlineTitle: string | null;
+  orderOnlineText: string | null;
+  loyaltyTitle: string | null;
+  loyaltyText: string | null;
+  deliverTitle: string | null;
+  deliverText: string | null;
+  welcomeTitle: string | null;
+  welcomeText: string | null;
+}
+
+const emptyHomepageContent: HomepageContent = {
+  heroSlides: [],
+  orderOnlineTitle: '', orderOnlineText: '',
+  loyaltyTitle: '', loyaltyText: '',
+  deliverTitle: '', deliverText: '',
+  welcomeTitle: '', welcomeText: '',
+};
+
+const MAX_HERO_SLIDES = 5;
 
 const CURRENCIES = [
   { code: 'GBP', label: 'British Pound (£)' },
@@ -49,6 +78,7 @@ interface RestaurantSettings {
   processingFeePercentage: number;
   loyaltyPointsPerCurrencyUnit: number;
   currency: string;
+  homepageContent: HomepageContent | null;
 }
 
 type FormState = Omit<RestaurantSettings, 'id' | 'slug' | 'isActive'>;
@@ -59,7 +89,7 @@ const emptyForm: FormState = {
   city: '', postcode: '', country: 'GB', timeZone: 'Europe/London',
   supportsDelivery: true, supportsCollection: true, supportsDineIn: true,
   processingFeeFlat: 0, processingFeePercentage: 0, loyaltyPointsPerCurrencyUnit: 1,
-  currency: 'GBP',
+  currency: 'GBP', homepageContent: emptyHomepageContent,
 };
 
 const RestaurantSettingsPage = () => {
@@ -85,6 +115,19 @@ const RestaurantSettingsPage = () => {
       processingFeeFlat: r.processingFeeFlat, processingFeePercentage: r.processingFeePercentage,
       loyaltyPointsPerCurrencyUnit: r.loyaltyPointsPerCurrencyUnit,
       currency: r.currency,
+      homepageContent: r.homepageContent
+        ? {
+            heroSlides: r.homepageContent.heroSlides ?? [],
+            orderOnlineTitle: r.homepageContent.orderOnlineTitle ?? '',
+            orderOnlineText: r.homepageContent.orderOnlineText ?? '',
+            loyaltyTitle: r.homepageContent.loyaltyTitle ?? '',
+            loyaltyText: r.homepageContent.loyaltyText ?? '',
+            deliverTitle: r.homepageContent.deliverTitle ?? '',
+            deliverText: r.homepageContent.deliverText ?? '',
+            welcomeTitle: r.homepageContent.welcomeTitle ?? '',
+            welcomeText: r.homepageContent.welcomeText ?? '',
+          }
+        : emptyHomepageContent,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantQuery.data]);
@@ -98,6 +141,19 @@ const RestaurantSettingsPage = () => {
       phone: form.phone || null,
       email: form.email || null,
       addressLine2: form.addressLine2 || null,
+      homepageContent: {
+        heroSlides: (form.homepageContent?.heroSlides ?? [])
+          .filter((s) => s.imageUrl && s.heading)
+          .map((s) => ({ ...s, subheading: s.subheading || null })),
+        orderOnlineTitle: form.homepageContent?.orderOnlineTitle || null,
+        orderOnlineText: form.homepageContent?.orderOnlineText || null,
+        loyaltyTitle: form.homepageContent?.loyaltyTitle || null,
+        loyaltyText: form.homepageContent?.loyaltyText || null,
+        deliverTitle: form.homepageContent?.deliverTitle || null,
+        deliverText: form.homepageContent?.deliverText || null,
+        welcomeTitle: form.homepageContent?.welcomeTitle || null,
+        welcomeText: form.homepageContent?.welcomeText || null,
+      },
     }),
     onSuccess: () => {
       toast({ title: 'Success', description: 'Restaurant information updated.' });
@@ -107,6 +163,39 @@ const RestaurantSettingsPage = () => {
   });
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
+
+  const setHomepage = <K extends keyof HomepageContent>(key: K, value: HomepageContent[K]) =>
+    setForm((f) => ({ ...f, homepageContent: { ...(f.homepageContent ?? emptyHomepageContent), [key]: value } }));
+
+  const addHeroSlide = () =>
+    setForm((f) => {
+      const content = f.homepageContent ?? emptyHomepageContent;
+      if (content.heroSlides.length >= MAX_HERO_SLIDES) return f;
+      return { ...f, homepageContent: { ...content, heroSlides: [...content.heroSlides, { imageUrl: '', heading: '', subheading: '' }] } };
+    });
+
+  const updateHeroSlide = (index: number, patch: Partial<HeroSlide>) =>
+    setForm((f) => {
+      const content = f.homepageContent ?? emptyHomepageContent;
+      const heroSlides = content.heroSlides.map((s, i) => (i === index ? { ...s, ...patch } : s));
+      return { ...f, homepageContent: { ...content, heroSlides } };
+    });
+
+  const removeHeroSlide = (index: number) =>
+    setForm((f) => {
+      const content = f.homepageContent ?? emptyHomepageContent;
+      return { ...f, homepageContent: { ...content, heroSlides: content.heroSlides.filter((_, i) => i !== index) } };
+    });
+
+  const moveHeroSlide = (index: number, direction: -1 | 1) =>
+    setForm((f) => {
+      const content = f.homepageContent ?? emptyHomepageContent;
+      const target = index + direction;
+      if (target < 0 || target >= content.heroSlides.length) return f;
+      const heroSlides = [...content.heroSlides];
+      [heroSlides[index], heroSlides[target]] = [heroSlides[target], heroSlides[index]];
+      return { ...f, homepageContent: { ...content, heroSlides } };
+    });
 
   if (restaurantQuery.isLoading) {
     return (
@@ -167,6 +256,87 @@ const RestaurantSettingsPage = () => {
                 <Input id="themeColorSecondary" type="color" className="w-16 h-10 p-1" value={form.themeColorSecondary} onChange={(e) => set('themeColorSecondary', e.target.value)} />
                 <Input value={form.themeColorSecondary} onChange={(e) => set('themeColorSecondary', e.target.value)} />
               </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Homepage Content</CardTitle>
+          <CardDescription>Hero banners and section copy shown on your storefront's homepage. Leave a field blank to use the default text.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Hero Banners</Label>
+              <Button type="button" variant="outline" size="sm" onClick={addHeroSlide} disabled={(form.homepageContent?.heroSlides.length ?? 0) >= MAX_HERO_SLIDES}>
+                <Plus className="mr-2 h-4 w-4" />Add Banner
+              </Button>
+            </div>
+            {(form.homepageContent?.heroSlides.length ?? 0) === 0 && (
+              <p className="text-sm text-muted-foreground">No banners configured - the homepage will show a single default hero image.</p>
+            )}
+            {form.homepageContent?.heroSlides.map((slide, index) => (
+              <div key={index} className="border rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Banner {index + 1}</p>
+                  <div className="flex items-center gap-1">
+                    <Button type="button" variant="ghost" size="icon" onClick={() => moveHeroSlide(index, -1)} disabled={index === 0}>
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => moveHeroSlide(index, 1)} disabled={index === (form.homepageContent?.heroSlides.length ?? 1) - 1}>
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeHeroSlide(index)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+                <ImageUploadField value={slide.imageUrl} onChange={(url) => updateHeroSlide(index, { imageUrl: url })} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor={`slide-heading-${index}`}>Heading</Label>
+                    <Input id={`slide-heading-${index}`} value={slide.heading} onChange={(e) => updateHeroSlide(index, { heading: e.target.value })} placeholder="Try our House Specials" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`slide-subheading-${index}`}>Subheading</Label>
+                    <Input id={`slide-subheading-${index}`} value={slide.subheading ?? ''} onChange={(e) => updateHeroSlide(index, { subheading: e.target.value })} placeholder="A range of delightful dishes..." />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t">
+            <div className="space-y-2 pt-4">
+              <Label htmlFor="orderOnlineTitle">Order Online - Title</Label>
+              <Input id="orderOnlineTitle" value={form.homepageContent?.orderOnlineTitle ?? ''} onChange={(e) => setHomepage('orderOnlineTitle', e.target.value)} placeholder="Order Online" />
+              <Label htmlFor="orderOnlineText">Order Online - Text</Label>
+              <Textarea id="orderOnlineText" rows={2} value={form.homepageContent?.orderOnlineText ?? ''} onChange={(e) => setHomepage('orderOnlineText', e.target.value)} placeholder="Enter your postcode to begin your order for collection or delivery." />
+            </div>
+            <div className="space-y-2 pt-4">
+              <Label htmlFor="loyaltyTitle">Loyalty Points - Title</Label>
+              <Input id="loyaltyTitle" value={form.homepageContent?.loyaltyTitle ?? ''} onChange={(e) => setHomepage('loyaltyTitle', e.target.value)} placeholder="Loyalty Points" />
+              <Label htmlFor="loyaltyText">Loyalty Points - Text</Label>
+              <Textarea id="loyaltyText" rows={2} value={form.homepageContent?.loyaltyText ?? ''} onChange={(e) => setHomepage('loyaltyText', e.target.value)} placeholder="Register as a member to earn and redeem loyalty points on every order." />
+            </div>
+            <div className="space-y-2 pt-4">
+              <Label htmlFor="deliverTitle">We Deliver - Title</Label>
+              <Input id="deliverTitle" value={form.homepageContent?.deliverTitle ?? ''} onChange={(e) => setHomepage('deliverTitle', e.target.value)} placeholder="We Deliver!" />
+              <Label htmlFor="deliverText">We Deliver - Text</Label>
+              <Textarea id="deliverText" rows={2} value={form.homepageContent?.deliverText ?? ''} onChange={(e) => setHomepage('deliverText', e.target.value)} placeholder="Order online today and our drivers will bring your food straight to your door." />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t">
+            <div className="space-y-2 pt-4">
+              <Label htmlFor="welcomeTitle">Welcome Section - Title</Label>
+              <Input id="welcomeTitle" value={form.homepageContent?.welcomeTitle ?? ''} onChange={(e) => setHomepage('welcomeTitle', e.target.value)} placeholder="Welcome!" />
+            </div>
+            <div className="space-y-2 pt-4">
+              <Label htmlFor="welcomeText">Welcome Section - Text</Label>
+              <Textarea id="welcomeText" rows={2} value={form.homepageContent?.welcomeText ?? ''} onChange={(e) => setHomepage('welcomeText', e.target.value)} placeholder="Experience the bold flavours of Indian cuisine..." />
             </div>
           </div>
         </CardContent>

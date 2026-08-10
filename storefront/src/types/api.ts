@@ -13,6 +13,24 @@ export interface OpeningHourException {
   note: string | null;
 }
 
+export interface HeroSlide {
+  imageUrl: string;
+  heading: string;
+  subheading: string | null;
+}
+
+export interface HomepageContent {
+  heroSlides: HeroSlide[];
+  orderOnlineTitle: string | null;
+  orderOnlineText: string | null;
+  loyaltyTitle: string | null;
+  loyaltyText: string | null;
+  deliverTitle: string | null;
+  deliverText: string | null;
+  welcomeTitle: string | null;
+  welcomeText: string | null;
+}
+
 export interface RestaurantPublic {
   id: string;
   name: string;
@@ -35,6 +53,7 @@ export interface RestaurantPublic {
   processingFeePercentage: number;
   loyaltyPointsPerCurrencyUnit: number;
   currency: string;
+  homepageContent: HomepageContent | null;
   openingHours: OpeningHour[];
   openingHourExceptions: OpeningHourException[];
 }

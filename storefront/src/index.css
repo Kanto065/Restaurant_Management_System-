@@ -23,3 +23,9 @@ body {
 .font-display {
   font-family: var(--font-display);
 }
+
+.bg-pattern-paisley {
+  background-image: url('./assets/pattern-paisley.svg');
+  background-repeat: repeat;
+  background-size: 220px 220px;
+}
