@@ -61,14 +61,21 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Serves admin-uploaded images (hero slides, logo, etc) from wwwroot/uploads. wwwroot may
-// not have existed yet when the host built its static-file provider, so (re)create the
-// directory and file provider explicitly rather than relying on the build-time default.
-var webRootPath = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
-Directory.CreateDirectory(Path.Combine(webRootPath, "uploads"));
-app.Environment.WebRootPath = webRootPath;
-app.Environment.WebRootFileProvider = new PhysicalFileProvider(webRootPath);
-app.UseStaticFiles();
+// Serves admin-uploaded images from wwwroot/uploads when using the Local storage provider
+// (dev). In production (Storage:Provider=S3), uploads live in the MinIO/S3 bucket instead and
+// Caddy proxies /uploads/* straight there, so this middleware is unnecessary - and wwwroot
+// may not even exist in that case. wwwroot may not exist yet when the host built its
+// static-file provider either way, so (re)create the directory/provider explicitly rather
+// than relying on the build-time default.
+var storageProvider = builder.Configuration.GetSection("Storage")["Provider"];
+if (!string.Equals(storageProvider, "S3", StringComparison.OrdinalIgnoreCase))
+{
+    var webRootPath = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+    Directory.CreateDirectory(Path.Combine(webRootPath, "uploads"));
+    app.Environment.WebRootPath = webRootPath;
+    app.Environment.WebRootFileProvider = new PhysicalFileProvider(webRootPath);
+    app.UseStaticFiles();
+}
 
 app.UseHttpsRedirection();
 app.UseCors("Default");
