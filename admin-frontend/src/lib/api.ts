@@ -77,10 +77,34 @@ export const api = {
   },
 
   delete<T = any>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
-    return request<T>(endpoint, { 
+    return request<T>(endpoint, {
       method: 'DELETE',
       ...(body && { body: JSON.stringify(body) }),
     });
+  },
+
+  async upload<T = any>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
+    const token = localStorage.getItem('admin_token');
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      // No Content-Type header here - the browser sets multipart/form-data with the
+      // correct boundary itself; setting it manually breaks the upload.
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new ApiError(response.status, data.message || 'Upload failed');
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to connect to server');
+    }
   },
 };
 
