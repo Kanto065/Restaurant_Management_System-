@@ -1,5 +1,7 @@
+using Amazon.S3;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Platform.Api.Contracts;
 using Platform.Application.Common;
 using SixLabors.ImageSharp;
@@ -25,7 +27,7 @@ public record UploadedImageDto(string Url);
 [ApiController]
 [Route("api/admin/uploads")]
 [Authorize(Policy = "StaffOnly")]
-public class UploadsController(IFileStorage fileStorage, ICurrentTenant currentTenant) : ControllerBase
+public class UploadsController(IFileStorage fileStorage, ICurrentTenant currentTenant, ILogger<UploadsController> logger) : ControllerBase
 {
     private const int MaxDimension = 2000;
     private const int JpegQuality = 88;
@@ -103,8 +105,21 @@ public class UploadsController(IFileStorage fileStorage, ICurrentTenant currentT
             }
 
             var fileName = $"{Guid.NewGuid()}{extension}";
-            var url = await fileStorage.SaveAsync(
-                currentTenant.RestaurantId.Value, fileName, output.ToArray(), contentType, ct);
+            string url;
+            try
+            {
+                url = await fileStorage.SaveAsync(
+                    currentTenant.RestaurantId.Value, fileName, output.ToArray(), contentType, ct);
+            }
+            catch (AmazonS3Exception ex)
+            {
+                // Almost always misconfigured MinIO/S3 credentials or an unreachable endpoint -
+                // surfacing that distinction (rather than a bare 500) is the whole point here,
+                // since this is the one step in the pipeline an admin can't self-diagnose.
+                logger.LogError(ex, "Image upload failed writing to object storage.");
+                return StatusCode(502, ApiResponse<UploadedImageDto>.Fail(
+                    "Image storage is unavailable right now. Please try again shortly, or contact support if this persists.", 502));
+            }
 
             return Ok(ApiResponse<UploadedImageDto>.Ok(new UploadedImageDto(url)));
         }
