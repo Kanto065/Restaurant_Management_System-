@@ -81,9 +81,12 @@ public class RestaurantDomain : Entity
     public DateTimeOffset? VerifiedAt { get; set; }
 }
 
-public class OpeningHour : Entity
+/// <summary>Was `: Entity` with a manually-declared RestaurantId that nothing ever set - it
+/// deserialized fine but skipped both the auto-tenant-stamp on insert and the tenant query
+/// filter (both keyed off IHasTenant), so every save 500'd on the RestaurantId FK constraint
+/// and any row that *did* exist was visible to every restaurant. TenantEntity fixes both.</summary>
+public class OpeningHour : TenantEntity
 {
-    public Guid RestaurantId { get; set; }
     public Restaurant? Restaurant { get; set; }
 
     public DayOfWeek DayOfWeek { get; set; }
