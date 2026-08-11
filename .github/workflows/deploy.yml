@@ -31,4 +31,10 @@ jobs:
             git reset --hard origin/deploy
             cd deploy
             docker compose -f docker-compose.prod.yml up -d --build
+            # caddy has no build context and its Caddyfile is bind-mounted, so `up -d --build`
+            # never recreates it - a Caddyfile-only change (e.g. adding a proxy route) would
+            # otherwise silently keep running the old config indefinitely. Reload picks up the
+            # new file with no dropped connections; fall back to a full restart if that fails.
+            docker compose -f docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
+              || docker compose -f docker-compose.prod.yml restart caddy
             docker image prune -f
