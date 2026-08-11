@@ -1,0 +1,65 @@
+name: Android POS release
+
+on:
+  push:
+    branches: [main]
+    paths: ["android/**"]
+  workflow_dispatch: {}
+
+# Lets softprops/action-gh-release create/update a release with the default GITHUB_TOKEN.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and publish POS APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # No gradlew is committed yet (Android Studio generates it locally on first sync) - this
+      # provisions the exact Gradle version from android/gradle/wrapper/gradle-wrapper.properties
+      # and runs `gradle` directly instead, with the same build-cache benefits `./gradlew` gives.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: wrapper
+          build-scan-publish: false
+
+      - name: Read version name
+        id: version
+        working-directory: android
+        run: |
+          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=pos-v${VERSION_NAME}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      # Debug-signed (Gradle's built-in debug keystore) so this works with zero secrets to set
+      # up. Fine for sideloading onto our own Sunmi terminals; swap for a real release-signing
+      # config (keystore + passwords as repo secrets) before this app goes any wider than that.
+      - name: Build debug APK
+        working-directory: android
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Rename APK to a stable filename
+        run: |
+          mkdir -p release
+          cp android/app/build/outputs/apk/debug/app-debug.apk release/porttennanttandoori-pos.apk
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: POS v${{ steps.version.outputs.name }} (build ${{ github.run_number }})
+          make_latest: true
+          generate_release_notes: true
+          files: release/porttennanttandoori-pos.apk
