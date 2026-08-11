@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Just the window-level theme before Compose takes over (see ui/theme/Theme.kt for the
+         actual Material3 color scheme) - Activities and content are Compose-only. -->
+    <style name="Theme.PosApp" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@color/pos_orange</item>
+    </style>
+</resources>
