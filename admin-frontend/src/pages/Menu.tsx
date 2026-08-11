@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { api } from '@/lib/api';
 import { getImageUrl } from '@/config/api';
 import { useCurrency } from '@/hooks/useCurrency';
+import { ImageUploadField } from '@/components/ImageUploadField';
 
 const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Hot', 'ExtraHot'] as const;
 
@@ -255,16 +256,11 @@ const Menu = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input id="imageUrl" value={form.imageUrl} onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))}
-                  placeholder="https://..." disabled={isSubmitting} />
-                {form.imageUrl && (
-                  <div className="w-full h-40 border rounded-lg overflow-hidden bg-muted">
-                    <img src={getImageUrl(form.imageUrl)} alt="Preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
-              </div>
+              <ImageUploadField
+                label="Item Image"
+                value={form.imageUrl}
+                onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))}
+              />
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
