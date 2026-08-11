@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, UtensilsCrossed, ShoppingBag, Table2, LogOut, User, Lock, Bell, BookOpen, PackageOpen, Star, Ticket, Clock3, Truck } from 'lucide-react';
+import { LayoutDashboard, Settings, UtensilsCrossed, ShoppingBag, Table2, LogOut, User, Lock, Bell, BookOpen, PackageOpen, Star, Ticket, Clock3, Truck, Smartphone } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
+import { POS_APP_DOWNLOAD_URL } from '@/config/api';
 
 const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
@@ -87,6 +88,12 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+        <Button variant="outline" className={collapsed ? 'w-full justify-center' : 'w-full justify-start'} asChild>
+          <a href={POS_APP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
+            <Smartphone className="w-4 h-4" />
+            {!collapsed && <span>Download POS App</span>}
+          </a>
+        </Button>
         {user && !collapsed && (
           <>
             <DropdownMenu>
