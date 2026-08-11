@@ -16,10 +16,13 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
+import { getImageUrl } from '@/config/api';
+import { ImageUploadField } from '@/components/ImageUploadField';
 
 interface MenuCategory {
   id: string;
   name: string;
+  imageUrl: string | null;
   displayOrder: number;
   isActive: boolean;
 }
@@ -32,6 +35,7 @@ const Menus = () => {
   const [editing, setEditing] = useState<MenuCategory | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [displayOrder, setDisplayOrder] = useState('0');
   const [isActive, setIsActive] = useState(true);
 
@@ -44,13 +48,13 @@ const Menus = () => {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'menu-categories'] });
 
   const createMutation = useMutation({
-    mutationFn: (payload: { name: string; displayOrder: number; isActive: boolean }) => api.post('/api/admin/menu-categories', payload),
+    mutationFn: (payload: { name: string; imageUrl: string | null; displayOrder: number; isActive: boolean }) => api.post('/api/admin/menu-categories', payload),
     onSuccess: () => { toast({ title: 'Success', description: 'Category created.' }); invalidate(); resetForm(); },
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { name: string; displayOrder: number; isActive: boolean } }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: { name: string; imageUrl: string | null; displayOrder: number; isActive: boolean } }) =>
       api.put(`/api/admin/menu-categories/${id}`, payload),
     onSuccess: () => { toast({ title: 'Success', description: 'Category updated.' }); invalidate(); resetForm(); },
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
@@ -65,7 +69,7 @@ const Menus = () => {
 
   const toggleActiveMutation = useMutation({
     mutationFn: (cat: MenuCategory) => api.put(`/api/admin/menu-categories/${cat.id}`, {
-      name: cat.name, displayOrder: cat.displayOrder, isActive: !cat.isActive,
+      name: cat.name, imageUrl: cat.imageUrl, displayOrder: cat.displayOrder, isActive: !cat.isActive,
     }),
     onSuccess: invalidate,
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
@@ -77,7 +81,7 @@ const Menus = () => {
       toast({ title: 'Validation Error', description: 'Category name is required.', variant: 'destructive' });
       return;
     }
-    const payload = { name, displayOrder: parseInt(displayOrder, 10) || 0, isActive };
+    const payload = { name, imageUrl, displayOrder: parseInt(displayOrder, 10) || 0, isActive };
     if (editing) {
       updateMutation.mutate({ id: editing.id, payload });
     } else {
@@ -88,13 +92,14 @@ const Menus = () => {
   const handleEdit = (cat: MenuCategory) => {
     setEditing(cat);
     setName(cat.name);
+    setImageUrl(cat.imageUrl);
     setDisplayOrder(cat.displayOrder.toString());
     setIsActive(cat.isActive);
     setIsDialogOpen(true);
   };
 
   const resetForm = () => {
-    setName(''); setDisplayOrder('0'); setIsActive(true); setEditing(null); setIsDialogOpen(false);
+    setName(''); setImageUrl(null); setDisplayOrder('0'); setIsActive(true); setEditing(null); setIsDialogOpen(false);
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
@@ -135,6 +140,7 @@ const Menus = () => {
                 <Label htmlFor="name">Category Name *</Label>
                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Tandoori Specialities" required disabled={isSubmitting} />
               </div>
+              <ImageUploadField label="Category Image" value={imageUrl} onChange={setImageUrl} />
               <div className="space-y-2">
                 <Label htmlFor="displayOrder">Display Order</Label>
                 <Input id="displayOrder" type="number" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} disabled={isSubmitting} />
@@ -175,6 +181,13 @@ const Menus = () => {
               {categories.map((cat) => (
                 <div key={cat.id} className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
+                    {cat.imageUrl ? (
+                      <img src={getImageUrl(cat.imageUrl)} alt={cat.name} className="w-10 h-10 rounded object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
+                        <BookOpen className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
                     <Badge variant="outline">#{cat.displayOrder}</Badge>
                     <span className="font-medium">{cat.name}</span>
                     {!cat.isActive && <Badge variant="secondary">Hidden</Badge>}
