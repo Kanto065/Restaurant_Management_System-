@@ -7,8 +7,8 @@ using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers.Admin;
 
-public record MenuCategoryDto(Guid Id, string Name, int DisplayOrder, bool IsActive);
-public record UpsertMenuCategoryRequest(string Name, int DisplayOrder, bool IsActive);
+public record MenuCategoryDto(Guid Id, string Name, string? ImageUrl, int DisplayOrder, bool IsActive);
+public record UpsertMenuCategoryRequest(string Name, string? ImageUrl, int DisplayOrder, bool IsActive);
 
 [ApiController]
 [Route("api/admin/menu-categories")]
@@ -20,7 +20,7 @@ public class MenuCategoriesController(AppDbContext db) : ControllerBase
     {
         var categories = await db.MenuCategories
             .OrderBy(c => c.DisplayOrder)
-            .Select(c => new MenuCategoryDto(c.Id, c.Name, c.DisplayOrder, c.IsActive))
+            .Select(c => new MenuCategoryDto(c.Id, c.Name, c.ImageUrl, c.DisplayOrder, c.IsActive))
             .ToListAsync();
 
         return Ok(ApiResponse<List<MenuCategoryDto>>.Ok(categories));
@@ -29,12 +29,16 @@ public class MenuCategoriesController(AppDbContext db) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ApiResponse<MenuCategoryDto>>> Create(UpsertMenuCategoryRequest request)
     {
-        var category = new MenuCategory { Name = request.Name, DisplayOrder = request.DisplayOrder, IsActive = request.IsActive };
+        var category = new MenuCategory
+        {
+            Name = request.Name, ImageUrl = request.ImageUrl,
+            DisplayOrder = request.DisplayOrder, IsActive = request.IsActive,
+        };
         db.MenuCategories.Add(category);
         await db.SaveChangesAsync();
 
         return Ok(ApiResponse<MenuCategoryDto>.Ok(
-            new MenuCategoryDto(category.Id, category.Name, category.DisplayOrder, category.IsActive), statusCode: 201));
+            new MenuCategoryDto(category.Id, category.Name, category.ImageUrl, category.DisplayOrder, category.IsActive), statusCode: 201));
     }
 
     [HttpPut("{id:guid}")]
@@ -45,12 +49,13 @@ public class MenuCategoriesController(AppDbContext db) : ControllerBase
             return NotFound(ApiResponse<MenuCategoryDto>.Fail("Menu category not found.", 404));
 
         category.Name = request.Name;
+        category.ImageUrl = request.ImageUrl;
         category.DisplayOrder = request.DisplayOrder;
         category.IsActive = request.IsActive;
         await db.SaveChangesAsync();
 
         return Ok(ApiResponse<MenuCategoryDto>.Ok(
-            new MenuCategoryDto(category.Id, category.Name, category.DisplayOrder, category.IsActive)));
+            new MenuCategoryDto(category.Id, category.Name, category.ImageUrl, category.DisplayOrder, category.IsActive)));
     }
 
     [HttpDelete("{id:guid}")]
