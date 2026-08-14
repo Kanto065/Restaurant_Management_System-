@@ -52,7 +52,7 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
       <div className="bg-brand-bg text-brand-cream w-full sm:max-w-lg sm:rounded-lg overflow-hidden h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col">
         <div className="relative shrink-0">
           <div className="aspect-[16/9] bg-brand-bg-light">
-            {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
+            {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-contain" />}
           </div>
           <button
             onClick={onClose}
