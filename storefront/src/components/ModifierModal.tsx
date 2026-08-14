@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { MenuItem, ModifierOption } from '../types/api';
 import { useCartStore } from '../store/cart';
-import { useRestaurant } from '../lib/queries';
+import { useFavourites, useRestaurant } from '../lib/queries';
+import { api, customerAuth } from '../lib/api';
 import { currencySymbol } from '../lib/currency';
 import { spiceIcon } from '../lib/spice';
 
@@ -10,6 +12,17 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
   const addLine = useCartStore((s) => s.addLine);
   const { data: restaurant } = useRestaurant();
   const currency = currencySymbol(restaurant?.currency);
+  const isMember = customerAuth.isLoggedIn();
+  const queryClient = useQueryClient();
+  const favouritesQuery = useFavourites();
+  const isFavourite = (favouritesQuery.data ?? []).some((f) => f.menuItemId === item.id);
+  const toggleFavouriteMutation = useMutation({
+    mutationFn: () =>
+      isFavourite
+        ? api.delete(`/api/account/favourites/${item.id}`)
+        : api.post('/api/account/favourites', { menuItemId: item.id }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account', 'favourites'] }),
+  });
   const [selected, setSelected] = useState<Record<string, ModifierOption[]>>(() =>
     Object.fromEntries(item.modifierGroups.map((g) => [g.id, g.options.filter((o) => o.isDefault)]))
   );
@@ -48,15 +61,28 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
           >
             ←
           </button>
-          {item.isBestSeller && (
-            <span className="absolute top-3 right-3 bg-brand-orange text-white text-xs font-medium px-2.5 py-1 rounded-full">
-              Bestseller
-            </span>
+          {isMember && (
+            <button
+              onClick={() => toggleFavouriteMutation.mutate()}
+              aria-label="Toggle favourite"
+              className={`absolute top-3 right-3 w-9 h-9 rounded-full bg-brand-bg/70 flex items-center justify-center ${
+                isFavourite ? 'text-brand-orange' : 'text-brand-cream'
+              }`}
+            >
+              ♥
+            </button>
           )}
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          <h3 className="font-display text-2xl">{item.name}</h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-display text-2xl">{item.name}</h3>
+            {item.isBestSeller && (
+              <span className="bg-brand-orange text-white text-xs font-medium px-2.5 py-1 rounded-full">
+                Bestseller
+              </span>
+            )}
+          </div>
           {item.description && <p className="text-sm text-brand-cream/70 mt-2 leading-relaxed">{item.description}</p>}
 
           <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 pt-4 border-t border-brand-cream/10 text-sm text-brand-cream/80">

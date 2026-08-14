@@ -254,7 +254,7 @@ export default function Menu() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        item.modifierGroups.length > 0 ? setModalItem(item) : addLine(item, []);
+                        setModalItem(item);
                       }}
                       className="sm:self-center bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
                     >
