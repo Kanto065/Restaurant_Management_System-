@@ -6,7 +6,12 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import OrderTracking from './pages/OrderTracking';
 import Members from './pages/Members';
-import Account from './pages/Account';
+import MemberLayout from './components/MemberLayout';
+import MembersHome from './pages/members/MembersHome';
+import LoyaltyPoints from './pages/members/LoyaltyPoints';
+import MyOrders from './pages/members/MyOrders';
+import MyProfile from './pages/members/MyProfile';
+import MyAddresses from './pages/members/MyAddresses';
 import Reviews from './pages/Reviews';
 import ContactUs from './pages/ContactUs';
 
@@ -24,7 +29,13 @@ export default function App() {
         <Route path="/order/:orderId/track" element={<OrderTracking />} />
         <Route path="/reviews" element={<Reviews />} />
         <Route path="/contact-us" element={<ContactUs />} />
-        <Route path="/account" element={<Account />} />
+        <Route path="/account" element={<MemberLayout />}>
+          <Route index element={<MembersHome />} />
+          <Route path="loyalty" element={<LoyaltyPoints />} />
+          <Route path="orders" element={<MyOrders />} />
+          <Route path="profile" element={<MyProfile />} />
+          <Route path="addresses" element={<MyAddresses />} />
+        </Route>
         <Route path="/account/members" element={<Members />} />
         {/* Old separate login/register routes now redirect to the combined Members page. */}
         <Route path="/account/login" element={<Navigate to="/account/members" replace />} />

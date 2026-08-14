@@ -203,7 +203,68 @@ export interface TrackOrder {
 export interface AccountOrderSummary {
   id: string;
   orderNumber: number;
+  orderType: OrderType;
   status: OrderStatus;
+  paymentMethod: PaymentMethod;
   totalAmount: number;
   createdAt: string;
+}
+
+export interface CustomerAddress {
+  id: string;
+  label: string | null;
+  line1: string;
+  line2: string | null;
+  city: string;
+  county: string | null;
+  postcode: string;
+  isDefault: boolean;
+}
+
+export interface UpsertCustomerAddressRequest {
+  label: string | null;
+  line1: string;
+  line2: string | null;
+  city: string;
+  county: string | null;
+  postcode: string;
+  isDefault: boolean;
+}
+
+export interface CustomerProfile {
+  title: string | null;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  landlinePhone: string | null;
+  dateOfBirth: string | null;
+  marketingEmailOptIn: boolean;
+  marketingSmsOptIn: boolean;
+  loyaltyPointsBalance: number;
+  orderCount: number;
+  orderTotal: number;
+  addresses: CustomerAddress[];
+  defaultAddressId: string | null;
+}
+
+export interface UpdateProfileRequest {
+  title: string | null;
+  fullName: string;
+  phone: string | null;
+  landlinePhone: string | null;
+  dateOfBirth: string | null;
+  marketingEmailOptIn: boolean;
+  marketingSmsOptIn: boolean;
+  newPassword?: string | null;
+}
+
+export interface LoyaltyTransaction {
+  pointsDelta: number;
+  reason: string;
+  createdAt: string;
+}
+
+export interface Loyalty {
+  pointsBalance: number;
+  recentTransactions: LoyaltyTransaction[];
 }

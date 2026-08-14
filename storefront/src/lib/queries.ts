@@ -1,7 +1,8 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, customerAuth } from './api';
 import type {
   RestaurantPublic, MenuResponse, DeliveryZone, CreateOrderRequest, CreatedOrder, TrackOrder, ReviewPage, AccountOrderSummary,
+  CustomerProfile, UpdateProfileRequest, CustomerAddress, UpsertCustomerAddressRequest, Loyalty,
 } from '../types/api';
 
 export function useRestaurant() {
@@ -69,5 +70,59 @@ export function useOrders() {
     queryKey: ['account', 'orders'],
     queryFn: () => api.get<AccountOrderSummary[]>('/api/account/orders'),
     enabled: customerAuth.isLoggedIn(),
+  });
+}
+
+export function useLoyalty() {
+  return useQuery({
+    queryKey: ['account', 'loyalty'],
+    queryFn: () => api.get<Loyalty>('/api/account/loyalty'),
+    enabled: customerAuth.isLoggedIn(),
+  });
+}
+
+export function useProfile() {
+  return useQuery({
+    queryKey: ['account', 'profile'],
+    queryFn: () => api.get<CustomerProfile>('/api/account/profile'),
+    enabled: customerAuth.isLoggedIn(),
+  });
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (req: UpdateProfileRequest) => api.put<CustomerProfile>('/api/account/profile', req),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account', 'profile'] }),
+  });
+}
+
+export function useDeleteAccount() {
+  return useMutation({
+    mutationFn: () => api.delete('/api/account/profile'),
+  });
+}
+
+export function useCreateAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (req: UpsertCustomerAddressRequest) => api.post<CustomerAddress>('/api/account/addresses', req),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account', 'profile'] }),
+  });
+}
+
+export function useUpdateAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, req }: { id: string; req: UpsertCustomerAddressRequest }) => api.put<CustomerAddress>(`/api/account/addresses/${id}`, req),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account', 'profile'] }),
+  });
+}
+
+export function useDeleteAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/account/addresses/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account', 'profile'] }),
   });
 }
