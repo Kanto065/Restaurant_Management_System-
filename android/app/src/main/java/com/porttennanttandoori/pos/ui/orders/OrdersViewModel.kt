@@ -34,7 +34,10 @@ class OrdersViewModel(private val repository: OrdersRepository) : ViewModel() {
 
     init {
         refresh()
+        viewModelScope.launch { repository.loadStatusDefinitions() }
     }
+
+    fun nextStatus(current: OrderStatus): OrderStatus? = repository.nextStatus(current)
 
     fun loadDetail(orderId: String) {
         if (_orderDetails.value.containsKey(orderId)) return

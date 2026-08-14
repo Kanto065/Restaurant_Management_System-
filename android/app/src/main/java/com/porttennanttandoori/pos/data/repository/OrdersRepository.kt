@@ -4,6 +4,8 @@ import com.porttennanttandoori.pos.data.model.OrderDetailDto
 import com.porttennanttandoori.pos.data.model.OrderEvent
 import com.porttennanttandoori.pos.data.model.OrderListItemDto
 import com.porttennanttandoori.pos.data.model.OrderStatus
+import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
+import com.porttennanttandoori.pos.data.model.PaymentStatusDefinitionDto
 import com.porttennanttandoori.pos.data.model.UpdateOrderStatusRequest
 import com.porttennanttandoori.pos.data.network.ApiService
 import com.porttennanttandoori.pos.data.network.OrderEventsClient
@@ -22,7 +24,42 @@ class OrdersRepository(
     private val _orders = MutableStateFlow<List<OrderListItemDto>>(emptyList())
     val orders: StateFlow<List<OrderListItemDto>> = _orders.asStateFlow()
 
+    // Statuses are per-restaurant and admin-configurable (Admin/StatusDefinitionsController),
+    // not a fixed enum - fetched once and kept ordered by DisplayOrder so nextStatus() can walk
+    // the same sequence the admin Configurations page and web Orders stepper use.
+    private val _orderStatusDefinitions = MutableStateFlow<List<OrderStatusDefinitionDto>>(emptyList())
+    val orderStatusDefinitions: StateFlow<List<OrderStatusDefinitionDto>> = _orderStatusDefinitions.asStateFlow()
+
+    private val _paymentStatusDefinitions = MutableStateFlow<List<PaymentStatusDefinitionDto>>(emptyList())
+    val paymentStatusDefinitions: StateFlow<List<PaymentStatusDefinitionDto>> = _paymentStatusDefinitions.asStateFlow()
+
     fun eventStream() = eventsClient.stream()
+
+    suspend fun loadStatusDefinitions() {
+        try {
+            val orderStatusesResponse = apiService.listOrderStatusDefinitions()
+            if (orderStatusesResponse.isSuccessful) {
+                _orderStatusDefinitions.value = orderStatusesResponse.body()?.data.orEmpty()
+            }
+            val paymentStatusesResponse = apiService.listPaymentStatusDefinitions()
+            if (paymentStatusesResponse.isSuccessful) {
+                _paymentStatusDefinitions.value = paymentStatusesResponse.body()?.data.orEmpty()
+            }
+        } catch (e: IOException) {
+            // Non-fatal: the status stepper just won't offer a "next" action until this succeeds
+            // on a later refresh; the order list itself doesn't depend on these.
+        }
+    }
+
+    /** Next status in DisplayOrder sequence after [current], or null if [current] is unrecognized
+     * or already last. Mirrors the admin web Configurations ordering - there's no fixed
+     * "Cancelled" concept anymore, so whatever the restaurant orders last is the terminal state. */
+    fun nextStatus(current: OrderStatus): OrderStatus? {
+        val sorted = _orderStatusDefinitions.value.sortedBy { it.displayOrder }
+        val index = sorted.indexOfFirst { it.name == current }
+        if (index == -1 || index >= sorted.size - 1) return null
+        return sorted[index + 1].name
+    }
 
     suspend fun refresh(): Result<Unit> {
         return try {

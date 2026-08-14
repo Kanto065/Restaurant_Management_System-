@@ -35,6 +35,7 @@ class OrderListenerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val app = application as PosApplication
         scope.launch { app.ordersRepository.refresh() }
+        scope.launch { app.ordersRepository.loadStatusDefinitions() }
         scope.launch { listenWithReconnect(app) }
         return START_STICKY
     }

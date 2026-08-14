@@ -10,13 +10,34 @@ import kotlinx.serialization.Serializable
 enum class OrderType { DineIn, Collection, Delivery }
 
 @Serializable
-enum class OrderStatus { Pending, Confirmed, Preparing, Ready, OutForDeliveryOrServed, Completed, Cancelled }
-
-@Serializable
 enum class PaymentMethod { Card, Cash, ApplePay, GooglePay }
 
+// Order/payment status are no longer fixed enums on the backend - they're per-restaurant,
+// admin-configurable rows (Admin/StatusDefinitionsController). The terminal fetches the current
+// ordered list via OrderStatusDefinitionDto/PaymentStatusDefinitionDto and treats the values
+// themselves as opaque strings.
+typealias OrderStatus = String
+typealias PaymentStatus = String
+
+/** Matches Admin/StatusDefinitionsController.OrderStatusDefinitionDto. */
 @Serializable
-enum class PaymentStatus { Pending, Authorized, Paid, Failed, Refunded, PartiallyRefunded }
+data class OrderStatusDefinitionDto(
+    val id: String,
+    val name: String,
+    val displayOrder: Int,
+    val countsAsPending: Boolean,
+    val countsAsCompleted: Boolean,
+    val isDefault: Boolean,
+)
+
+/** Matches Admin/StatusDefinitionsController.PaymentStatusDefinitionDto. */
+@Serializable
+data class PaymentStatusDefinitionDto(
+    val id: String,
+    val name: String,
+    val displayOrder: Int,
+    val isDefault: Boolean,
+)
 
 /** Matches Admin/OrdersController.OrderListItemDto. */
 @Serializable
@@ -89,14 +110,3 @@ data class UpdateOrderStatusRequest(
     val status: OrderStatus,
     val note: String? = null,
 )
-
-/** The linear happy-path progression a POS terminal steps orders through. Cancellation is a
- * separate action, not part of this sequence. */
-fun OrderStatus.nextStatus(): OrderStatus? = when (this) {
-    OrderStatus.Pending -> OrderStatus.Confirmed
-    OrderStatus.Confirmed -> OrderStatus.Preparing
-    OrderStatus.Preparing -> OrderStatus.Ready
-    OrderStatus.Ready -> OrderStatus.OutForDeliveryOrServed
-    OrderStatus.OutForDeliveryOrServed -> OrderStatus.Completed
-    OrderStatus.Completed, OrderStatus.Cancelled -> null
-}

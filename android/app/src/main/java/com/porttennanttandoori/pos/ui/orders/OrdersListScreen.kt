@@ -32,7 +32,6 @@ import java.util.Locale
 import com.porttennanttandoori.pos.data.model.OrderDetailDto
 import com.porttennanttandoori.pos.data.model.OrderListItemDto
 import com.porttennanttandoori.pos.data.model.OrderStatus
-import com.porttennanttandoori.pos.data.model.nextStatus
 
 @Composable
 fun OrdersListScreen(viewModel: OrdersViewModel, restaurantName: String) {
@@ -80,6 +79,7 @@ fun OrdersListScreen(viewModel: OrdersViewModel, restaurantName: String) {
                             isUpdating = screenState.updatingOrderId == order.id,
                             onExpand = { viewModel.loadDetail(order.id) },
                             onAdvanceStatus = { newStatus -> viewModel.advanceStatus(order.id, newStatus) },
+                            nextStatusFor = { current -> viewModel.nextStatus(current) },
                         )
                     }
                 }
@@ -95,6 +95,7 @@ private fun OrderCard(
     isUpdating: Boolean,
     onExpand: () -> Unit,
     onAdvanceStatus: (OrderStatus) -> Unit,
+    nextStatusFor: (OrderStatus) -> OrderStatus?,
 ) {
     var expanded by rememberSaveable(order.id) { mutableStateOf(false) }
 
@@ -116,7 +117,7 @@ private fun OrderCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
-                Text(text = order.status.name, style = MaterialTheme.typography.titleMedium)
+                Text(text = order.status, style = MaterialTheme.typography.titleMedium)
             }
 
             Spacer(modifier = Modifier.padding(top = 4.dp))
@@ -162,13 +163,13 @@ private fun OrderCard(
                     }
                 }
 
-                order.status.nextStatus()?.let { next ->
+                nextStatusFor(order.status)?.let { next ->
                     Button(
                         onClick = { onAdvanceStatus(next) },
                         enabled = !isUpdating,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(if (isUpdating) "Updating..." else "Mark as ${next.name}")
+                        Text(if (isUpdating) "Updating..." else "Mark as $next")
                     }
                 }
             }

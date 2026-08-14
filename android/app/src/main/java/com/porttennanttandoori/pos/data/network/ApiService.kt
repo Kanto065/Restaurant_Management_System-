@@ -5,6 +5,8 @@ import com.porttennanttandoori.pos.data.model.DeviceLoginRequest
 import com.porttennanttandoori.pos.data.model.DeviceTokenResponse
 import com.porttennanttandoori.pos.data.model.OrderDetailDto
 import com.porttennanttandoori.pos.data.model.OrderListItemDto
+import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
+import com.porttennanttandoori.pos.data.model.PaymentStatusDefinitionDto
 import com.porttennanttandoori.pos.data.model.UpdateOrderStatusRequest
 import retrofit2.Response
 import retrofit2.http.Body
@@ -28,4 +30,10 @@ interface ApiService {
         @Path("id") id: String,
         @Body request: UpdateOrderStatusRequest,
     ): Response<ApiResponse<OrderDetailDto>>
+
+    @GET("api/admin/order-statuses")
+    suspend fun listOrderStatusDefinitions(): Response<ApiResponse<List<OrderStatusDefinitionDto>>>
+
+    @GET("api/admin/payment-statuses")
+    suspend fun listPaymentStatusDefinitions(): Response<ApiResponse<List<PaymentStatusDefinitionDto>>>
 }
