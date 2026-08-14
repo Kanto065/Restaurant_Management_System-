@@ -96,7 +96,9 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
             {item.isVegetarian && !item.isVegan && <span className="flex items-center gap-1.5">🌱 Vegetarian</span>}
           </div>
 
-          <p className="text-brand-mint text-xl font-semibold mt-4">{currency}{item.basePrice.toFixed(2)}</p>
+          {!(item.basePrice === 0 && item.modifierGroups.some((g) => g.groupType === 'Variation')) && (
+            <p className="text-brand-mint text-xl font-semibold mt-4">{currency}{item.basePrice.toFixed(2)}</p>
+          )}
 
           {item.modifierGroups.length > 0 && (
             <div className="mt-5">
@@ -109,6 +111,12 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
                   <div className="flex flex-wrap gap-2">
                     {group.options.map((option) => {
                       const isSelected = (selected[group.id] ?? []).some((o) => o.id === option.id);
+                      const priceLabel =
+                        group.groupType === 'Variation'
+                          ? `${currency}${(item.basePrice + option.priceDelta).toFixed(2)}`
+                          : option.priceDelta !== 0
+                          ? `${option.priceDelta > 0 ? '+' : ''}${currency}${option.priceDelta.toFixed(2)}`
+                          : null;
                       return (
                         <button
                           key={option.id}
@@ -121,7 +129,7 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
                           }`}
                         >
                           {option.name}
-                          {option.priceDelta !== 0 && ` (${option.priceDelta > 0 ? '+' : ''}${currency}${option.priceDelta.toFixed(2)})`}
+                          {priceLabel && ` (${priceLabel})`}
                         </button>
                       );
                     })}

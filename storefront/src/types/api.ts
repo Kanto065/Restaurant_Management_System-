@@ -94,12 +94,15 @@ export interface ModifierOption {
   isDefault: boolean;
 }
 
+export type ModifierGroupType = 'Modifier' | 'Variation';
+
 export interface ModifierGroup {
   id: string;
   name: string;
   minSelect: number;
   maxSelect: number;
   isRequired: boolean;
+  groupType: ModifierGroupType;
   options: ModifierOption[];
 }
 

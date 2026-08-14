@@ -7,7 +7,7 @@ using Platform.Infrastructure.Persistence;
 namespace Platform.Api.Controllers.Public;
 
 public record ModifierOptionPublicDto(Guid Id, string Name, decimal PriceDelta, bool IsDefault);
-public record ModifierGroupPublicDto(Guid Id, string Name, int MinSelect, int MaxSelect, bool IsRequired, List<ModifierOptionPublicDto> Options);
+public record ModifierGroupPublicDto(Guid Id, string Name, int MinSelect, int MaxSelect, bool IsRequired, ModifierGroupType GroupType, List<ModifierOptionPublicDto> Options);
 
 public record MenuItemPublicDto(
     Guid Id, string Name, string? Description, decimal BasePrice, string? ImageUrl,
@@ -50,7 +50,7 @@ public class PublicMenuController(AppDbContext db) : ControllerBase
                     i.Id, i.Name, i.Description, i.BasePrice, i.ImageUrl, i.IsVegetarian, i.IsVegan, i.IsBestSeller,
                     i.SpiceLevel, i.PreparationTimeMinutes, i.ShowVariantsAsRows,
                     i.ModifierGroupLinks.Select(l => l.ModifierGroup!).Distinct().Select(g => new ModifierGroupPublicDto(
-                        g.Id, g.Name, g.MinSelect, g.MaxSelect, g.IsRequired,
+                        g.Id, g.Name, g.MinSelect, g.MaxSelect, g.IsRequired, g.GroupType,
                         g.Options.Where(o => o.IsAvailable).Select(o => new ModifierOptionPublicDto(o.Id, o.Name, o.PriceDelta, o.IsDefault)).ToList()
                     )).ToList()
                 )).ToList()
