@@ -48,8 +48,8 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4">
-      <div className="bg-brand-bg text-brand-cream w-full sm:max-w-lg sm:rounded-lg overflow-hidden max-h-[92vh] sm:max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center bg-black/60 p-0 sm:p-4">
+      <div className="bg-brand-bg text-brand-cream w-full sm:max-w-lg sm:rounded-lg overflow-hidden h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col">
         <div className="relative shrink-0">
           <div className="aspect-[16/9] bg-brand-bg-light">
             {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}

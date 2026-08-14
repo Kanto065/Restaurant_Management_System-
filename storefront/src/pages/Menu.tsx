@@ -217,7 +217,7 @@ export default function Menu() {
           <div className="divide-y divide-brand-bg/10">
             {visibleItems.flatMap((item) => {
               const thumb = (
-                <div className="relative shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-brand-bg-light">
+                <div className="relative shrink-0 w-24 h-24 sm:w-14 sm:h-14 rounded-lg overflow-hidden bg-brand-bg-light">
                   {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
                   {item.isBestSeller && (
                     <span className="absolute -top-1 -left-1 bg-brand-orange text-white text-[8px] font-medium px-1 py-0.5 rounded-full">
