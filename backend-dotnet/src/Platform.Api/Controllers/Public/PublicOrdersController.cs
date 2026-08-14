@@ -17,11 +17,11 @@ public record CreateOrderAddressRequest(string Line1, string? Line2, string City
 public record CreatePublicOrderRequest(
     OrderType OrderType, string? TableQrToken, string? CustomerName, string? CustomerPhone, string? CustomerEmail,
     CreateOrderAddressRequest? DeliveryAddress, List<CreateOrderItemRequest> Items, string? SpecialRequests,
-    PaymentMethod PaymentMethod, string? VoucherCode);
+    PaymentMethod PaymentMethod, string? VoucherCode, bool RedeemLoyaltyPoints = false);
 
 public record CreatedOrderDto(
     Guid Id, long OrderNumber, OrderStatus Status, decimal Subtotal, decimal DeliveryFee, decimal ProcessingFee,
-    decimal DiscountAmount, decimal TotalAmount, int LoyaltyPointsEarned);
+    decimal DiscountAmount, decimal TotalAmount, int LoyaltyPointsEarned, int LoyaltyPointsRedeemed);
 
 public record TrackOrderItemDto(string NameSnapshot, int Quantity, decimal LineTotal);
 public record TrackOrderDto(
@@ -169,6 +169,24 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
             voucher.TimesRedeemed += 1;
         }
 
+        var loyaltyPointsRedeemed = 0;
+        if (request.RedeemLoyaltyPoints && customerId.HasValue)
+        {
+            var redeemingCustomer = await db.Customers.FirstAsync(c => c.Id == customerId.Value);
+            if (redeemingCustomer.LoyaltyPointsBalance > 0)
+            {
+                var remaining = Math.Max(0, order.Subtotal + order.DeliveryFee + order.ProcessingFee - order.DiscountAmount);
+                var maxRedeemableValue = redeemingCustomer.LoyaltyPointsBalance * 0.01m;
+                var redeemValue = Math.Min(maxRedeemableValue, remaining);
+                loyaltyPointsRedeemed = (int)Math.Floor(redeemValue * 100m);
+                if (loyaltyPointsRedeemed > 0)
+                {
+                    order.DiscountAmount += loyaltyPointsRedeemed * 0.01m;
+                    redeemingCustomer.LoyaltyPointsBalance -= loyaltyPointsRedeemed;
+                }
+            }
+        }
+
         order.TotalAmount = Math.Max(0, order.Subtotal + order.DeliveryFee + order.ProcessingFee - order.DiscountAmount);
 
         if (restaurant is not null)
@@ -197,11 +215,24 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
             await db.SaveChangesAsync();
         }
 
+        if (loyaltyPointsRedeemed > 0 && order.CustomerId.HasValue)
+        {
+            db.LoyaltyTransactions.Add(new LoyaltyTransaction
+            {
+                RestaurantId = currentTenant.RestaurantId.Value,
+                CustomerId = order.CustomerId.Value,
+                OrderId = order.Id,
+                PointsDelta = -loyaltyPointsRedeemed,
+                Reason = LoyaltyTransactionReason.Redeemed,
+            });
+            await db.SaveChangesAsync();
+        }
+
         await notifier.OrderCreatedAsync(currentTenant.RestaurantId.Value, order.Id);
 
         return Ok(ApiResponse<CreatedOrderDto>.Ok(
             new CreatedOrderDto(order.Id, order.OrderNumber, order.Status, order.Subtotal, order.DeliveryFee,
-                order.ProcessingFee, order.DiscountAmount, order.TotalAmount, order.LoyaltyPointsEarned),
+                order.ProcessingFee, order.DiscountAmount, order.TotalAmount, order.LoyaltyPointsEarned, loyaltyPointsRedeemed),
             statusCode: 201));
     }
 

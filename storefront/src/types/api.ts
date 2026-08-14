@@ -174,6 +174,7 @@ export interface CreateOrderRequest {
   specialRequests?: string | null;
   paymentMethod: PaymentMethod;
   voucherCode?: string | null;
+  redeemLoyaltyPoints?: boolean;
 }
 
 export interface CreatedOrder {
@@ -186,6 +187,7 @@ export interface CreatedOrder {
   discountAmount: number;
   totalAmount: number;
   loyaltyPointsEarned: number;
+  loyaltyPointsRedeemed: number;
 }
 
 export interface TrackOrder {
