@@ -166,6 +166,13 @@ const Menu = () => {
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
+  const toggleShowVariantsAsRowsMutation = useMutation({
+    mutationFn: ({ item, value }: { item: MenuItem; value: boolean }) =>
+      api.put(`/api/admin/menu-items/${item.id}`, toPayload({ ...toFormState(item), showVariantsAsRows: value })),
+    onSuccess: invalidateItems,
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
+  });
+
   function toFormState(item: MenuItem): ItemFormState {
     return {
       categoryId: item.categoryId, name: item.name, description: item.description ?? '',
@@ -325,7 +332,6 @@ const Menu = () => {
                   ['isVegan', 'Vegan', 'Mark if this item is vegan'],
                   ['isBestSeller', 'Best Seller', 'Shown in the storefront’s Best Sellers filter'],
                   ['isAvailable', 'Available', 'Mark if this item is currently available'],
-                  ['showVariantsAsRows', 'List variants as separate rows', 'Only works with exactly one variant group (e.g. Plain/Spicy) - shows each as its own priced row with an instant Add button instead of opening the customise popup'],
                 ] as const).map(([key, label, hint]) => (
                   <div key={key} className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -437,7 +443,11 @@ const Menu = () => {
                         </button>
                         {expandedItems.has(item.id) && (
                           <div className="px-4 pb-3 pl-11">
-                            <ItemVariantsPanel itemId={item.id} />
+                            <ItemVariantsPanel
+                              itemId={item.id}
+                              showVariantsAsRows={item.showVariantsAsRows}
+                              onToggleShowVariantsAsRows={(v) => toggleShowVariantsAsRowsMutation.mutate({ item, value: v })}
+                            />
                           </div>
                         )}
                       </div>
@@ -506,7 +516,13 @@ const Menu = () => {
                   {expandedItems.has(item.id) ? <ChevronDown className="w-4 h-4 mr-2" /> : <ChevronRight className="w-4 h-4 mr-2" />}
                   Variants
                 </Button>
-                {expandedItems.has(item.id) && <ItemVariantsPanel itemId={item.id} />}
+                {expandedItems.has(item.id) && (
+                  <ItemVariantsPanel
+                    itemId={item.id}
+                    showVariantsAsRows={item.showVariantsAsRows}
+                    onToggleShowVariantsAsRows={(v) => toggleShowVariantsAsRowsMutation.mutate({ item, value: v })}
+                  />
+                )}
               </CardContent>
             </Card>
           ))}

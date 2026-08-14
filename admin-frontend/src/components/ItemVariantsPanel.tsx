@@ -2,13 +2,21 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ModifierGroupDialog, type ModifierGroup } from '@/components/ModifierGroupDialog';
 
-export function ItemVariantsPanel({ itemId }: { itemId: string }) {
+interface ItemVariantsPanelProps {
+  itemId: string;
+  showVariantsAsRows: boolean;
+  onToggleShowVariantsAsRows: (value: boolean) => void;
+}
+
+export function ItemVariantsPanel({ itemId, showVariantsAsRows, onToggleShowVariantsAsRows }: ItemVariantsPanelProps) {
   const { toast } = useToast();
   const currency = useCurrency();
   const queryClient = useQueryClient();
@@ -19,6 +27,7 @@ export function ItemVariantsPanel({ itemId }: { itemId: string }) {
     queryFn: () => api.get<ModifierGroup[]>(`/api/admin/menu-items/${itemId}/modifier-groups`),
   });
   const groups = groupsQuery.data?.data ?? [];
+  const canShowAsRows = groups.length === 1;
 
   const deleteMutation = useMutation({
     mutationFn: (groupId: string) => api.delete(`/api/admin/modifier-groups/${groupId}`),
@@ -69,6 +78,18 @@ export function ItemVariantsPanel({ itemId }: { itemId: string }) {
       <Button variant="outline" size="sm" onClick={() => setDialogGroup('new')}>
         <Plus className="w-4 h-4 mr-2" />Add Variant Group
       </Button>
+
+      {canShowAsRows && (
+        <div className="flex items-center justify-between bg-background rounded-md p-2.5">
+          <div className="space-y-0.5">
+            <Label className="text-sm">List variants as separate rows</Label>
+            <p className="text-xs text-muted-foreground">
+              Shows each variant as its own priced row with an instant Add button, no customise popup
+            </p>
+          </div>
+          <Switch checked={showVariantsAsRows} onCheckedChange={onToggleShowVariantsAsRows} />
+        </div>
+      )}
 
       {dialogGroup && (
         <ModifierGroupDialog

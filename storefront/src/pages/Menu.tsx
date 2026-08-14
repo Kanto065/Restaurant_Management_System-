@@ -178,80 +178,80 @@ export default function Menu() {
             />
           </div>
           <div className="divide-y divide-brand-bg/10">
-            {visibleItems.map((item) =>
-              item.showVariantsAsRows && item.modifierGroups.length === 1 ? (
-                <div key={item.id} className="p-4">
-                  <p className="font-display text-lg leading-tight">{item.name}</p>
-                  {item.description && <p className="text-sm text-brand-bg/70 mt-1">{item.description}</p>}
-                  <div className="mt-2 space-y-2">
-                    {item.modifierGroups[0].options.map((option) => (
-                      <div key={option.id} className="flex items-center justify-between gap-3 pl-2">
-                        <span className="text-sm text-brand-bg/80">» {option.name}</span>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span className="font-semibold text-brand-bg text-sm">
-                            {currency}{(item.basePrice + option.priceDelta).toFixed(2)}
-                          </span>
-                          <button
-                            onClick={() => addLine(item, [option])}
-                            className="bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
-                          >
-                            Add +
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setModalItem(item)}
-                className="w-full text-left p-4 flex items-start gap-4 hover:bg-brand-bg/5 transition-colors"
-              >
-                <div className="relative shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-brand-bg-light">
+            {visibleItems.flatMap((item) => {
+              const thumb = (
+                <div className="relative shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-brand-bg-light">
                   {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
                   {item.isBestSeller && (
-                    <span className="absolute top-1 left-1 bg-brand-orange text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full">
-                      Bestseller
+                    <span className="absolute -top-1 -left-1 bg-brand-orange text-white text-[8px] font-medium px-1 py-0.5 rounded-full">
+                      ★
                     </span>
                   )}
                 </div>
+              );
 
-                <div className="min-w-0 flex-1">
-                  <p className="font-display text-lg leading-tight">{item.name}</p>
-                  {item.description && <p className="text-sm text-brand-bg/70 mt-1 line-clamp-2">{item.description}</p>}
-                  <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                    {item.spiceLevel !== 'None' && (
-                      <span className="text-xs text-brand-orange" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>
-                    )}
-                    {item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Vegan</span>}
-                    {item.isVegetarian && !item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Veg</span>}
+              if (item.showVariantsAsRows && item.modifierGroups.length === 1) {
+                return item.modifierGroups[0].options.map((option) => (
+                  <div key={`${item.id}:${option.id}`} className="grid grid-cols-[56px_1fr_auto_72px_auto] items-center gap-3 p-3">
+                    {thumb}
+                    <div className="min-w-0">
+                      <p className="font-display text-base leading-tight truncate">{item.name}</p>
+                      <p className="text-sm text-brand-bg/70">{option.name}</p>
+                    </div>
+                    <span />
+                    <p className="font-semibold text-brand-bg text-right whitespace-nowrap">
+                      {currency}{(item.basePrice + option.priceDelta).toFixed(2)}
+                    </p>
+                    <button
+                      onClick={() => addLine(item, [option])}
+                      className="bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
+                    >
+                      Add +
+                    </button>
                   </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="font-semibold text-brand-bg">{currency}{item.basePrice.toFixed(2)}</p>
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      {isMember && (
-                        <button
-                          onClick={() => toggleFavouriteMutation.mutate({ menuItemId: item.id, isFavourite: favouriteIds.has(item.id) })}
-                          aria-label="Toggle favourite"
-                          className={favouriteIds.has(item.id) ? 'text-brand-orange' : 'text-brand-bg/30'}
-                        >
-                          ♥
-                        </button>
+                ));
+              }
+
+              return [
+                <div
+                  key={item.id}
+                  onClick={() => setModalItem(item)}
+                  className="w-full text-left grid grid-cols-[56px_1fr_auto_72px_auto] items-center gap-3 p-3 hover:bg-brand-bg/5 transition-colors cursor-pointer"
+                >
+                  {thumb}
+                  <div className="min-w-0">
+                    <p className="font-display text-base leading-tight truncate">{item.name}</p>
+                    {item.description && <p className="text-sm text-brand-bg/70 line-clamp-1">{item.description}</p>}
+                    <div className="flex gap-1.5 mt-0.5 flex-wrap">
+                      {item.spiceLevel !== 'None' && (
+                        <span className="text-xs text-brand-orange" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>
                       )}
-                      <button
-                        onClick={() => (item.modifierGroups.length > 0 ? setModalItem(item) : addLine(item, []))}
-                        className="bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
-                      >
-                        Add +
-                      </button>
+                      {item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Vegan</span>}
+                      {item.isVegetarian && !item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Veg</span>}
                     </div>
                   </div>
-                </div>
-              </button>
-              )
-            )}
+                  {isMember ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleFavouriteMutation.mutate({ menuItemId: item.id, isFavourite: favouriteIds.has(item.id) }); }}
+                      aria-label="Toggle favourite"
+                      className={favouriteIds.has(item.id) ? 'text-brand-orange' : 'text-brand-bg/30'}
+                    >
+                      ♥
+                    </button>
+                  ) : <span />}
+                  <p className="font-semibold text-brand-bg text-right whitespace-nowrap">{currency}{item.basePrice.toFixed(2)}</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      item.modifierGroups.length > 0 ? setModalItem(item) : addLine(item, []);
+                    }}
+                    className="bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
+                  >
+                    Add +
+                  </button>
+                </div>,
+              ];
+            })}
             {visibleItems.length === 0 && (
               <p className="p-4 text-sm text-brand-bg/60">
                 {viewMode === 'favourites' ? "You haven't added any favourites yet." : 'No items found.'}
