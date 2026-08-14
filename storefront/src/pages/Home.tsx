@@ -62,8 +62,8 @@ export default function Home() {
                 className="flex flex-col items-center gap-2 shrink-0 w-20"
               >
                 <div className="w-16 h-16 rounded-full overflow-hidden bg-brand-bg-light border border-brand-cream/10 flex items-center justify-center">
-                  {cat.items[0]?.imageUrl ? (
-                    <img src={cat.items[0].imageUrl} alt={cat.name} className="w-full h-full object-cover" />
+                  {cat.imageUrl || cat.items[0]?.imageUrl ? (
+                    <img src={cat.imageUrl ?? cat.items[0].imageUrl!} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
                     <span className="font-display text-lg text-brand-mint">{cat.name.charAt(0)}</span>
                   )}
