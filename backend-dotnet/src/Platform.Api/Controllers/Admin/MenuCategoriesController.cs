@@ -7,8 +7,8 @@ using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers.Admin;
 
-public record MenuCategoryDto(Guid Id, string Name, string? ImageUrl, int DisplayOrder, bool IsActive, int ItemCount);
-public record UpsertMenuCategoryRequest(string Name, string? ImageUrl, int DisplayOrder, bool IsActive);
+public record MenuCategoryDto(Guid Id, string Name, string? Description, string? ImageUrl, int DisplayOrder, bool IsActive, int ItemCount);
+public record UpsertMenuCategoryRequest(string Name, string? Description, string? ImageUrl, int DisplayOrder, bool IsActive);
 public record ReorderMenuCategoriesRequest(List<Guid> OrderedIds);
 
 [ApiController]
@@ -21,7 +21,7 @@ public class MenuCategoriesController(AppDbContext db) : ControllerBase
     {
         var categories = await db.MenuCategories
             .OrderBy(c => c.DisplayOrder)
-            .Select(c => new MenuCategoryDto(c.Id, c.Name, c.ImageUrl, c.DisplayOrder, c.IsActive, c.Items.Count))
+            .Select(c => new MenuCategoryDto(c.Id, c.Name, c.Description, c.ImageUrl, c.DisplayOrder, c.IsActive, c.Items.Count))
             .ToListAsync();
 
         return Ok(ApiResponse<List<MenuCategoryDto>>.Ok(categories));
@@ -47,14 +47,14 @@ public class MenuCategoriesController(AppDbContext db) : ControllerBase
     {
         var category = new MenuCategory
         {
-            Name = request.Name, ImageUrl = request.ImageUrl,
+            Name = request.Name, Description = request.Description, ImageUrl = request.ImageUrl,
             DisplayOrder = request.DisplayOrder, IsActive = request.IsActive,
         };
         db.MenuCategories.Add(category);
         await db.SaveChangesAsync();
 
         return Ok(ApiResponse<MenuCategoryDto>.Ok(
-            new MenuCategoryDto(category.Id, category.Name, category.ImageUrl, category.DisplayOrder, category.IsActive, 0), statusCode: 201));
+            new MenuCategoryDto(category.Id, category.Name, category.Description, category.ImageUrl, category.DisplayOrder, category.IsActive, 0), statusCode: 201));
     }
 
     [HttpPut("{id:guid}")]
@@ -65,13 +65,14 @@ public class MenuCategoriesController(AppDbContext db) : ControllerBase
             return NotFound(ApiResponse<MenuCategoryDto>.Fail("Menu category not found.", 404));
 
         category.Name = request.Name;
+        category.Description = request.Description;
         category.ImageUrl = request.ImageUrl;
         category.DisplayOrder = request.DisplayOrder;
         category.IsActive = request.IsActive;
         await db.SaveChangesAsync();
 
         return Ok(ApiResponse<MenuCategoryDto>.Ok(
-            new MenuCategoryDto(category.Id, category.Name, category.ImageUrl, category.DisplayOrder, category.IsActive, category.Items.Count)));
+            new MenuCategoryDto(category.Id, category.Name, category.Description, category.ImageUrl, category.DisplayOrder, category.IsActive, category.Items.Count)));
     }
 
     [HttpDelete("{id:guid}")]

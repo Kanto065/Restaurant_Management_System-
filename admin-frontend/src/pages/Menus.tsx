@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +23,7 @@ import { ImageUploadField } from '@/components/ImageUploadField';
 interface MenuCategory {
   id: string;
   name: string;
+  description: string | null;
   imageUrl: string | null;
   displayOrder: number;
   isActive: boolean;
@@ -38,6 +40,7 @@ const Menus = () => {
   const [editing, setEditing] = useState<MenuCategory | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [displayOrder, setDisplayOrder] = useState('0');
   const [isActive, setIsActive] = useState(true);
@@ -111,13 +114,13 @@ const Menus = () => {
   };
 
   const createMutation = useMutation({
-    mutationFn: (payload: { name: string; imageUrl: string | null; displayOrder: number; isActive: boolean }) => api.post('/api/admin/menu-categories', payload),
+    mutationFn: (payload: { name: string; description: string | null; imageUrl: string | null; displayOrder: number; isActive: boolean }) => api.post('/api/admin/menu-categories', payload),
     onSuccess: () => { toast({ title: 'Success', description: 'Category created.' }); invalidate(); resetForm(); },
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { name: string; imageUrl: string | null; displayOrder: number; isActive: boolean } }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: { name: string; description: string | null; imageUrl: string | null; displayOrder: number; isActive: boolean } }) =>
       api.put(`/api/admin/menu-categories/${id}`, payload),
     onSuccess: () => { toast({ title: 'Success', description: 'Category updated.' }); invalidate(); resetForm(); },
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
@@ -132,7 +135,7 @@ const Menus = () => {
 
   const toggleActiveMutation = useMutation({
     mutationFn: (cat: MenuCategory) => api.put(`/api/admin/menu-categories/${cat.id}`, {
-      name: cat.name, imageUrl: cat.imageUrl, displayOrder: cat.displayOrder, isActive: !cat.isActive,
+      name: cat.name, description: cat.description, imageUrl: cat.imageUrl, displayOrder: cat.displayOrder, isActive: !cat.isActive,
     }),
     onSuccess: invalidate,
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
@@ -144,7 +147,7 @@ const Menus = () => {
       toast({ title: 'Validation Error', description: 'Category name is required.', variant: 'destructive' });
       return;
     }
-    const payload = { name, imageUrl, displayOrder: parseInt(displayOrder, 10) || 0, isActive };
+    const payload = { name, description: description.trim() || null, imageUrl, displayOrder: parseInt(displayOrder, 10) || 0, isActive };
     if (editing) {
       updateMutation.mutate({ id: editing.id, payload });
     } else {
@@ -155,6 +158,7 @@ const Menus = () => {
   const handleEdit = (cat: MenuCategory) => {
     setEditing(cat);
     setName(cat.name);
+    setDescription(cat.description ?? '');
     setImageUrl(cat.imageUrl);
     setDisplayOrder(cat.displayOrder.toString());
     setIsActive(cat.isActive);
@@ -162,7 +166,7 @@ const Menus = () => {
   };
 
   const resetForm = () => {
-    setName(''); setImageUrl(null); setDisplayOrder('0'); setIsActive(true); setEditing(null); setIsDialogOpen(false);
+    setName(''); setDescription(''); setImageUrl(null); setDisplayOrder('0'); setIsActive(true); setEditing(null); setIsDialogOpen(false);
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
@@ -211,6 +215,11 @@ const Menus = () => {
               <div className="space-y-2">
                 <Label htmlFor="name">Category Name *</Label>
                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Tandoori Specialities" required disabled={isSubmitting} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)}
+                  placeholder="e.g., Marinated meats grilled in our clay tandoor" rows={2} disabled={isSubmitting} />
               </div>
               <ImageUploadField label="Category Image" value={imageUrl} onChange={setImageUrl} />
               <div className="space-y-2">
@@ -275,7 +284,10 @@ const Menus = () => {
                         <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
                       </div>
                     )}
-                    <span className="font-medium truncate">{cat.name}</span>
+                    <span className="font-medium shrink-0">{cat.name}</span>
+                    {cat.description && (
+                      <span className="text-xs text-muted-foreground truncate" title={cat.description}>{cat.description}</span>
+                    )}
                     <Badge variant="outline" className="shrink-0">{cat.itemCount} item{cat.itemCount === 1 ? '' : 's'}</Badge>
                     {!cat.isActive && <Badge variant="secondary" className="shrink-0">Hidden</Badge>}
                   </div>
@@ -306,6 +318,7 @@ const Menus = () => {
                       <span className="font-medium truncate">{cat.name}</span>
                       {!cat.isActive && <Badge variant="secondary">Hidden</Badge>}
                     </div>
+                    {cat.description && <p className="text-xs text-muted-foreground line-clamp-2">{cat.description}</p>}
                     <Badge variant="outline">{cat.itemCount} item{cat.itemCount === 1 ? '' : 's'}</Badge>
                     <div className="flex items-center justify-between">
                       <Switch checked={cat.isActive} onCheckedChange={() => toggleActiveMutation.mutate(cat)} />

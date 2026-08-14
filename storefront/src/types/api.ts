@@ -120,6 +120,7 @@ export interface MenuItem {
 export interface MenuCategory {
   id: string;
   name: string;
+  description: string | null;
   displayOrder: number;
   items: MenuItem[];
 }

@@ -163,7 +163,12 @@ export default function Menu() {
         {/* Item list */}
         <div className="bg-brand-cream text-brand-bg rounded-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-brand-bg/10 flex items-center justify-between gap-3">
-            <h2 className="font-display text-lg">{heading}</h2>
+            <div className="min-w-0">
+              <h2 className="font-display text-lg">{heading}</h2>
+              {viewMode === 'category' && currentCategory?.description && (
+                <p className="text-xs text-brand-bg/60 mt-0.5">{currentCategory.description}</p>
+              )}
+            </div>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
