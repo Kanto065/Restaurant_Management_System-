@@ -191,34 +191,31 @@ export default function Menu() {
               );
 
               if (item.showVariantsAsRows && item.modifierGroups.length === 1) {
-                return [
-                  <div key={item.id} className="grid grid-cols-[56px_1fr_auto_72px_auto] gap-3 p-3 pb-1.5">
+                return (
+                  <div key={item.id} className="grid grid-cols-[56px_1fr_auto] gap-3 p-3">
                     {thumb}
                     <div className="min-w-0">
                       <p className="font-display text-base leading-tight">{item.name}</p>
                       {item.description && <p className="text-sm text-brand-bg/70">{item.description}</p>}
                     </div>
-                    <span />
-                    <span />
-                    <span />
-                  </div>,
-                  ...item.modifierGroups[0].options.map((option) => (
-                    <div key={`${item.id}:${option.id}`} className="grid grid-cols-[56px_1fr_auto_72px_auto] items-center gap-3 px-3 py-1.5 last:pb-3">
-                      <span />
-                      <span />
-                      <span className="text-sm text-brand-bg/80 whitespace-nowrap">{option.name}</span>
-                      <p className="font-semibold text-brand-bg text-right whitespace-nowrap">
-                        {currency}{(item.basePrice + option.priceDelta).toFixed(2)}
-                      </p>
-                      <button
-                        onClick={() => addLine(item, [option])}
-                        className="bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
-                      >
-                        Add +
-                      </button>
+                    <div className="flex flex-col gap-2 shrink-0">
+                      {item.modifierGroups[0].options.map((option) => (
+                        <div key={option.id} className="flex items-center gap-3 justify-end">
+                          <span className="text-sm text-brand-bg/80 whitespace-nowrap">{option.name}</span>
+                          <span className="font-semibold text-brand-bg whitespace-nowrap w-16 text-right">
+                            {currency}{(item.basePrice + option.priceDelta).toFixed(2)}
+                          </span>
+                          <button
+                            onClick={() => addLine(item, [option])}
+                            className="bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
+                          >
+                            Add +
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  )),
-                ];
+                  </div>
+                );
               }
 
               return [
