@@ -18,7 +18,8 @@ const CURRENCY_ICONS: Record<string, typeof DollarSign> = {
 interface OrderStats { totalOrders: number; pendingOrders: number; completedOrders: number; totalRevenue: number }
 interface TableRow { id: string; tableNumber: string; isActive: boolean }
 interface MenuItemRow { id: string; name: string; isAvailable: boolean }
-interface RecentOrder { id: string; orderNumber: number; totalAmount: number; status: string; createdAt: string }
+interface RecentOrder { id: string; orderNumber: string; totalAmount: number; status: string; createdAt: string }
+interface OrderListPage { items: RecentOrder[]; totalCount: number }
 
 const formatDate = (date: string) => new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -30,14 +31,14 @@ const Dashboard = () => {
   const statsQuery = useQuery({ queryKey: ['admin', 'orders', 'stats'], queryFn: () => api.get<OrderStats>('/api/admin/orders/stats') });
   const tablesQuery = useQuery({ queryKey: ['admin', 'tables'], queryFn: () => api.get<TableRow[]>('/api/admin/tables') });
   const itemsQuery = useQuery({ queryKey: ['admin', 'menu-items'], queryFn: () => api.get<MenuItemRow[]>('/api/admin/menu-items') });
-  const ordersQuery = useQuery({ queryKey: ['admin', 'orders', 'all'], queryFn: () => api.get<RecentOrder[]>('/api/admin/orders') });
+  const ordersQuery = useQuery({ queryKey: ['admin', 'orders', 'recent'], queryFn: () => api.get<OrderListPage>('/api/admin/orders?page=1&pageSize=5') });
 
   const isLoading = statsQuery.isLoading || tablesQuery.isLoading || itemsQuery.isLoading || ordersQuery.isLoading;
 
   const stats = statsQuery.data?.data ?? { totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 };
   const tables = tablesQuery.data?.data ?? [];
   const items = itemsQuery.data?.data ?? [];
-  const recentOrders = (ordersQuery.data?.data ?? []).slice(0, 5);
+  const recentOrders = ordersQuery.data?.data?.items ?? [];
 
   const activeTables = tables.filter((t) => t.isActive).length;
   const availableItems = items.filter((i) => i.isAvailable).length;
