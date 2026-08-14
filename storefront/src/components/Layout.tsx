@@ -3,17 +3,28 @@ import { useEffect, useRef, useState } from 'react';
 import { useRestaurant } from '../lib/queries';
 import { useCartStore } from '../store/cart';
 import { customerAuth } from '../lib/api';
-import type { OpeningHour, OpeningHourException } from '../types/api';
+import type { DayOfWeekName, OpeningHour, OpeningHourException } from '../types/api';
+
+const DAY_NAMES: DayOfWeekName[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function localDateIso(date: Date): string {
+  // Local calendar date, not UTC - toISOString() would roll over to the wrong day
+  // near midnight during BST (UTC+1), breaking "today's exception" lookups.
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 function todaysException(exceptions: OpeningHourException[]): OpeningHourException | undefined {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = localDateIso(new Date());
   return exceptions.find((e) => e.date.slice(0, 10) === todayIso);
 }
 
 function isOpenNow(hours: OpeningHour[], exceptions: OpeningHourException[]) {
   const now = new Date();
   const exception = todaysException(exceptions);
-  const today = exception ?? hours.find((h) => h.dayOfWeek === now.getDay());
+  const today = exception ?? hours.find((h) => h.dayOfWeek === DAY_NAMES[now.getDay()]);
   if (!today || today.isClosed || !today.openTime || !today.closeTime) return false;
   const [oh, om] = today.openTime.split(':').map(Number);
   const [ch, cm] = today.closeTime.split(':').map(Number);

@@ -14,7 +14,8 @@ import { api } from '@/lib/api';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-interface OpeningHour { id: string; dayOfWeek: number; openTime: string | null; closeTime: string | null; isClosed: boolean }
+// The API serializes DayOfWeek as its enum name ("Sunday"..."Saturday"), not its numeric value.
+interface OpeningHour { id: string; dayOfWeek: string; openTime: string | null; closeTime: string | null; isClosed: boolean }
 interface OpeningHourException { id: string; date: string; openTime: string | null; closeTime: string | null; isClosed: boolean; note: string | null }
 
 type DayForm = { dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean };
@@ -33,7 +34,7 @@ const OpeningHoursPage = () => {
     const existing = hoursQuery.data?.data;
     if (!existing || existing.length === 0) return;
     setDays((prev) => prev.map((d) => {
-      const match = existing.find((h) => h.dayOfWeek === d.dayOfWeek);
+      const match = existing.find((h) => h.dayOfWeek === DAY_NAMES[d.dayOfWeek]);
       return match ? { dayOfWeek: d.dayOfWeek, openTime: match.openTime ?? '17:00', closeTime: match.closeTime ?? '22:00', isClosed: match.isClosed } : d;
     }));
   }, [hoursQuery.data]);

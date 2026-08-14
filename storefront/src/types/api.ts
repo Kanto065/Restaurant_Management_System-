@@ -1,5 +1,7 @@
+export type DayOfWeekName = 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
+
 export interface OpeningHour {
-  dayOfWeek: number; // 0=Sunday .. 6=Saturday (matches .NET DayOfWeek)
+  dayOfWeek: DayOfWeekName; // serialized as the .NET DayOfWeek enum name, not its numeric value
   openTime: string | null;
   closeTime: string | null;
   isClosed: boolean;

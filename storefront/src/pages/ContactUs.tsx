@@ -90,7 +90,7 @@ export default function ContactUs() {
           <h2 className="font-display text-xl text-white px-5 py-3">Opening Hours</h2>
           <div className="bg-brand-cream text-brand-bg divide-y divide-brand-bg/10">
             {DAY_NAMES.map((day, i) => {
-              const hour = restaurant?.openingHours.find((h) => h.dayOfWeek === i);
+              const hour = restaurant?.openingHours.find((h) => h.dayOfWeek === DAY_NAMES[i]);
               const isToday = i === today;
               return (
                 <div key={i} className={`flex justify-between px-4 py-2.5 text-sm ${isToday ? 'bg-brand-orange text-white font-semibold' : ''}`}>
