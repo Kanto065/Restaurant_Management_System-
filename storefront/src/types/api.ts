@@ -199,3 +199,11 @@ export interface TrackOrder {
   createdAt: string;
   items: { nameSnapshot: string; quantity: number; lineTotal: number }[];
 }
+
+export interface AccountOrderSummary {
+  id: string;
+  orderNumber: number;
+  status: OrderStatus;
+  totalAmount: number;
+  createdAt: string;
+}

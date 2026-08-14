@@ -12,8 +12,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { api } from '@/lib/api';
-import { useCurrency } from '@/hooks/useCurrency';
-import { Loader2, ShoppingCart, DollarSign, Clock, CheckCircle2, Eye, Timer, RefreshCw, UtensilsCrossed, User, Phone, Mail } from 'lucide-react';
+import { useCurrency, useCurrencyCode } from '@/hooks/useCurrency';
+import { Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Eye, Timer, RefreshCw, UtensilsCrossed, User, Phone, Mail } from 'lucide-react';
+
+const CURRENCY_ICONS: Record<string, typeof DollarSign> = {
+  GBP: PoundSterling,
+  EUR: Euro,
+  INR: IndianRupee,
+};
 
 type OrderType = 'DineIn' | 'Collection' | 'Delivery';
 type OrderStatus = 'Pending' | 'Confirmed' | 'Preparing' | 'Ready' | 'OutForDeliveryOrServed' | 'Completed' | 'Cancelled';
@@ -63,6 +69,8 @@ const formatTime = (date: string) => new Date(date).toLocaleString('en-GB', { da
 const Orders = () => {
   const { toast } = useToast();
   const currency = useCurrency();
+  const currencyCode = useCurrencyCode();
+  const CurrencyIcon = CURRENCY_ICONS[currencyCode] ?? DollarSign;
   const formatCurrency = (amount: number) => `${currency}${amount.toFixed(2)}`;
   const queryClient = useQueryClient();
 
@@ -180,7 +188,7 @@ const Orders = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CurrencyIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div></CardContent>
         </Card>

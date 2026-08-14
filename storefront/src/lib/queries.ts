@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api, customerAuth } from './api';
 import type {
-  RestaurantPublic, MenuResponse, DeliveryZone, CreateOrderRequest, CreatedOrder, TrackOrder, ReviewPage,
+  RestaurantPublic, MenuResponse, DeliveryZone, CreateOrderRequest, CreatedOrder, TrackOrder, ReviewPage, AccountOrderSummary,
 } from '../types/api';
 
 export function useRestaurant() {
@@ -61,5 +61,13 @@ export function useLastOrder() {
     queryFn: () => api.get('/api/account/orders/last'),
     enabled: customerAuth.isLoggedIn(),
     retry: false,
+  });
+}
+
+export function useOrders() {
+  return useQuery({
+    queryKey: ['account', 'orders'],
+    queryFn: () => api.get<AccountOrderSummary[]>('/api/account/orders'),
+    enabled: customerAuth.isLoggedIn(),
   });
 }
