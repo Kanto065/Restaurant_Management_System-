@@ -100,7 +100,6 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
 
           {item.modifierGroups.length > 0 && (
             <div className="mt-5">
-              <p className="font-semibold mb-1">Customise Your Dish</p>
               {item.modifierGroups.map((group) => (
                 <div key={group.id} className="mt-4 border-t border-brand-cream/10 pt-4">
                   <p className="font-medium text-sm mb-2">
