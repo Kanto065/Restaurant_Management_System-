@@ -192,15 +192,17 @@ export default function Menu() {
 
               if (item.showVariantsAsRows && item.modifierGroups.length === 1) {
                 return (
-                  <div key={item.id} className="grid grid-cols-[56px_1fr_auto] gap-3 p-3">
-                    {thumb}
-                    <div className="min-w-0">
-                      <p className="font-display text-base leading-tight">{item.name}</p>
-                      {item.description && <p className="text-sm text-brand-bg/70">{item.description}</p>}
+                  <div key={item.id} className="flex flex-col gap-3 p-3 sm:grid sm:grid-cols-[56px_1fr_auto] sm:items-start">
+                    <div className="flex gap-3 sm:contents">
+                      {thumb}
+                      <div className="min-w-0">
+                        <p className="font-display text-base leading-tight">{item.name}</p>
+                        {item.description && <p className="text-sm text-brand-bg/70">{item.description}</p>}
+                      </div>
                     </div>
                     <div className="flex flex-col gap-2 shrink-0">
                       {item.modifierGroups[0].options.map((option) => (
-                        <div key={option.id} className="flex items-center gap-3 justify-end">
+                        <div key={option.id} className="flex items-center gap-3 justify-between sm:justify-end">
                           <span className="text-sm text-brand-bg/80 whitespace-nowrap">{option.name}</span>
                           <span className="font-semibold text-brand-bg whitespace-nowrap w-16 text-right">
                             {currency}{(item.basePrice + option.priceDelta).toFixed(2)}
