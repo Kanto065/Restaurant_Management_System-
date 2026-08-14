@@ -31,6 +31,21 @@ const BADGE_PALETTE = [
 ];
 export const statusBadgeColor = (displayOrder: number) => BADGE_PALETTE[displayOrder % BADGE_PALETTE.length];
 
+// Payment statuses get semantic colors by name (Paid=green, Failed=red, ...) instead of the
+// plain positional cycle above - that cycle assigned colors purely by DisplayOrder, so "Paid"
+// and "Failed" ended up red/green at random depending on how they happened to be ordered.
+// Falls back to the positional palette for any custom status name that isn't recognized.
+const PAYMENT_STATUS_COLORS: Record<string, string> = {
+  paid: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-300',
+  failed: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-300',
+  pending: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-300',
+  authorized: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-300',
+  refunded: 'bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-300',
+  partiallyrefunded: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-300',
+};
+export const paymentStatusBadgeColor = (name: string, displayOrder: number) =>
+  PAYMENT_STATUS_COLORS[name.toLowerCase().replace(/\s+/g, '')] ?? statusBadgeColor(displayOrder);
+
 // --- Order status editor ---------------------------------------------------
 
 function OrderStatusEditor() {
@@ -331,7 +346,7 @@ function PaymentStatusEditor() {
             >
               <div className="flex items-center gap-2 min-w-0">
                 <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab shrink-0" />
-                <Badge variant="outline" className={statusBadgeColor(item.displayOrder)}>{item.name}</Badge>
+                <Badge variant="outline" className={paymentStatusBadgeColor(item.name, item.displayOrder)}>{item.name}</Badge>
                 {item.isDefault && <Badge variant="secondary" className="text-xs">Default</Badge>}
               </div>
               <div className="flex items-center gap-1 shrink-0">

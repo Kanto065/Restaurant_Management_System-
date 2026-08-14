@@ -19,7 +19,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { api } from '@/lib/api';
 import { useCurrency, useCurrencyCode } from '@/hooks/useCurrency';
-import { statusBadgeColor } from '@/pages/Configurations';
+import { statusBadgeColor, paymentStatusBadgeColor } from '@/pages/Configurations';
 import {
   Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Timer,
   RefreshCw, UtensilsCrossed, User, Phone, Mail, Search, MoreVertical, ArrowRight, Check, Pencil, Trash2,
@@ -99,7 +99,7 @@ const Orders = () => {
   const ORDER_STATUSES = orderStatusDefs.map((d) => d.name);
   const PAYMENT_STATUSES = paymentStatusDefs.map((d) => d.name);
   const statusColors = (name: string) => statusBadgeColor(orderStatusDefs.find((d) => d.name === name)?.displayOrder ?? 0);
-  const paymentStatusColors = (name: string) => statusBadgeColor(paymentStatusDefs.find((d) => d.name === name)?.displayOrder ?? 0);
+  const paymentStatusColors = (name: string) => paymentStatusBadgeColor(name, paymentStatusDefs.find((d) => d.name === name)?.displayOrder ?? 0);
 
   const statsQuery = useQuery({ queryKey: ['admin', 'orders', 'stats'], queryFn: () => api.get<OrderStats>('/api/admin/orders/stats') });
 
