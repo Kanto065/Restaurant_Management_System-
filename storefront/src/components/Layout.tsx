@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRestaurant, useProfile } from '../lib/queries';
 import { useCartStore } from '../store/cart';
 import { customerAuth } from '../lib/api';
+import { User, MapPin } from 'lucide-react';
 import type { DayOfWeekName, OpeningHour, OpeningHourException } from '../types/api';
 
 const DAY_NAMES: DayOfWeekName[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -165,7 +166,7 @@ export default function Layout() {
         <div className="bg-brand-bg-light/60 border-t border-brand-cream/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs sm:text-sm text-brand-cream/80">
             <p className="flex items-center gap-1.5">
-              <span aria-hidden="true">👤</span>
+              <User className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               {loggedIn ? (
                 <>
                   Welcome back <span className="font-semibold text-brand-cream">{profile?.fullName?.split(' ')[0] ?? ''}</span>
@@ -187,7 +188,7 @@ export default function Layout() {
             </p>
             {restaurant && (
               <p className="flex items-center gap-1.5">
-                <span aria-hidden="true">📍</span>
+                <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 {restaurant.city}, {restaurant.addressLine1}, {restaurant.postcode}
               </p>
             )}

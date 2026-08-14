@@ -88,6 +88,9 @@ const Orders = () => {
   const [estimatedMinutes, setEstimatedMinutes] = useState('');
   const [newPaymentStatus, setNewPaymentStatus] = useState<PaymentStatus | ''>('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPayment, setFilterPayment] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
 
   const statsQuery = useQuery({ queryKey: ['admin', 'orders', 'stats'], queryFn: () => api.get<OrderStats>('/api/admin/orders/stats') });
@@ -102,9 +105,15 @@ const Orders = () => {
   });
 
   const orders = (ordersQuery.data?.data ?? []).filter((order) => {
-    if (!search.trim()) return true;
-    const q = search.trim().toLowerCase();
-    return order.orderNumber.toString().includes(q) || (order.customerName ?? '').toLowerCase().includes(q);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      if (!order.orderNumber.toString().includes(q) && !(order.customerName ?? '').toLowerCase().includes(q)) return false;
+    }
+    if (filterPayment !== 'all' && order.paymentStatus !== filterPayment) return false;
+    const orderDate = order.createdAt.slice(0, 10);
+    if (dateFrom && orderDate < dateFrom) return false;
+    if (dateTo && orderDate > dateTo) return false;
+    return true;
   });
   const stats = statsQuery.data?.data ?? { totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 };
   const selectedOrder = detailQuery.data?.data ?? null;
@@ -203,19 +212,39 @@ const Orders = () => {
         </Card>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by order # or customer..." className="pl-8" />
         </div>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-44 shrink-0"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+          <SelectTrigger className="w-40 shrink-0"><SelectValue placeholder="All Statuses" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             {ORDER_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
-        <span className="text-sm text-muted-foreground shrink-0">{orders.length} order{orders.length !== 1 ? 's' : ''}</span>
+        <Select value={filterPayment} onValueChange={setFilterPayment}>
+          <SelectTrigger className="w-40 shrink-0"><SelectValue placeholder="All Payments" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Payments</SelectItem>
+            {PAYMENT_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36" aria-label="From date" />
+          <span className="text-muted-foreground text-sm">–</span>
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36" aria-label="To date" />
+        </div>
+        {(search || filterStatus !== 'all' || filterPayment !== 'all' || dateFrom || dateTo) && (
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => { setSearch(''); setFilterStatus('all'); setFilterPayment('all'); setDateFrom(''); setDateTo(''); }}
+          >
+            Clear
+          </Button>
+        )}
+        <span className="text-sm text-muted-foreground shrink-0 ml-auto">{orders.length} order{orders.length !== 1 ? 's' : ''}</span>
       </div>
 
       <Card>
@@ -252,12 +281,12 @@ const Orders = () => {
 
                   <div className="flex items-center gap-1 shrink-0">
                     <Button variant="ghost" size="icon" onClick={() => openOrder(order.id)} aria-label="View order"><Eye className="w-4 h-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => openStatusDialog(order)}><ListChecks className="w-4 h-4 mr-2" />Status</Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" aria-label="More actions"><MoreVertical className="w-4 h-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openStatusDialog(order)}><ListChecks className="w-4 h-4 mr-2" />Update Status</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openTimeDialog(order)}><Timer className="w-4 h-4 mr-2" />Set Estimated Time</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openPaymentDialog(order)}><DollarSign className="w-4 h-4 mr-2" />Update Payment</DropdownMenuItem>
                       </DropdownMenuContent>

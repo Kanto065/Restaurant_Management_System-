@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { User, Trash2 } from 'lucide-react';
 import { useProfile, useUpdateProfile, useUpdateAddress, useDeleteAccount } from '../../lib/queries';
 import { customerAuth } from '../../lib/api';
 
@@ -78,7 +79,7 @@ export default function MyProfile() {
   return (
     <div className="space-y-4">
       <div className="bg-brand-cream text-brand-bg rounded-lg p-6">
-        <h1 className="font-display text-2xl mb-1">My Profile</h1>
+        <h1 className="font-display text-2xl mb-1 flex items-center gap-2"><User className="w-6 h-6" />My Profile</h1>
         <p className="text-sm text-brand-bg/70 mb-6">This page allows you to keep your account information up to date.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
@@ -178,9 +179,9 @@ export default function MyProfile() {
         <button
           onClick={handleDeleteAccount}
           disabled={deleteAccount.isPending}
-          className="bg-red-600 text-white rounded px-4 py-2 text-sm font-medium disabled:opacity-50"
+          className="inline-flex items-center gap-2 bg-red-600 text-white rounded px-4 py-2 text-sm font-medium disabled:opacity-50"
         >
-          ✕ Delete My Account
+          <Trash2 className="w-4 h-4" />Delete My Account
         </button>
       </div>
     </div>

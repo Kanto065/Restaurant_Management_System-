@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { MapPin, X, Home } from 'lucide-react';
 import { useProfile, useCreateAddress, useDeleteAddress } from '../../lib/queries';
 
 export default function MyAddresses() {
@@ -29,27 +30,30 @@ export default function MyAddresses() {
 
   return (
     <div className="bg-brand-cream text-brand-bg rounded-lg p-6">
-      <h1 className="font-display text-2xl mb-1">My Addresses</h1>
+      <h1 className="font-display text-2xl mb-1 flex items-center gap-2"><MapPin className="w-6 h-6" />My Addresses</h1>
       <p className="text-sm text-brand-bg/70 mb-6">This page allows you to add and remove your saved addresses for ease of ordering next time!</p>
 
       <div className="divide-y divide-brand-bg/10 mb-6">
         {(profile?.addresses ?? []).map((address) => (
           <div key={address.id} className="py-3 flex items-start justify-between gap-3">
-            <div>
-              <p className="font-semibold">
-                {address.label || address.line1}{' '}
-                {address.isDefault && <span className="text-brand-green text-sm">Default Address</span>}
-              </p>
-              <p className="text-sm text-brand-bg/70">
-                {[address.line1, address.line2, address.city, address.county, address.postcode].filter(Boolean).join(', ')}
-              </p>
+            <div className="flex items-start gap-2 min-w-0">
+              <Home className="w-4 h-4 mt-0.5 text-brand-bg/50 shrink-0" />
+              <div>
+                <p className="font-semibold">
+                  {address.label || address.line1}{' '}
+                  {address.isDefault && <span className="text-brand-green text-sm">Default Address</span>}
+                </p>
+                <p className="text-sm text-brand-bg/70">
+                  {[address.line1, address.line2, address.city, address.county, address.postcode].filter(Boolean).join(', ')}
+                </p>
+              </div>
             </div>
             <button
               onClick={() => deleteAddress.mutate(address.id)}
               aria-label="Delete address"
-              className="text-red-600 shrink-0 text-lg leading-none"
+              className="text-red-600 shrink-0"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         ))}

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Trophy } from 'lucide-react';
 import { useProfile } from '../../lib/queries';
 
 export default function MembersHome() {
@@ -16,13 +17,13 @@ export default function MembersHome() {
       </div>
 
       <div className="bg-brand-cream text-brand-bg rounded-lg p-6">
-        <h2 className="font-display text-xl mb-2">Loyalty Points</h2>
+        <h2 className="font-display text-xl mb-2 flex items-center gap-2"><Trophy className="w-5 h-5" />Loyalty Points</h2>
         <p className="text-sm text-brand-bg/70 mb-4">
           Earn points when you order online. You can redeem these points for discounts on future orders. Visit your
           loyalty area to read more about the scheme.
         </p>
-        <Link to="/account/loyalty" className="inline-block bg-brand-green text-white rounded px-4 py-2 text-sm font-medium">
-          🏆 Access Loyalty Area »
+        <Link to="/account/loyalty" className="inline-flex items-center gap-2 bg-brand-green text-white rounded px-4 py-2 text-sm font-medium">
+          <Trophy className="w-4 h-4" />Access Loyalty Area »
         </Link>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { Trophy, Star } from 'lucide-react';
 import { useLoyalty, useRestaurant } from '../../lib/queries';
 import { currencySymbol } from '../../lib/currency';
 
@@ -11,7 +12,7 @@ export default function LoyaltyPoints() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-2xl mb-2">Loyalty Points</h1>
+      <h1 className="font-display text-2xl mb-2 flex items-center gap-2"><Trophy className="w-6 h-6" />Loyalty Points</h1>
 
       <div className="rounded-lg overflow-hidden">
         <div className="bg-gradient-to-r from-amber-600 to-yellow-400 p-6 flex items-center justify-between flex-wrap gap-4">
@@ -28,7 +29,7 @@ export default function LoyaltyPoints() {
           </div>
         </div>
         <div className="bg-brand-bg-light text-white text-sm px-6 py-2 flex items-center justify-between">
-          <span>{restaurant?.name ?? 'Restaurant'} Loyalty Card ★</span>
+          <span className="flex items-center gap-1.5">{restaurant?.name ?? 'Restaurant'} Loyalty Card <Star className="w-4 h-4" /></span>
         </div>
       </div>
 

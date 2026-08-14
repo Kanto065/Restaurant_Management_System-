@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ShoppingBag } from 'lucide-react';
 import { useOrders, useRestaurant } from '../../lib/queries';
 import { currencySymbol } from '../../lib/currency';
 
@@ -31,7 +32,7 @@ export default function MyOrders() {
   return (
     <div className="bg-brand-cream text-brand-bg rounded-lg overflow-hidden">
       <div className="p-6 pb-4">
-        <h1 className="font-display text-2xl mb-1">My Orders</h1>
+        <h1 className="font-display text-2xl mb-1 flex items-center gap-2"><ShoppingBag className="w-6 h-6" />My Orders</h1>
         <p className="text-sm text-brand-bg/70">This page shows a list of the orders you've placed with us whilst logged into your account.</p>
       </div>
 
