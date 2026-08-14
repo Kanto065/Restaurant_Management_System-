@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 import { useCartStore } from '../store/cart';
 import { useCreateOrder, useRestaurant, useProfile, useLoyalty } from '../lib/queries';
-import { customerAuth } from '../lib/api';
+import { api, customerAuth } from '../lib/api';
 import { currencySymbol } from '../lib/currency';
 import type { CreateOrderRequest, PaymentMethod } from '../types/api';
+
+interface ValidateVoucherResponse {
+  valid: boolean;
+  discountAmount: number;
+  message: string | null;
+}
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -25,6 +32,8 @@ export default function Checkout() {
   const [specialRequests, setSpecialRequests] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Card');
   const [voucherCode, setVoucherCode] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; discountAmount: number } | null>(null);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
   const [redeemPoints, setRedeemPoints] = useState(false);
   const [showFeeInfo, setShowFeeInfo] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,10 +58,28 @@ export default function Checkout() {
     ? Math.round((restaurant.processingFeeFlat + (rawSubtotal * restaurant.processingFeePercentage) / 100) * 100) / 100
     : 0;
 
+  const voucherDiscount = appliedVoucher?.discountAmount ?? 0;
+  const afterVoucher = Math.max(0, rawSubtotal + processingFee - voucherDiscount);
+
   const pointsBalance = loyalty?.pointsBalance ?? 0;
   const pointsValue = pointsBalance * 0.01;
-  const redeemableValue = Math.min(pointsValue, rawSubtotal + processingFee);
-  const discount = redeemPoints ? redeemableValue : 0;
+  const redeemableValue = Math.min(pointsValue, afterVoucher);
+  const loyaltyDiscount = redeemPoints ? redeemableValue : 0;
+  const discount = voucherDiscount + loyaltyDiscount;
+
+  const validateVoucher = useMutation({
+    mutationFn: (code: string) => api.post<ValidateVoucherResponse>('/api/public/vouchers/validate', { code, subtotal: rawSubtotal }),
+    onSuccess: (res) => {
+      if (res.valid) {
+        setAppliedVoucher({ code: voucherCode.trim(), discountAmount: res.discountAmount });
+        setVoucherError(null);
+      } else {
+        setAppliedVoucher(null);
+        setVoucherError(res.message ?? "This voucher code isn't valid.");
+      }
+    },
+    onError: () => { setAppliedVoucher(null); setVoucherError('Could not check this voucher right now. Please try again.'); },
+  });
 
   const estimatedTotal = Math.max(0, rawSubtotal + processingFee - discount);
   const estimatedLoyaltyPoints = restaurant ? Math.floor(estimatedTotal * restaurant.loyaltyPointsPerCurrencyUnit) : 0;
@@ -69,7 +96,7 @@ export default function Checkout() {
       customerEmail: email || undefined,
       paymentMethod,
       specialRequests: specialRequests || undefined,
-      voucherCode: voucherCode.trim() || undefined,
+      voucherCode: appliedVoucher?.code || undefined,
       redeemLoyaltyPoints: redeemPoints,
       deliveryAddress:
         orderType === 'Delivery' ? { line1: addressLine1, line2: addressLine2 || undefined, city, postcode } : undefined,
@@ -173,17 +200,29 @@ export default function Checkout() {
             <div className="flex gap-2">
               <input
                 value={voucherCode}
-                onChange={(e) => setVoucherCode(e.target.value)}
+                onChange={(e) => {
+                  setVoucherCode(e.target.value);
+                  setAppliedVoucher(null);
+                  setVoucherError(null);
+                }}
                 placeholder="Enter code here..."
                 className="flex-1 min-w-0 rounded border border-brand-bg/20 px-3 py-2 text-sm uppercase"
               />
-              <button type="button" className="bg-brand-green text-white text-sm font-medium px-4 py-2 rounded shrink-0">
-                Apply
+              <button
+                type="button"
+                disabled={!voucherCode.trim() || validateVoucher.isPending}
+                onClick={() => validateVoucher.mutate(voucherCode.trim())}
+                className="bg-brand-green text-white text-sm font-medium px-4 py-2 rounded shrink-0 disabled:opacity-50"
+              >
+                {validateVoucher.isPending ? 'Checking...' : 'Apply'}
               </button>
             </div>
-            {voucherCode.trim() && (
-              <p className="text-xs text-brand-bg/60 pt-2">Validity and discount are checked when you place the order.</p>
+            {appliedVoucher && (
+              <p className="text-xs text-green-700 pt-2">
+                "{appliedVoucher.code}" applied — {currency}{appliedVoucher.discountAmount.toFixed(2)} off.
+              </p>
             )}
+            {voucherError && <p className="text-xs text-red-600 pt-2">{voucherError}</p>}
           </div>
 
           {restaurant && restaurant.loyaltyPointsPerCurrencyUnit > 0 && (

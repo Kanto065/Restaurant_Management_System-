@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, UtensilsCrossed, ShoppingBag, Table2, LogOut, User, Lock, Bell, BookOpen, PackageOpen, Star, Ticket, Clock3, Truck, Smartphone, Settings2 } from 'lucide-react';
+import { LayoutDashboard, Settings, UtensilsCrossed, ShoppingBag, Table2, LogOut, User, Lock, Bell, BookOpen, PackageOpen, Star, Ticket, Clock3, Truck, Smartphone, Settings2, Sun, Moon } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { POS_APP_DOWNLOAD_URL, getImageUrl } from '@/config/api';
 import { api } from '@/lib/api';
 
@@ -48,6 +49,7 @@ const menuItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { logout, user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const collapsed = state === 'collapsed';
 
@@ -120,45 +122,60 @@ export function AppSidebar() {
         </Button>
         {user && !collapsed && (
           <>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="px-4 py-2 flex items-center gap-3 hover:bg-sidebar-accent rounded-lg transition-colors w-full">
-                  <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-medium truncate">{user.fullName || user.email}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {user.restaurants.find((r) => r.restaurantId === user.activeRestaurantId)?.role ?? 'Staff'}
-                    </p>
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/dashboard/change-password')}>
-                  <Lock className="mr-2 h-4 w-4" />
-                  <span>Change Password</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Logout</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex-1 min-w-0 px-4 py-2 flex items-center gap-3 hover:bg-sidebar-accent rounded-lg transition-colors">
+                    <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-medium truncate">{user.fullName || user.email}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {user.restaurants.find((r) => r.restaurantId === user.activeRestaurantId)?.role ?? 'Staff'}
+                      </p>
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/dashboard/change-password')}>
+                    <Lock className="mr-2 h-4 w-4" />
+                    <span>Change Password</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="ghost" size="icon" className="shrink-0"
+                onClick={toggleTheme}
+                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </Button>
+            </div>
             <Separator />
           </>
         )}
         {collapsed && (
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={logout}
-          >
-            <LogOut className="w-4 h-4" />
-          </Button>
+          <>
+            <Button variant="ghost" size="icon" className="w-full" onClick={toggleTheme} aria-label="Toggle theme">
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={logout}
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </>
         )}
         {!user && !collapsed && (
           <Button

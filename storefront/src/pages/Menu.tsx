@@ -209,6 +209,11 @@ export default function Menu() {
               className="text-sm px-3 py-1.5 rounded border border-brand-bg/20 w-32 sm:w-48"
             />
           </div>
+          {viewMode === 'category' && currentCategory?.imageUrl && (
+            <div className="aspect-[21/9] sm:aspect-[3/1]">
+              <img src={currentCategory.imageUrl} alt={currentCategory.name} className="w-full h-full object-cover" />
+            </div>
+          )}
           <div className="divide-y divide-brand-bg/10">
             {visibleItems.flatMap((item) => {
               const thumb = (

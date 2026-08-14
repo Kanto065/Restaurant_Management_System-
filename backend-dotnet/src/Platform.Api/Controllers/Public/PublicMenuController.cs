@@ -14,7 +14,7 @@ public record MenuItemPublicDto(
     bool IsVegetarian, bool IsVegan, bool IsBestSeller, SpiceLevel SpiceLevel, int PreparationTimeMinutes,
     bool ShowVariantsAsRows, List<ModifierGroupPublicDto> ModifierGroups);
 
-public record MenuCategoryPublicDto(Guid Id, string Name, string? Description, int DisplayOrder, List<MenuItemPublicDto> Items);
+public record MenuCategoryPublicDto(Guid Id, string Name, string? Description, string? ImageUrl, int DisplayOrder, List<MenuItemPublicDto> Items);
 
 public record DealComponentPublicDto(Guid? MenuItemId, Guid? CategoryId, int Quantity);
 public record DealPublicDto(Guid Id, string Name, string? Description, string? ImageUrl, decimal Price, List<DealComponentPublicDto> Components);
@@ -45,7 +45,7 @@ public class PublicMenuController(AppDbContext db) : ControllerBase
 
         var dto = new MenuPublicDto(
             categories.Select(c => new MenuCategoryPublicDto(
-                c.Id, c.Name, c.Description, c.DisplayOrder,
+                c.Id, c.Name, c.Description, c.ImageUrl, c.DisplayOrder,
                 c.Items.OrderBy(i => i.DisplayOrder).Select(i => new MenuItemPublicDto(
                     i.Id, i.Name, i.Description, i.BasePrice, i.ImageUrl, i.IsVegetarian, i.IsVegan, i.IsBestSeller,
                     i.SpiceLevel, i.PreparationTimeMinutes, i.ShowVariantsAsRows,

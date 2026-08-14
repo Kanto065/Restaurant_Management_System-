@@ -11,6 +11,16 @@
     <meta property="og:title" content="Takeout Admin" />
     <meta property="og:description" content="Takeout Restaurant Admin Panel" />
     <meta property="og:type" content="website" />
+
+    <script>
+      // Applied before React mounts so the page never flashes light-then-dark (or vice versa)
+      // on load - keep this logic in sync with ThemeContext.tsx's getInitialTheme().
+      (function () {
+        var stored = localStorage.getItem('admin-theme');
+        var isDark = stored === 'dark' || (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) document.documentElement.classList.add('dark');
+      })();
+    </script>
   </head>
 
   <body>
