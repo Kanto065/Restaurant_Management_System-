@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Loader2, Smartphone, Copy, Check, Ban } from 'lucide-react';
+import { Plus, Trash2, Loader2, Smartphone, Copy, Check, Ban, RefreshCw } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from '@/components/ui/dialog';
@@ -39,6 +39,7 @@ const Devices = () => {
   const [deviceName, setDeviceName] = useState('');
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeviceRow | null>(null);
+  const [regenerateTarget, setRegenerateTarget] = useState<DeviceRow | null>(null);
   const [paired, setPaired] = useState<DevicePaired | null>(null);
   const [copiedField, setCopiedField] = useState<'id' | 'secret' | null>(null);
 
@@ -73,6 +74,13 @@ const Devices = () => {
     onSuccess: () => { toast({ title: 'Deleted', description: 'Terminal removed.' }); invalidate(); },
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
     onSettled: () => setDeleteTarget(null),
+  });
+
+  const regenerateMutation = useMutation({
+    mutationFn: (id: string) => api.put<DevicePaired>(`/api/admin/devices/${id}/regenerate-secret`, {}),
+    onSuccess: (res) => { if (res.data) setPaired(res.data); },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
+    onSettled: () => setRegenerateTarget(null),
   });
 
   const copy = (text: string, field: 'id' | 'secret') => {
@@ -162,6 +170,9 @@ const Devices = () => {
                     <p className="text-xs text-muted-foreground">Last seen: {formatLastSeen(d.lastSeenAt)}</p>
                   </div>
                   <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" aria-label="Regenerate secret" onClick={() => setRegenerateTarget(d)}>
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
                     {d.isActive && (
                       <Button variant="ghost" size="icon" aria-label="Deactivate terminal" onClick={() => setDeactivateId(d.id)}>
                         <Ban className="w-4 h-4" />
@@ -221,10 +232,31 @@ const Devices = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={!!regenerateTarget} onOpenChange={(open) => !open && setRegenerateTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regenerate secret for "{regenerateTarget?.deviceName}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The current secret stops working immediately - the terminal will need to be re-paired with the new one.
+              Device ID stays the same.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={regenerateMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={regenerateMutation.isPending}
+              onClick={() => regenerateTarget && regenerateMutation.mutate(regenerateTarget.id)}
+            >
+              {regenerateMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Regenerating...</>) : 'Regenerate'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={!!paired} onOpenChange={(open) => !open && setPaired(null)}>
         <DialogContent onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>"{paired?.deviceName}" registered</DialogTitle>
+            <DialogTitle>"{paired?.deviceName}" credentials</DialogTitle>
             <DialogDescription>
               Enter these on the terminal's "Pair this terminal" screen. <strong>The secret is shown only once</strong> — copy it now,
               it can't be retrieved again after you close this.

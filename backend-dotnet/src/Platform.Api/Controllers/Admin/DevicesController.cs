@@ -42,14 +42,12 @@ public class DevicesController(AppDbContext db, ICurrentTenant currentTenant) : 
         if (!currentTenant.RestaurantId.HasValue)
             return BadRequest(ApiResponse<DevicePairedDto>.Fail("Could not resolve the current restaurant.", 400));
 
-        var secret = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
-        var hasher = new PasswordHasher<object>();
-
+        var secret = GenerateSecret();
         var device = new Device
         {
             RestaurantId = currentTenant.RestaurantId.Value,
             DeviceName = request.DeviceName,
-            DeviceSecretHash = hasher.HashPassword(new object(), secret),
+            DeviceSecretHash = new PasswordHasher<object>().HashPassword(new object(), secret),
         };
         db.Devices.Add(device);
         await db.SaveChangesAsync();
@@ -57,6 +55,25 @@ public class DevicesController(AppDbContext db, ICurrentTenant currentTenant) : 
         return Ok(ApiResponse<DevicePairedDto>.Ok(
             new DevicePairedDto(device.Id, device.DeviceName, secret), statusCode: 201));
     }
+
+    /// <summary>The old secret is a one-way hash on our side, so a lost/forgotten secret can't be
+    /// recovered - this issues a new one for the same Device ID instead of forcing a full
+    /// delete-and-re-register. Same one-time-reveal contract as Create.</summary>
+    [HttpPut("{id:guid}/regenerate-secret")]
+    public async Task<ActionResult<ApiResponse<DevicePairedDto>>> RegenerateSecret(Guid id)
+    {
+        var device = await db.Devices.FirstOrDefaultAsync(d => d.Id == id);
+        if (device is null)
+            return NotFound(ApiResponse<DevicePairedDto>.Fail("Device not found.", 404));
+
+        var secret = GenerateSecret();
+        device.DeviceSecretHash = new PasswordHasher<object>().HashPassword(new object(), secret);
+        await db.SaveChangesAsync();
+
+        return Ok(ApiResponse<DevicePairedDto>.Ok(new DevicePairedDto(device.Id, device.DeviceName, secret)));
+    }
+
+    private static string GenerateSecret() => Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
 
     /// <summary>Signs the device out and blocks it from pairing again with the same credentials,
     /// but keeps the row (and its order/audit history) around - distinct from Delete below.</summary>

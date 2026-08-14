@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
 using Platform.Infrastructure;
+using Platform.Infrastructure.Identity;
 using Platform.Infrastructure.Multitenancy;
 using Platform.Infrastructure.Persistence;
 using Serilog;
@@ -98,6 +99,9 @@ app.UseHttpsRedirection();
 app.UseCors("Default");
 
 app.UseAuthentication();
+// Rejects a device token the moment its Device row is deactivated/deleted, rather than letting
+// it keep working until the (short-lived, but non-zero) token naturally expires.
+app.UseMiddleware<DeviceValidationMiddleware>();
 // Tenant resolution must run after authentication (it reads JWT claims as a fallback for
 // admin/POS traffic that isn't on a customer's branded domain) but before authorization.
 app.UseMiddleware<TenantResolutionMiddleware>();
