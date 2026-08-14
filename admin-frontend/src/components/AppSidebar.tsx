@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, UtensilsCrossed, ShoppingBag, Table2, LogOut, User, Lock, Bell, BookOpen, PackageOpen, Star, Ticket, Clock3, Truck, Smartphone } from 'lucide-react';
+import { LayoutDashboard, Settings, UtensilsCrossed, ShoppingBag, Table2, LogOut, User, Lock, Bell, BookOpen, PackageOpen, Star, Ticket, Clock3, Truck, Smartphone, Settings2 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
@@ -41,6 +41,7 @@ const menuItems = [
   { title: 'Delivery Zones', url: '/dashboard/delivery-zones', icon: Truck },
   { title: 'Opening Hours', url: '/dashboard/opening-hours', icon: Clock3 },
   { title: 'Notifications', url: '/dashboard/notifications', icon: Bell },
+  { title: 'Configurations', url: '/dashboard/configurations', icon: Settings2 },
 ];
 
 export function AppSidebar() {

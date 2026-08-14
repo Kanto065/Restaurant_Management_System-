@@ -1,30 +1,30 @@
 import { useParams, Link } from 'react-router-dom';
-import { useTrackOrder, useRestaurant } from '../lib/queries';
+import { useTrackOrder, useRestaurant, useOrderStatuses } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
-import type { OrderStatus } from '../types/api';
 
-const STEPS: OrderStatus[] = ['Pending', 'Confirmed', 'Preparing', 'Ready', 'OutForDeliveryOrServed', 'Completed'];
-
-const STEP_LABELS: Record<OrderStatus, string> = {
+// Nicer wording for the built-in status names; anything else (a custom admin-added status)
+// just displays as-is, since it's already admin-authored plain text.
+const STEP_LABELS: Record<string, string> = {
   Pending: 'Order Placed',
   Confirmed: 'Confirmed',
   Preparing: 'Preparing',
   Ready: 'Ready',
   OutForDeliveryOrServed: 'On the Way',
   Completed: 'Completed',
-  Cancelled: 'Cancelled',
 };
 
 export default function OrderTracking() {
   const { orderId } = useParams<{ orderId: string }>();
   const { data: order, isLoading } = useTrackOrder(orderId);
   const { data: restaurant } = useRestaurant();
+  const { data: allStatuses } = useOrderStatuses();
   const currency = currencySymbol(restaurant?.currency);
 
   if (isLoading) return <div className="max-w-2xl mx-auto px-4 py-16 text-center">Loading order...</div>;
   if (!order) return <div className="max-w-2xl mx-auto px-4 py-16 text-center">Order not found.</div>;
 
-  const currentIndex = STEPS.indexOf(order.status);
+  const steps = (allStatuses ?? []).filter((s) => s !== 'Cancelled');
+  const currentIndex = steps.indexOf(order.status);
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
@@ -35,14 +35,14 @@ export default function OrderTracking() {
         <p className="text-red-400 font-medium mb-6">This order has been cancelled.</p>
       ) : (
         <div className="flex flex-wrap gap-2 mb-8">
-          {STEPS.filter((s) => s !== 'Cancelled').map((step, i) => (
+          {steps.map((step, i) => (
             <div
               key={step}
               className={`px-3 py-2 rounded text-xs sm:text-sm font-medium ${
                 i <= currentIndex ? 'bg-brand-green text-white' : 'bg-brand-cream/10 text-brand-cream/50'
               }`}
             >
-              {STEP_LABELS[step]}
+              {STEP_LABELS[step] ?? step}
             </div>
           ))}
         </div>

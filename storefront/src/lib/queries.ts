@@ -26,6 +26,13 @@ export function useDeliveryZones() {
   });
 }
 
+export function useOrderStatuses() {
+  return useQuery({
+    queryKey: ['public', 'order-statuses'],
+    queryFn: () => api.get<string[]>('/api/public/order-statuses'),
+  });
+}
+
 export function useCreateOrder() {
   return useMutation({
     mutationFn: (req: CreateOrderRequest) => api.post<CreatedOrder>('/api/public/orders', req),

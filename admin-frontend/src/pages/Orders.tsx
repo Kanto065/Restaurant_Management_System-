@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { api } from '@/lib/api';
 import { useCurrency, useCurrencyCode } from '@/hooks/useCurrency';
+import { statusBadgeColor } from '@/pages/Configurations';
 import {
   Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Eye, Timer,
   RefreshCw, UtensilsCrossed, User, Phone, Mail, Search, MoreVertical, ListChecks, ArrowRight, Check,
@@ -26,8 +27,8 @@ const CURRENCY_ICONS: Record<string, typeof DollarSign> = {
 };
 
 type OrderType = 'DineIn' | 'Collection' | 'Delivery';
-type OrderStatus = 'Pending' | 'Confirmed' | 'Preparing' | 'Ready' | 'OutForDeliveryOrServed' | 'Completed' | 'Cancelled';
-type PaymentStatus = 'Pending' | 'Authorized' | 'Paid' | 'Failed' | 'Refunded' | 'PartiallyRefunded';
+type OrderStatus = string;
+type PaymentStatus = string;
 type PaymentMethod = 'Card' | 'Cash' | 'ApplePay' | 'GooglePay';
 
 interface OrderListItem {
@@ -45,28 +46,8 @@ interface OrderDetail extends OrderListItem {
 }
 
 interface OrderStats { totalOrders: number; pendingOrders: number; completedOrders: number; totalRevenue: number }
-
-const ORDER_STATUSES: OrderStatus[] = ['Pending', 'Confirmed', 'Preparing', 'Ready', 'OutForDeliveryOrServed', 'Completed', 'Cancelled'];
-const PAYMENT_STATUSES: PaymentStatus[] = ['Pending', 'Authorized', 'Paid', 'Failed', 'Refunded', 'PartiallyRefunded'];
-
-const statusColors: Record<OrderStatus, string> = {
-  Pending: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-300',
-  Confirmed: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-300',
-  Preparing: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-300',
-  Ready: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-300',
-  OutForDeliveryOrServed: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-300',
-  Completed: 'bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-300',
-  Cancelled: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-300',
-};
-
-const paymentStatusColors: Record<PaymentStatus, string> = {
-  Pending: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
-  Authorized: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-  Paid: 'bg-green-500/10 text-green-700 dark:text-green-400',
-  Failed: 'bg-red-500/10 text-red-700 dark:text-red-400',
-  Refunded: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-  PartiallyRefunded: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-};
+interface OrderStatusDef { id: string; name: string; displayOrder: number }
+interface PaymentStatusDef { id: string; name: string; displayOrder: number }
 
 const formatTime = (date: string) =>
   new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
@@ -95,6 +76,15 @@ const Orders = () => {
   const [search, setSearch] = useState('');
   const [candidateStatus, setCandidateStatus] = useState<Record<string, OrderStatus>>({});
   const [candidatePayment, setCandidatePayment] = useState<Record<string, PaymentStatus>>({});
+
+  const orderStatusesQuery = useQuery({ queryKey: ['admin', 'order-statuses'], queryFn: () => api.get<OrderStatusDef[]>('/api/admin/order-statuses') });
+  const paymentStatusesQuery = useQuery({ queryKey: ['admin', 'payment-statuses'], queryFn: () => api.get<PaymentStatusDef[]>('/api/admin/payment-statuses') });
+  const orderStatusDefs = [...(orderStatusesQuery.data?.data ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
+  const paymentStatusDefs = [...(paymentStatusesQuery.data?.data ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
+  const ORDER_STATUSES = orderStatusDefs.map((d) => d.name);
+  const PAYMENT_STATUSES = paymentStatusDefs.map((d) => d.name);
+  const statusColors = (name: string) => statusBadgeColor(orderStatusDefs.find((d) => d.name === name)?.displayOrder ?? 0);
+  const paymentStatusColors = (name: string) => statusBadgeColor(paymentStatusDefs.find((d) => d.name === name)?.displayOrder ?? 0);
 
   const statsQuery = useQuery({ queryKey: ['admin', 'orders', 'stats'], queryFn: () => api.get<OrderStats>('/api/admin/orders/stats') });
   const ordersQuery = useQuery({
@@ -338,7 +328,7 @@ const Orders = () => {
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant="outline" className={statusColors[order.status]}>{order.status}</Badge>
+                      <Badge variant="outline" className={statusColors(order.status)}>{order.status}</Badge>
                       <button
                         type="button"
                         onClick={() => cycleStatus(order)}
@@ -347,7 +337,7 @@ const Orders = () => {
                       >
                         <ArrowRight className="w-4 h-4" />
                       </button>
-                      <Badge variant="outline" className={statusColors[candidateS]}>{candidateS}</Badge>
+                      <Badge variant="outline" className={statusColors(candidateS)}>{candidateS}</Badge>
                       <Button
                         variant="ghost" size="icon" className="h-7 w-7 text-green-600"
                         disabled={quickStatusMutation.isPending}
@@ -368,7 +358,7 @@ const Orders = () => {
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant="outline" className={paymentStatusColors[order.paymentStatus]}>{order.paymentStatus}</Badge>
+                      <Badge variant="outline" className={paymentStatusColors(order.paymentStatus)}>{order.paymentStatus}</Badge>
                       <button
                         type="button"
                         onClick={() => cyclePayment(order)}
@@ -377,7 +367,7 @@ const Orders = () => {
                       >
                         <ArrowRight className="w-4 h-4" />
                       </button>
-                      <Badge variant="outline" className={paymentStatusColors[candidateP]}>{candidateP}</Badge>
+                      <Badge variant="outline" className={paymentStatusColors(candidateP)}>{candidateP}</Badge>
                       <Button
                         variant="ghost" size="icon" className="h-7 w-7 text-green-600"
                         disabled={quickPaymentMutation.isPending}
@@ -408,7 +398,7 @@ const Orders = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1"><p className="text-sm font-medium">Order Number</p><p className="text-sm text-muted-foreground">#{selectedOrder.orderNumber}</p></div>
                   <div className="space-y-1"><p className="text-sm font-medium">Created</p><p className="text-sm text-muted-foreground">{formatTime(selectedOrder.createdAt)}</p></div>
-                  <div className="space-y-1"><p className="text-sm font-medium">Status</p><Badge variant="outline" className={statusColors[selectedOrder.status]}>{selectedOrder.status}</Badge></div>
+                  <div className="space-y-1"><p className="text-sm font-medium">Status</p><Badge variant="outline" className={statusColors(selectedOrder.status)}>{selectedOrder.status}</Badge></div>
                   <div className="space-y-1"><p className="text-sm font-medium">Estimated Ready</p><p className="text-sm text-muted-foreground">{selectedOrder.estimatedReadyAt ? formatTime(selectedOrder.estimatedReadyAt) : 'Not set'}</p></div>
                 </div>
                 <Separator />
@@ -451,7 +441,7 @@ const Orders = () => {
                     {selectedOrder.processingFee > 0 && <div className="flex items-center justify-between"><span className="text-sm">Processing Fee</span><span className="text-sm">{formatCurrency(selectedOrder.processingFee)}</span></div>}
                     {selectedOrder.discountAmount > 0 && <div className="flex items-center justify-between"><span className="text-sm">Discount</span><span className="text-sm">-{formatCurrency(selectedOrder.discountAmount)}</span></div>}
                     <div className="flex items-center justify-between"><span className="text-sm">Payment Method</span><span className="text-sm font-medium">{selectedOrder.paymentMethod}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-sm">Payment Status</span><Badge variant="outline" className={paymentStatusColors[selectedOrder.paymentStatus]}>{selectedOrder.paymentStatus}</Badge></div>
+                    <div className="flex items-center justify-between"><span className="text-sm">Payment Status</span><Badge variant="outline" className={paymentStatusColors(selectedOrder.paymentStatus)}>{selectedOrder.paymentStatus}</Badge></div>
                     <div className="flex items-center justify-between pt-2 border-t"><span className="font-semibold">Total Amount</span><span className="text-xl font-bold text-primary">{formatCurrency(selectedOrder.totalAmount)}</span></div>
                   </div>
                 </div>
@@ -464,7 +454,7 @@ const Orders = () => {
                         <div className="mt-1"><div className={`w-2 h-2 rounded-full ${index === selectedOrder.statusHistory.length - 1 ? 'bg-primary' : 'bg-muted'}`} /></div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
-                            <Badge variant="outline" className={statusColors[h.status]}>{h.status}</Badge>
+                            <Badge variant="outline" className={statusColors(h.status)}>{h.status}</Badge>
                             <span className="text-xs text-muted-foreground">{formatTime(h.timestamp)}</span>
                           </div>
                           {h.note && <p className="text-sm text-muted-foreground mt-1">{h.note}</p>}

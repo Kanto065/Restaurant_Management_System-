@@ -72,6 +72,15 @@ public class PublicRestaurantController(AppDbContext db, ICurrentTenant currentT
         return Ok(ApiResponse<RestaurantPublicDto>.Ok(dto));
     }
 
+    /// <summary>Ordered list of this restaurant's order status names, for the customer-facing
+    /// order tracking progress stepper - statuses are admin-configurable, not a fixed enum.</summary>
+    [HttpGet("order-statuses")]
+    public async Task<ActionResult<ApiResponse<List<string>>>> GetOrderStatuses()
+    {
+        var names = await db.OrderStatusDefinitions.OrderBy(d => d.DisplayOrder).Select(d => d.Name).ToListAsync();
+        return Ok(ApiResponse<List<string>>.Ok(names));
+    }
+
     [HttpGet("delivery-zones")]
     public async Task<ActionResult<ApiResponse<List<DeliveryZoneDto>>>> GetDeliveryZones()
     {

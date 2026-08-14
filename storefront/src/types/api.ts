@@ -145,9 +145,8 @@ export interface MenuResponse {
 
 export type OrderType = 'DineIn' | 'Collection' | 'Delivery';
 export type PaymentMethod = 'Card' | 'Cash' | 'ApplePay' | 'GooglePay';
-export type OrderStatus =
-  | 'Pending' | 'Confirmed' | 'Preparing' | 'Ready'
-  | 'OutForDeliveryOrServed' | 'Completed' | 'Cancelled';
+// Admin-configurable per restaurant, not a fixed set - see /api/public/order-statuses.
+export type OrderStatus = string;
 
 export interface CreateOrderItem {
   menuItemId: string;
