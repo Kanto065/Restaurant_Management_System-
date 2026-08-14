@@ -11,12 +11,12 @@ namespace Platform.Api.Controllers.Admin;
 public record MenuItemDto(
     Guid Id, Guid CategoryId, string Name, string? Description, decimal BasePrice, string? ImageUrl,
     bool IsVegetarian, bool IsVegan, bool IsBestSeller, SpiceLevel SpiceLevel, bool IsAvailable, int DisplayOrder,
-    int PreparationTimeMinutes);
+    int PreparationTimeMinutes, bool ShowVariantsAsRows);
 
 public record UpsertMenuItemRequest(
     Guid CategoryId, string Name, string? Description, decimal BasePrice, string? ImageUrl,
     bool IsVegetarian, bool IsVegan, bool IsBestSeller, SpiceLevel SpiceLevel, bool IsAvailable, int DisplayOrder,
-    int PreparationTimeMinutes);
+    int PreparationTimeMinutes, bool ShowVariantsAsRows = false);
 
 [ApiController]
 [Route("api/admin/menu-items")]
@@ -33,7 +33,8 @@ public class MenuItemsController(AppDbContext db) : ControllerBase
         var items = await query
             .OrderBy(i => i.DisplayOrder)
             .Select(i => new MenuItemDto(i.Id, i.CategoryId, i.Name, i.Description, i.BasePrice, i.ImageUrl,
-                i.IsVegetarian, i.IsVegan, i.IsBestSeller, i.SpiceLevel, i.IsAvailable, i.DisplayOrder, i.PreparationTimeMinutes))
+                i.IsVegetarian, i.IsVegan, i.IsBestSeller, i.SpiceLevel, i.IsAvailable, i.DisplayOrder, i.PreparationTimeMinutes,
+                i.ShowVariantsAsRows))
             .ToListAsync();
 
         return Ok(ApiResponse<List<MenuItemDto>>.Ok(items));
@@ -52,6 +53,7 @@ public class MenuItemsController(AppDbContext db) : ControllerBase
             BasePrice = request.BasePrice, ImageUrl = request.ImageUrl, IsVegetarian = request.IsVegetarian,
             IsVegan = request.IsVegan, IsBestSeller = request.IsBestSeller, SpiceLevel = request.SpiceLevel, IsAvailable = request.IsAvailable,
             DisplayOrder = request.DisplayOrder, PreparationTimeMinutes = request.PreparationTimeMinutes,
+            ShowVariantsAsRows = request.ShowVariantsAsRows,
         };
         db.MenuItems.Add(item);
         await db.SaveChangesAsync();
@@ -78,6 +80,7 @@ public class MenuItemsController(AppDbContext db) : ControllerBase
         item.IsAvailable = request.IsAvailable;
         item.DisplayOrder = request.DisplayOrder;
         item.PreparationTimeMinutes = request.PreparationTimeMinutes;
+        item.ShowVariantsAsRows = request.ShowVariantsAsRows;
         await db.SaveChangesAsync();
 
         return Ok(ApiResponse<MenuItemDto>.Ok(ToDto(item)));
@@ -98,5 +101,5 @@ public class MenuItemsController(AppDbContext db) : ControllerBase
 
     private static MenuItemDto ToDto(MenuItem i) => new(
         i.Id, i.CategoryId, i.Name, i.Description, i.BasePrice, i.ImageUrl, i.IsVegetarian, i.IsVegan, i.IsBestSeller,
-        i.SpiceLevel, i.IsAvailable, i.DisplayOrder, i.PreparationTimeMinutes);
+        i.SpiceLevel, i.IsAvailable, i.DisplayOrder, i.PreparationTimeMinutes, i.ShowVariantsAsRows);
 }

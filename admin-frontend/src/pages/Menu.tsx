@@ -48,6 +48,7 @@ interface MenuItem {
   isAvailable: boolean;
   displayOrder: number;
   preparationTimeMinutes: number;
+  showVariantsAsRows: boolean;
 }
 
 type ItemFormState = {
@@ -63,12 +64,13 @@ type ItemFormState = {
   spiceLevel: (typeof SPICE_LEVELS)[number];
   displayOrder: string;
   preparationTimeMinutes: string;
+  showVariantsAsRows: boolean;
 };
 
 const emptyForm: ItemFormState = {
   categoryId: '', name: '', description: '', basePrice: '', imageUrl: '',
   isVegetarian: false, isVegan: false, isBestSeller: false, isAvailable: true,
-  spiceLevel: 'None', displayOrder: '0', preparationTimeMinutes: '15',
+  spiceLevel: 'None', displayOrder: '0', preparationTimeMinutes: '15', showVariantsAsRows: false,
 };
 
 const Menu = () => {
@@ -171,6 +173,7 @@ const Menu = () => {
       isVegetarian: item.isVegetarian, isVegan: item.isVegan, isBestSeller: item.isBestSeller,
       isAvailable: item.isAvailable, spiceLevel: item.spiceLevel,
       displayOrder: item.displayOrder.toString(), preparationTimeMinutes: item.preparationTimeMinutes.toString(),
+      showVariantsAsRows: item.showVariantsAsRows,
     };
   }
 
@@ -188,6 +191,7 @@ const Menu = () => {
       spiceLevel: f.spiceLevel,
       displayOrder: parseInt(f.displayOrder, 10) || 0,
       preparationTimeMinutes: parseInt(f.preparationTimeMinutes, 10) || 0,
+      showVariantsAsRows: f.showVariantsAsRows,
     };
   }
 
@@ -321,6 +325,7 @@ const Menu = () => {
                   ['isVegan', 'Vegan', 'Mark if this item is vegan'],
                   ['isBestSeller', 'Best Seller', 'Shown in the storefront’s Best Sellers filter'],
                   ['isAvailable', 'Available', 'Mark if this item is currently available'],
+                  ['showVariantsAsRows', 'List variants as separate rows', 'Only works with exactly one variant group (e.g. Plain/Spicy) - shows each as its own priced row with an instant Add button instead of opening the customise popup'],
                 ] as const).map(([key, label, hint]) => (
                   <div key={key} className="flex items-center justify-between">
                     <div className="space-y-0.5">

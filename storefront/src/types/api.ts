@@ -114,6 +114,7 @@ export interface MenuItem {
   isBestSeller: boolean;
   spiceLevel: SpiceLevel;
   preparationTimeMinutes: number;
+  showVariantsAsRows: boolean;
   modifierGroups: ModifierGroup[];
 }
 

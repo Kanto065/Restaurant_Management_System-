@@ -43,6 +43,12 @@ public class MenuItem : TenantEntity
     public int? Calories { get; set; }
     public string AllergenTagsJson { get; set; } = "[]";
 
+    /// <summary>When true and this item has exactly one modifier group, the storefront lists
+    /// each option as its own priced row with an instant Add button (e.g. Pappadum -> Plain
+    /// £0.95 / Spicy £0.95) instead of opening the customise popup. Purely a display choice -
+    /// the underlying modifier group data is unchanged either way.</summary>
+    public bool ShowVariantsAsRows { get; set; }
+
     public List<MenuItemModifierGroup> ModifierGroupLinks { get; set; } = [];
 }
 

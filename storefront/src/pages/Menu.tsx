@@ -178,7 +178,31 @@ export default function Menu() {
             />
           </div>
           <div className="divide-y divide-brand-bg/10">
-            {visibleItems.map((item) => (
+            {visibleItems.map((item) =>
+              item.showVariantsAsRows && item.modifierGroups.length === 1 ? (
+                <div key={item.id} className="p-4">
+                  <p className="font-display text-lg leading-tight">{item.name}</p>
+                  {item.description && <p className="text-sm text-brand-bg/70 mt-1">{item.description}</p>}
+                  <div className="mt-2 space-y-2">
+                    {item.modifierGroups[0].options.map((option) => (
+                      <div key={option.id} className="flex items-center justify-between gap-3 pl-2">
+                        <span className="text-sm text-brand-bg/80">» {option.name}</span>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="font-semibold text-brand-bg text-sm">
+                            {currency}{(item.basePrice + option.priceDelta).toFixed(2)}
+                          </span>
+                          <button
+                            onClick={() => addLine(item, [option])}
+                            className="bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
+                          >
+                            Add +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
               <button
                 key={item.id}
                 type="button"
@@ -226,7 +250,8 @@ export default function Menu() {
                   </div>
                 </div>
               </button>
-            ))}
+              )
+            )}
             {visibleItems.length === 0 && (
               <p className="p-4 text-sm text-brand-bg/60">
                 {viewMode === 'favourites' ? "You haven't added any favourites yet." : 'No items found.'}
