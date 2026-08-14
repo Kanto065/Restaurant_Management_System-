@@ -245,7 +245,7 @@ export default function Menu() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between sm:contents">
+                  <div className="flex items-center justify-end gap-3 sm:contents">
                     {isMember ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleFavouriteMutation.mutate({ menuItemId: item.id, isFavourite: favouriteIds.has(item.id) }); }}
