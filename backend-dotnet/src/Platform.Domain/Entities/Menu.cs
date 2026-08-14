@@ -73,9 +73,12 @@ public class ModifierOption : TenantEntity
     public decimal PriceDelta { get; set; }
     public bool IsDefault { get; set; }
     public bool IsAvailable { get; set; } = true;
+    public int DisplayOrder { get; set; }
 }
 
-/// <summary>Join table: a MenuItem can share ModifierGroups (e.g. all curries share "Spice level").</summary>
+/// <summary>Join table: a MenuItem can share ModifierGroups (e.g. all curries share "Spice level").
+/// DisplayOrder lives here rather than on ModifierGroup since group order is a property of the
+/// item's list, not the group itself (relevant once groups are ever shared across items).</summary>
 public class MenuItemModifierGroup : TenantEntity
 {
     public Guid MenuItemId { get; set; }
@@ -83,6 +86,8 @@ public class MenuItemModifierGroup : TenantEntity
 
     public Guid ModifierGroupId { get; set; }
     public ModifierGroup? ModifierGroup { get; set; }
+
+    public int DisplayOrder { get; set; }
 }
 
 public class Deal : TenantEntity

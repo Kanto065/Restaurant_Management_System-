@@ -530,7 +530,7 @@ const Menu = () => {
                 </div>
                 <Button variant="ghost" size="sm" className="w-full" onClick={() => toggleItem(item.id)}>
                   {expandedItems.has(item.id) ? <ChevronDown className="w-4 h-4 mr-2" /> : <ChevronRight className="w-4 h-4 mr-2" />}
-                  Variants
+                  Options
                 </Button>
                 {expandedItems.has(item.id) && (
                   <ItemVariantsPanel

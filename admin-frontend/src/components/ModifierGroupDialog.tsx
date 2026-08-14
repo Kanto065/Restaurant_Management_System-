@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical } from 'lucide-react';
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 
@@ -31,9 +31,12 @@ export interface ModifierGroup {
   options: ModifierOption[];
 }
 
-type OptionForm = { id?: string; name: string; priceDelta: string; isDefault: boolean };
+// `key` is a client-only stable identity for drag reordering and React keys - unrelated to
+// the server `id`, which new (unsaved) options don't have yet.
+type OptionForm = { key: string; id?: string; name: string; priceDelta: string; isDefault: boolean };
 
-const emptyOption: OptionForm = { name: '', priceDelta: '0', isDefault: false };
+const newOptionKey = () => crypto.randomUUID();
+const emptyOption = (): OptionForm => ({ key: newOptionKey(), name: '', priceDelta: '0', isDefault: false });
 
 interface ModifierGroupDialogProps {
   itemId: string;
@@ -49,7 +52,11 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
   const [groupType, setGroupType] = useState<ModifierGroupType>('Modifier');
   const [isRequired, setIsRequired] = useState(true);
   const [singleSelect, setSingleSelect] = useState(true);
-  const [options, setOptions] = useState<OptionForm[]>([{ ...emptyOption }, { ...emptyOption }]);
+  const [options, setOptions] = useState<OptionForm[]>([emptyOption(), emptyOption()]);
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+  const prevRects = useRef(new Map<string, DOMRect>());
 
   useEffect(() => {
     if (group) {
@@ -57,13 +64,13 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
       setGroupType(group.groupType);
       setIsRequired(group.isRequired);
       setSingleSelect(group.maxSelect <= 1);
-      setOptions(group.options.map((o) => ({ id: o.id, name: o.name, priceDelta: o.priceDelta.toString(), isDefault: o.isDefault })));
+      setOptions(group.options.map((o) => ({ key: newOptionKey(), id: o.id, name: o.name, priceDelta: o.priceDelta.toString(), isDefault: o.isDefault })));
     } else {
       setName('');
       setGroupType('Modifier');
       setIsRequired(true);
       setSingleSelect(true);
-      setOptions([{ ...emptyOption }, { ...emptyOption }]);
+      setOptions([emptyOption(), emptyOption()]);
     }
   }, [group]);
 
@@ -74,6 +81,46 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
       setSingleSelect(true);
     }
   }, [groupType]);
+
+  // FLIP: same approach as Menu Categories/Variant Groups reordering.
+  const captureRectsForFlip = () => {
+    prevRects.current.clear();
+    for (const [key, el] of rowRefs.current) prevRects.current.set(key, el.getBoundingClientRect());
+  };
+
+  useLayoutEffect(() => {
+    if (prevRects.current.size === 0) return;
+    for (const [key, el] of rowRefs.current) {
+      const prev = prevRects.current.get(key);
+      if (!prev) continue;
+      const next = el.getBoundingClientRect();
+      const deltaY = prev.top - next.top;
+      if (deltaY === 0) continue;
+      el.style.transition = 'none';
+      el.style.transform = `translateY(${deltaY}px)`;
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform 220ms ease';
+        el.style.transform = '';
+      });
+    }
+    prevRects.current.clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.map((o) => o.key).join(',')]);
+
+  const handleDrop = (targetKey: string) => {
+    setDragOverKey(null);
+    if (!dragKey || dragKey === targetKey) { setDragKey(null); return; }
+    setOptions((prev) => {
+      const next = [...prev];
+      const from = next.findIndex((o) => o.key === dragKey);
+      const to = next.findIndex((o) => o.key === targetKey);
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    captureRectsForFlip();
+    setDragKey(null);
+  };
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'menu-items', itemId, 'modifier-groups'] });
 
@@ -94,7 +141,7 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
         : api.post(`/api/admin/menu-items/${itemId}/modifier-groups`, payload);
     },
     onSuccess: () => {
-      toast({ title: 'Success', description: group ? 'Variant group updated.' : 'Variant group added.' });
+      toast({ title: 'Success', description: group ? 'Option group updated.' : 'Option group added.' });
       invalidate();
       onClose();
     },
@@ -108,23 +155,20 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
       return;
     }
     if (options.filter((o) => o.name.trim()).length < 2) {
-      toast({ title: 'Validation Error', description: 'Add at least two variants (e.g. Plain, Spicy).', variant: 'destructive' });
+      toast({ title: 'Validation Error', description: 'Add at least two options (e.g. Plain, Spicy).', variant: 'destructive' });
       return;
     }
     saveMutation.mutate();
   };
 
-  const updateOption = (index: number, patch: Partial<OptionForm>) =>
-    setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, ...patch } : o)));
+  const updateOption = (key: string, patch: Partial<OptionForm>) =>
+    setOptions((prev) => prev.map((o) => (o.key === key ? { ...o, ...patch } : o)));
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{group ? 'Edit Variant Group' : 'Add Variant Group'}</DialogTitle>
-          <DialogDescription>
-            e.g. "Choose Type" with variants Plain / Spicy, or "Choose Flavour" with several options.
-          </DialogDescription>
+          <DialogTitle>{group ? 'Edit Option Group' : 'Add Option Group'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -168,24 +212,37 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
             <div className="space-y-0.5">
               <Label>Single choice</Label>
               <p className="text-xs text-muted-foreground">
-                {groupType === 'Variation' ? 'Always on for a Variation' : 'Off allows picking more than one variant'}
+                {groupType === 'Variation' ? 'Always on for a Variation' : 'Off allows picking more than one option'}
               </p>
             </div>
             <Switch checked={singleSelect} onCheckedChange={setSingleSelect} disabled={groupType === 'Variation'} />
           </div>
 
           <div className="space-y-2">
-            <Label>Variants *</Label>
+            <Label>Options *</Label>
             <p className="text-xs text-muted-foreground -mt-1">
               {groupType === 'Variation'
-                ? "Enter each variant's full price - the item's own base price should be left at £0.00"
+                ? "Enter each option's full price - the item's own base price should be left at £0.00"
                 : 'Enter how much each option adds to the price'}
             </p>
-            {options.map((option, i) => (
-              <div key={i} className="flex items-center gap-2">
+            {options.map((option) => (
+              <div
+                key={option.key}
+                ref={(el) => { if (el) rowRefs.current.set(option.key, el); else rowRefs.current.delete(option.key); }}
+                draggable={options.length > 1}
+                onDragStart={() => setDragKey(option.key)}
+                onDragOver={(e) => { e.preventDefault(); if (dragKey && dragKey !== option.key) setDragOverKey(option.key); }}
+                onDragLeave={() => setDragOverKey((k) => (k === option.key ? null : k))}
+                onDragEnd={() => { setDragKey(null); setDragOverKey(null); }}
+                onDrop={() => handleDrop(option.key)}
+                className={`flex items-center gap-2 border-t-2 transition-colors ${
+                  dragKey === option.key ? 'opacity-40' : dragOverKey === option.key ? 'border-t-primary' : 'border-t-transparent'
+                }`}
+              >
+                {options.length > 1 && <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab shrink-0" />}
                 <Input
                   value={option.name}
-                  onChange={(e) => updateOption(i, { name: e.target.value })}
+                  onChange={(e) => updateOption(option.key, { name: e.target.value })}
                   placeholder="e.g., Plain"
                   className="flex-1"
                 />
@@ -193,7 +250,7 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
                   type="number"
                   step="0.01"
                   value={option.priceDelta}
-                  onChange={(e) => updateOption(i, { priceDelta: e.target.value })}
+                  onChange={(e) => updateOption(option.key, { priceDelta: e.target.value })}
                   placeholder={groupType === 'Variation' ? '0.00' : '+0.00'}
                   className="w-24"
                 />
@@ -201,15 +258,15 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => setOptions((prev) => prev.filter((_, idx) => idx !== i))}
+                  onClick={() => setOptions((prev) => prev.filter((o) => o.key !== option.key))}
                   disabled={options.length <= 2}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
             ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => setOptions((prev) => [...prev, { ...emptyOption }])}>
-              <Plus className="w-4 h-4 mr-2" />Add Variant
+            <Button type="button" variant="outline" size="sm" onClick={() => setOptions((prev) => [...prev, emptyOption()])}>
+              <Plus className="w-4 h-4 mr-2" />Add Option
             </Button>
           </div>
 
