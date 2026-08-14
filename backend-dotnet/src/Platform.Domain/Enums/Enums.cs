@@ -93,3 +93,14 @@ public enum VoucherDiscountType
     Percentage,
     FixedAmount
 }
+
+/// <summary>Industry-standard split: a Variation replaces the item's price (e.g. choosing
+/// Chicken vs Lamb changes what the dish costs outright), a Modifier adds to whatever price
+/// was already reached (e.g. +£0.50 for extra cheese). Both are still stored identically as a
+/// ModifierGroup/ModifierOption with a priceDelta - this only changes how the admin UI treats
+/// the group and its price fields, not the underlying pricing math or the public API.</summary>
+public enum ModifierGroupType
+{
+    Modifier,
+    Variation
+}

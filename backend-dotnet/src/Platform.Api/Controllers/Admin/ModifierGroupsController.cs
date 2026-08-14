@@ -3,15 +3,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Contracts;
 using Platform.Domain.Entities;
+using Platform.Domain.Enums;
 using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers.Admin;
 
 public record ModifierOptionDto(Guid Id, string Name, decimal PriceDelta, bool IsDefault, bool IsAvailable);
-public record ModifierGroupDto(Guid Id, string Name, int MinSelect, int MaxSelect, bool IsRequired, List<ModifierOptionDto> Options);
+public record ModifierGroupDto(Guid Id, string Name, int MinSelect, int MaxSelect, bool IsRequired, ModifierGroupType GroupType, List<ModifierOptionDto> Options);
 
 public record UpsertModifierOptionRequest(Guid? Id, string Name, decimal PriceDelta, bool IsDefault, bool IsAvailable);
-public record UpsertModifierGroupRequest(string Name, int MinSelect, int MaxSelect, bool IsRequired, List<UpsertModifierOptionRequest> Options);
+public record UpsertModifierGroupRequest(string Name, int MinSelect, int MaxSelect, bool IsRequired, ModifierGroupType GroupType, List<UpsertModifierOptionRequest> Options);
 
 /// <summary>
 /// Manages the modifier groups (e.g. "Choose Type": Plain/Spicy) that give a menu item its
@@ -45,6 +46,7 @@ public class ModifierGroupsController(AppDbContext db) : ControllerBase
         var group = new ModifierGroup
         {
             Name = request.Name, MinSelect = request.MinSelect, MaxSelect = request.MaxSelect, IsRequired = request.IsRequired,
+            GroupType = request.GroupType,
             Options = request.Options.Select(o => new ModifierOption
             {
                 Name = o.Name, PriceDelta = o.PriceDelta, IsDefault = o.IsDefault, IsAvailable = o.IsAvailable,
@@ -68,6 +70,7 @@ public class ModifierGroupsController(AppDbContext db) : ControllerBase
         group.MinSelect = request.MinSelect;
         group.MaxSelect = request.MaxSelect;
         group.IsRequired = request.IsRequired;
+        group.GroupType = request.GroupType;
 
         var keepIds = request.Options.Where(o => o.Id.HasValue).Select(o => o.Id!.Value).ToHashSet();
         foreach (var stale in group.Options.Where(o => !keepIds.Contains(o.Id)).ToList())
@@ -109,6 +112,6 @@ public class ModifierGroupsController(AppDbContext db) : ControllerBase
     }
 
     private static ModifierGroupDto ToDto(ModifierGroup g) => new(
-        g.Id, g.Name, g.MinSelect, g.MaxSelect, g.IsRequired,
+        g.Id, g.Name, g.MinSelect, g.MaxSelect, g.IsRequired, g.GroupType,
         g.Options.Select(o => new ModifierOptionDto(o.Id, o.Name, o.PriceDelta, o.IsDefault, o.IsAvailable)).ToList());
 }

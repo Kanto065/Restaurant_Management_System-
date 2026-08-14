@@ -19,12 +19,15 @@ export interface ModifierOption {
   isAvailable: boolean;
 }
 
+export type ModifierGroupType = 'Modifier' | 'Variation';
+
 export interface ModifierGroup {
   id: string;
   name: string;
   minSelect: number;
   maxSelect: number;
   isRequired: boolean;
+  groupType: ModifierGroupType;
   options: ModifierOption[];
 }
 
@@ -43,6 +46,7 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
   const queryClient = useQueryClient();
 
   const [name, setName] = useState('');
+  const [groupType, setGroupType] = useState<ModifierGroupType>('Modifier');
   const [isRequired, setIsRequired] = useState(true);
   const [singleSelect, setSingleSelect] = useState(true);
   const [options, setOptions] = useState<OptionForm[]>([{ ...emptyOption }, { ...emptyOption }]);
@@ -50,16 +54,26 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
   useEffect(() => {
     if (group) {
       setName(group.name);
+      setGroupType(group.groupType);
       setIsRequired(group.isRequired);
       setSingleSelect(group.maxSelect <= 1);
       setOptions(group.options.map((o) => ({ id: o.id, name: o.name, priceDelta: o.priceDelta.toString(), isDefault: o.isDefault })));
     } else {
       setName('');
+      setGroupType('Modifier');
       setIsRequired(true);
       setSingleSelect(true);
       setOptions([{ ...emptyOption }, { ...emptyOption }]);
     }
   }, [group]);
+
+  // A Variation must always resolve to exactly one price, so it can't be optional or multi-select.
+  useEffect(() => {
+    if (groupType === 'Variation') {
+      setIsRequired(true);
+      setSingleSelect(true);
+    }
+  }, [groupType]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'menu-items', itemId, 'modifier-groups'] });
 
@@ -70,6 +84,7 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
         minSelect: isRequired ? 1 : 0,
         maxSelect: singleSelect ? 1 : options.length,
         isRequired,
+        groupType,
         options: options
           .filter((o) => o.name.trim())
           .map((o) => ({ id: o.id ?? null, name: o.name, priceDelta: parseFloat(o.priceDelta) || 0, isDefault: o.isDefault, isAvailable: true })),
@@ -117,24 +132,55 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
             <Input id="groupName" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Choose Type" required />
           </div>
 
+          <div className="space-y-2">
+            <Label>Group Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setGroupType('Variation')}
+                className={`text-left border rounded-lg p-3 text-sm ${groupType === 'Variation' ? 'border-primary bg-primary/5' : 'border-input'}`}
+              >
+                <p className="font-medium">Variation</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Replaces the item's price (e.g. Chicken £8.95 vs Lamb £9.95)</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setGroupType('Modifier')}
+                className={`text-left border rounded-lg p-3 text-sm ${groupType === 'Modifier' ? 'border-primary bg-primary/5' : 'border-input'}`}
+              >
+                <p className="font-medium">Modifier / Extra</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Adds to the price (e.g. +£0.50 for extra cheese)</p>
+              </button>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Customer must pick one</Label>
-              <p className="text-xs text-muted-foreground">Off lets them skip this group entirely</p>
+              <p className="text-xs text-muted-foreground">
+                {groupType === 'Variation' ? 'Always on for a Variation - it must resolve to exactly one price' : 'Off lets them skip this group entirely'}
+              </p>
             </div>
-            <Switch checked={isRequired} onCheckedChange={setIsRequired} />
+            <Switch checked={isRequired} onCheckedChange={setIsRequired} disabled={groupType === 'Variation'} />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Single choice</Label>
-              <p className="text-xs text-muted-foreground">Off allows picking more than one variant</p>
+              <p className="text-xs text-muted-foreground">
+                {groupType === 'Variation' ? 'Always on for a Variation' : 'Off allows picking more than one variant'}
+              </p>
             </div>
-            <Switch checked={singleSelect} onCheckedChange={setSingleSelect} />
+            <Switch checked={singleSelect} onCheckedChange={setSingleSelect} disabled={groupType === 'Variation'} />
           </div>
 
           <div className="space-y-2">
             <Label>Variants *</Label>
+            <p className="text-xs text-muted-foreground -mt-1">
+              {groupType === 'Variation'
+                ? "Enter each variant's full price - the item's own base price should be left at £0.00"
+                : 'Enter how much each option adds to the price'}
+            </p>
             {options.map((option, i) => (
               <div key={i} className="flex items-center gap-2">
                 <Input
@@ -148,7 +194,7 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
                   step="0.01"
                   value={option.priceDelta}
                   onChange={(e) => updateOption(i, { priceDelta: e.target.value })}
-                  placeholder="+0.00"
+                  placeholder={groupType === 'Variation' ? '0.00' : '+0.00'}
                   className="w-24"
                 />
                 <Button

@@ -59,6 +59,7 @@ public class ModifierGroup : TenantEntity
     public int MinSelect { get; set; }
     public int MaxSelect { get; set; } = 1;
     public bool IsRequired { get; set; }
+    public ModifierGroupType GroupType { get; set; } = ModifierGroupType.Modifier;
 
     public List<ModifierOption> Options { get; set; } = [];
 }

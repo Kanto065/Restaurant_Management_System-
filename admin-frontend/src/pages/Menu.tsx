@@ -113,6 +113,16 @@ const Menu = () => {
     queryFn: () => api.get<MenuItem[]>('/api/admin/menu-items'),
   });
 
+  // Once an item has a Variation-type group, its own base price is meaningless - each
+  // variant carries its full price. Fetched only while editing so the price field can
+  // auto-lock to £0.00 instead of the admin having to remember to type it themselves.
+  const editingItemGroupsQuery = useQuery({
+    queryKey: ['admin', 'menu-items', editingItem?.id, 'modifier-groups'],
+    queryFn: () => api.get<{ groupType: 'Modifier' | 'Variation' }[]>(`/api/admin/menu-items/${editingItem!.id}/modifier-groups`),
+    enabled: isDialogOpen && !!editingItem,
+  });
+  const hasVariationGroup = (editingItemGroupsQuery.data?.data ?? []).some((g) => g.groupType === 'Variation');
+
   const categories = categoriesQuery.data?.data ?? [];
   const items = itemsQuery.data?.data ?? [];
 
@@ -208,7 +218,7 @@ const Menu = () => {
       toast({ title: 'Validation Error', description: 'Name, price, and category are required.', variant: 'destructive' });
       return;
     }
-    const payload = toPayload(form);
+    const payload = toPayload(hasVariationGroup ? { ...form, basePrice: '0' } : form);
     if (editingItem) {
       updateMutation.mutate({ id: editingItem.id, payload });
     } else {
@@ -288,9 +298,15 @@ const Menu = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="price">Price ({currency}) *</Label>
-                  <Input id="price" type="number" step="0.01" value={form.basePrice}
-                    onChange={(e) => setForm((f) => ({ ...f, basePrice: e.target.value }))}
-                    placeholder="0.00" required disabled={isSubmitting} />
+                  {hasVariationGroup ? (
+                    <div className="h-9 flex items-center px-3 rounded-md border border-input bg-muted text-sm text-muted-foreground">
+                      Priced per variant
+                    </div>
+                  ) : (
+                    <Input id="price" type="number" step="0.01" value={form.basePrice}
+                      onChange={(e) => setForm((f) => ({ ...f, basePrice: e.target.value }))}
+                      placeholder="0.00" required disabled={isSubmitting} />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">Category *</Label>

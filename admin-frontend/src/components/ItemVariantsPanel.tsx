@@ -27,7 +27,7 @@ export function ItemVariantsPanel({ itemId, showVariantsAsRows, onToggleShowVari
     queryFn: () => api.get<ModifierGroup[]>(`/api/admin/menu-items/${itemId}/modifier-groups`),
   });
   const groups = groupsQuery.data?.data ?? [];
-  const canShowAsRows = groups.length === 1;
+  const canShowAsRows = groups.length === 1 && groups[0].groupType === 'Variation';
 
   const deleteMutation = useMutation({
     mutationFn: (groupId: string) => api.delete(`/api/admin/modifier-groups/${groupId}`),
@@ -52,6 +52,7 @@ export function ItemVariantsPanel({ itemId, showVariantsAsRows, onToggleShowVari
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="font-medium text-sm truncate">{group.name}</span>
+                <Badge variant={group.groupType === 'Variation' ? 'default' : 'outline'} className="text-xs">{group.groupType}</Badge>
                 {group.isRequired && <Badge variant="outline" className="text-xs">Required</Badge>}
                 {group.maxSelect > 1 && <Badge variant="outline" className="text-xs">Multi-select</Badge>}
               </div>
