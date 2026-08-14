@@ -118,6 +118,8 @@ export interface MenuItem {
   spiceLevel: SpiceLevel;
   preparationTimeMinutes: number;
   showVariantsAsRows: boolean;
+  containsAllergens: boolean;
+  allergenInfo: string | null;
   modifierGroups: ModifierGroup[];
 }
 

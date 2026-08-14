@@ -49,6 +49,8 @@ interface MenuItem {
   displayOrder: number;
   preparationTimeMinutes: number;
   showVariantsAsRows: boolean;
+  containsAllergens: boolean;
+  allergenInfo: string | null;
 }
 
 type ItemFormState = {
@@ -65,12 +67,15 @@ type ItemFormState = {
   displayOrder: string;
   preparationTimeMinutes: string;
   showVariantsAsRows: boolean;
+  containsAllergens: boolean;
+  allergenInfo: string;
 };
 
 const emptyForm: ItemFormState = {
   categoryId: '', name: '', description: '', basePrice: '', imageUrl: '',
   isVegetarian: false, isVegan: false, isBestSeller: false, isAvailable: true,
   spiceLevel: 'None', displayOrder: '0', preparationTimeMinutes: '15', showVariantsAsRows: false,
+  containsAllergens: false, allergenInfo: '',
 };
 
 const Menu = () => {
@@ -191,6 +196,7 @@ const Menu = () => {
       isAvailable: item.isAvailable, spiceLevel: item.spiceLevel,
       displayOrder: item.displayOrder.toString(), preparationTimeMinutes: item.preparationTimeMinutes.toString(),
       showVariantsAsRows: item.showVariantsAsRows,
+      containsAllergens: item.containsAllergens, allergenInfo: item.allergenInfo ?? '',
     };
   }
 
@@ -209,6 +215,8 @@ const Menu = () => {
       displayOrder: parseInt(f.displayOrder, 10) || 0,
       preparationTimeMinutes: parseInt(f.preparationTimeMinutes, 10) || 0,
       showVariantsAsRows: f.showVariantsAsRows,
+      containsAllergens: f.containsAllergens,
+      allergenInfo: f.allergenInfo || null,
     };
   }
 
@@ -348,6 +356,7 @@ const Menu = () => {
                   ['isVegan', 'Vegan', 'Mark if this item is vegan'],
                   ['isBestSeller', 'Best Seller', 'Shown in the storefront’s Best Sellers filter'],
                   ['isAvailable', 'Available', 'Mark if this item is currently available'],
+                  ['containsAllergens', 'May Contain Allergens', 'Shows an allergy warning on the item’s storefront detail page'],
                 ] as const).map(([key, label, hint]) => (
                   <div key={key} className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -357,6 +366,17 @@ const Menu = () => {
                     <Switch id={key} checked={form[key]} onCheckedChange={(v) => setForm((f) => ({ ...f, [key]: v }))} disabled={isSubmitting} />
                   </div>
                 ))}
+                {form.containsAllergens && (
+                  <div className="space-y-2">
+                    <Label htmlFor="allergenInfo">Allergen Details (optional)</Label>
+                    <Textarea
+                      id="allergenInfo" rows={2} value={form.allergenInfo}
+                      onChange={(e) => setForm((f) => ({ ...f, allergenInfo: e.target.value }))}
+                      placeholder="e.g. Contains nuts, dairy, gluten"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                )}
               </div>
 
               <DialogFooter>

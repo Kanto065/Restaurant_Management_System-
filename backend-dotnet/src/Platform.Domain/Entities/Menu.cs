@@ -41,7 +41,12 @@ public class MenuItem : TenantEntity
     public int DisplayOrder { get; set; }
     public int PreparationTimeMinutes { get; set; } = 15;
     public int? Calories { get; set; }
-    public string AllergenTagsJson { get; set; } = "[]";
+
+    /// <summary>Toggle shown as "May contain allergens" on the item edit form - when on, the
+    /// storefront item detail page shows an allergy warning banner (with AllergenInfo's text,
+    /// if any was given) so customers can check before ordering.</summary>
+    public bool ContainsAllergens { get; set; }
+    public string? AllergenInfo { get; set; }
 
     /// <summary>When true and this item has exactly one modifier group, the storefront lists
     /// each option as its own priced row with an instant Add button (e.g. Pappadum -> Plain

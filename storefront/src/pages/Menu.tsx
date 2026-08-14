@@ -24,7 +24,10 @@ export default function Menu() {
 
   const openItem = (item: MenuItem) =>
     navigate(`${categoryId ? `/menu/category/${categoryId}` : '/menu'}/item/${item.id}?${searchParams.toString()}`);
-  const closeItem = () => navigate(`${categoryId ? `/menu/category/${categoryId}` : '/menu'}?${searchParams.toString()}`);
+  // navigate(-1) instead of a hardcoded /menu fallback - the item detail is always reached via an
+  // in-app click (Home's Popular Items, a category list row, etc.), so going back in history
+  // returns to wherever the user actually came from instead of always landing on the plain menu.
+  const closeItem = () => navigate(-1);
   const openCategory = (id: string) => { navigate(`/menu/category/${id}?${searchParams.toString()}`); setViewMode('category'); };
   const setOrderType = useCartStore((s) => s.setOrderType);
   const addLine = useCartStore((s) => s.addLine);

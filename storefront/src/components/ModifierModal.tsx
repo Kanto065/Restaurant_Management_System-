@@ -85,6 +85,16 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
           </div>
           {item.description && <p className="text-sm text-brand-cream/70 mt-2 leading-relaxed">{item.description}</p>}
 
+          {item.containsAllergens && (
+            <div className="mt-3 flex items-start gap-2 bg-brand-orange/10 border border-brand-orange/30 rounded-lg px-3 py-2.5 text-sm text-brand-orange">
+              <span aria-hidden="true">⚠️</span>
+              <span>
+                <span className="font-semibold">This item may contain allergens.</span>
+                {item.allergenInfo && <span className="text-brand-cream/90"> {item.allergenInfo}</span>}
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 pt-4 border-t border-brand-cream/10 text-sm text-brand-cream/80">
             {item.spiceLevel !== 'None' && (
               <span className="flex items-center gap-1.5" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)} {item.spiceLevel}</span>
@@ -141,7 +151,7 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
             <input
               value={specialInstructions}
               onChange={(e) => setSpecialInstructions(e.target.value)}
-              placeholder="E.g. No coriander, less spicy..."
+              placeholder={item.containsAllergens ? 'Let us know about any allergies or dietary requirements...' : 'E.g. No coriander, less spicy...'}
               className="w-full rounded border border-brand-cream/20 bg-transparent px-3 py-2 text-sm placeholder:text-brand-cream/40"
             />
           </div>
