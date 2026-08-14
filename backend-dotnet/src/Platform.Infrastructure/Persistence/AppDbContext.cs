@@ -9,10 +9,11 @@ using Platform.Infrastructure.Identity;
 
 namespace Platform.Infrastructure.Persistence;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant currentTenant)
+public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant currentTenant, ICurrentActor currentActor)
     : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options)
 {
     private readonly ICurrentTenant _currentTenant = currentTenant;
+    private readonly ICurrentActor _currentActor = currentActor;
 
     // Tenancy / platform
     public DbSet<Organization> Organizations => Set<Organization>();
@@ -67,34 +68,46 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
     {
         base.OnModelCreating(builder);
 
-        ApplyTenantConfiguration(builder);
+        ApplyEntityConfiguration(builder);
         ConfigureIndexesAndPrecision(builder);
     }
 
     /// <summary>
-    /// Applies a RestaurantId global query filter to every IHasTenant entity, wired once
-    /// via reflection instead of repeating HasQueryFilter(...) per entity type.
+    /// Applies global query filters to every Entity-derived type, wired once via reflection
+    /// instead of repeating HasQueryFilter(...) per entity type: RestaurantId scoping for
+    /// TenantEntity, plus IsDeleted (soft-delete) for every Entity including non-tenant ones
+    /// (Organization, Restaurant, Plan, ...). Deliberately excludes RefreshToken and ASP.NET
+    /// Identity's own tables (AppUser/IdentityRole) - those aren't Entity-derived and don't
+    /// participate in this convention (auth/session tables want real deletion, not soft-delete).
     /// </summary>
-    private void ApplyTenantConfiguration(ModelBuilder builder)
+    private void ApplyEntityConfiguration(ModelBuilder builder)
     {
         foreach (var entityType in builder.Model.GetEntityTypes())
         {
-            if (!typeof(IHasTenant).IsAssignableFrom(entityType.ClrType))
+            if (!typeof(Entity).IsAssignableFrom(entityType.ClrType))
                 continue;
 
-            builder.Entity(entityType.ClrType).HasIndex(nameof(IHasTenant.RestaurantId));
+            var isTenant = typeof(IHasTenant).IsAssignableFrom(entityType.ClrType);
+            if (isTenant)
+                builder.Entity(entityType.ClrType).HasIndex(nameof(IHasTenant.RestaurantId));
 
+            var methodName = isTenant ? nameof(SetTenantAndSoftDeleteFilter) : nameof(SetSoftDeleteFilter);
             var method = typeof(AppDbContext)
-                .GetMethod(nameof(SetTenantFilter), BindingFlags.NonPublic | BindingFlags.Instance)!
+                .GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance)!
                 .MakeGenericMethod(entityType.ClrType);
             method.Invoke(this, [builder]);
         }
     }
 
-    private void SetTenantFilter<TEntity>(ModelBuilder builder) where TEntity : class, IHasTenant
+    private void SetTenantAndSoftDeleteFilter<TEntity>(ModelBuilder builder) where TEntity : TenantEntity
     {
         builder.Entity<TEntity>().HasQueryFilter(e =>
-            !_currentTenant.RestaurantId.HasValue || e.RestaurantId == _currentTenant.RestaurantId.Value);
+            (!_currentTenant.RestaurantId.HasValue || e.RestaurantId == _currentTenant.RestaurantId.Value) && !e.IsDeleted);
+    }
+
+    private void SetSoftDeleteFilter<TEntity>(ModelBuilder builder) where TEntity : Entity
+    {
+        builder.Entity<TEntity>().HasQueryFilter(e => !e.IsDeleted);
     }
 
     private static void ConfigureIndexesAndPrecision(ModelBuilder builder)
@@ -137,15 +150,25 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
     /// <summary>
     /// Defense in depth: auto-stamps RestaurantId on new tenant-scoped entities from the
     /// resolved tenant context, and rejects attempts to save a row for a different tenant.
+    /// Also stamps CreatedAt/CreatedBy on insert and UpdatedAt/UpdatedBy on every insert/update
+    /// from ICurrentActor, so no controller needs to set these by hand.
     /// </summary>
     private void StampTenantAndTimestamps()
     {
+        var actorId = _currentActor.ActorId;
         foreach (var entry in ChangeTracker.Entries<Entity>())
         {
+            var now = DateTimeOffset.UtcNow;
             if (entry.State == EntityState.Added)
-                entry.Entity.CreatedAt = DateTimeOffset.UtcNow;
-            else if (entry.State == EntityState.Modified)
-                entry.Entity.UpdatedAt = DateTimeOffset.UtcNow;
+            {
+                entry.Entity.CreatedAt = now;
+                entry.Entity.CreatedBy = actorId;
+            }
+            if (entry.State is EntityState.Added or EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = now;
+                entry.Entity.UpdatedBy = actorId;
+            }
         }
 
         foreach (var entry in ChangeTracker.Entries<IHasTenant>())

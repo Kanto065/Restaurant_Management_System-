@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -42,7 +41,7 @@ public record OrderListPageDto(List<OrderListItemDto> Items, int TotalCount);
 // StaffOrDevice, not StaffOnly - paired Sunmi POS terminals need to list, read, and update
 // orders the same as the admin dashboard does.
 [Authorize(Policy = "StaffOrDevice")]
-public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOrderNotifier notifier) : ControllerBase
+public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOrderNotifier notifier, ICurrentActor currentActor) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ApiResponse<OrderListPageDto>>> List(
@@ -53,7 +52,7 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var query = db.Orders.Where(o => !o.IsDeleted);
+        var query = db.Orders.AsQueryable();
         if (!string.IsNullOrEmpty(status)) query = query.Where(o => o.Status == status);
         if (!string.IsNullOrEmpty(paymentStatus)) query = query.Where(o => o.PaymentStatus == paymentStatus);
         if (paymentMethod.HasValue) query = query.Where(o => o.PaymentMethod == paymentMethod.Value);
@@ -83,10 +82,10 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
         var pendingNames = await db.OrderStatusDefinitions.Where(d => d.CountsAsPending).Select(d => d.Name).ToListAsync();
         var completedNames = await db.OrderStatusDefinitions.Where(d => d.CountsAsCompleted).Select(d => d.Name).ToListAsync();
 
-        var totalOrders = await db.Orders.CountAsync(o => !o.IsDeleted);
-        var pendingOrders = await db.Orders.CountAsync(o => !o.IsDeleted && pendingNames.Contains(o.Status));
-        var completedOrders = await db.Orders.CountAsync(o => !o.IsDeleted && completedNames.Contains(o.Status));
-        var totalRevenue = await db.Orders.Where(o => !o.IsDeleted && completedNames.Contains(o.Status)).SumAsync(o => (decimal?)o.TotalAmount) ?? 0;
+        var totalOrders = await db.Orders.CountAsync();
+        var pendingOrders = await db.Orders.CountAsync(o => pendingNames.Contains(o.Status));
+        var completedOrders = await db.Orders.CountAsync(o => completedNames.Contains(o.Status));
+        var totalRevenue = await db.Orders.Where(o => completedNames.Contains(o.Status)).SumAsync(o => (decimal?)o.TotalAmount) ?? 0;
 
         return Ok(ApiResponse<OrderStatsDto>.Ok(new OrderStatsDto(totalOrders, pendingOrders, completedOrders, totalRevenue)));
     }
@@ -94,7 +93,7 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ApiResponse<OrderDetailDto>>> Get(Guid id)
     {
-        var order = await db.Orders.Include(o => o.Items).ThenInclude(i => i.Modifiers).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
+        var order = await db.Orders.Include(o => o.Items).ThenInclude(i => i.Modifiers).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
         if (order is null)
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
@@ -109,15 +108,13 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
         order.Status = request.Status;
-        order.UpdatedBy = CurrentActorId();
-        order.UpdatedAt = DateTimeOffset.UtcNow;
 
         var historyEntry = new OrderStatusHistory
         {
             RestaurantId = order.RestaurantId,
             OrderId = order.Id,
             Status = request.Status,
-            ChangedByUserId = CurrentActorId(),
+            ChangedByUserId = currentActor.ActorId,
             Note = request.Note,
         };
         db.OrderStatusHistories.Add(historyEntry);
@@ -137,8 +134,6 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
         order.EstimatedReadyAt = DateTimeOffset.UtcNow.AddMinutes(request.EstimatedMinutesFromNow);
-        order.UpdatedBy = CurrentActorId();
-        order.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
 
         return Ok(ApiResponse<OrderDetailDto>.Ok(ToDetailDto(order)));
@@ -152,8 +147,6 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
         order.PaymentStatus = request.PaymentStatus;
-        order.UpdatedBy = CurrentActorId();
-        order.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
         await notifier.PaymentReceivedAsync(currentTenant.RestaurantId!.Value, order.Id);
 
@@ -173,8 +166,6 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
         order.CustomerPhone = request.CustomerPhone;
         order.CustomerEmail = request.CustomerEmail;
         order.SpecialRequests = request.SpecialRequests;
-        order.UpdatedBy = CurrentActorId();
-        order.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
 
         return Ok(ApiResponse<OrderDetailDto>.Ok(ToDetailDto(order)));
@@ -183,23 +174,14 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
     {
-        var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
+        var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == id);
         if (order is null)
             return NotFound(ApiResponse<object>.Fail("Order not found.", 404));
 
         order.IsDeleted = true;
-        order.UpdatedBy = CurrentActorId();
-        order.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
         return Ok(ApiResponse<object>.Ok(new { }, "Order deleted."));
     }
-
-    /// <summary>The staff user making this change, or AuditConstants.SystemUserId for a POS device
-    /// token (StaffOrDevice policy admits both, but only staff logins carry a user "sub" claim).</summary>
-    private Guid CurrentActorId() =>
-        Guid.TryParse(User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub), out var userId)
-            ? userId
-            : Platform.Domain.Common.AuditConstants.SystemUserId;
 
     private static OrderDetailDto ToDetailDto(Order o) => new(
         o.Id, o.OrderNumber, o.OrderType, o.Status, o.PaymentStatus, o.PaymentMethod, o.Subtotal, o.DeliveryFee,

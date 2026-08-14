@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Platform.Application.Common;
+using Platform.Domain.Common;
 using Platform.Domain.Entities;
 using Platform.Infrastructure.Multitenancy;
 using Platform.Infrastructure.Persistence;
@@ -12,12 +14,17 @@ namespace Platform.Application.Tests;
 /// </summary>
 public class TenantQueryFilterTests
 {
+    private class TestCurrentActor : ICurrentActor
+    {
+        public Guid ActorId => AuditConstants.SystemUserId;
+    }
+
     private static AppDbContext CreateContext(string dbName, CurrentTenant tenant)
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(dbName)
             .Options;
-        return new AppDbContext(options, tenant);
+        return new AppDbContext(options, tenant, new TestCurrentActor());
     }
 
     [Fact]

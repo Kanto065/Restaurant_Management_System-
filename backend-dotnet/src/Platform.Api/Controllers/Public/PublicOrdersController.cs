@@ -86,8 +86,7 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
         {
             order.CustomerId = customerId;
         }
-        order.CreatedBy = customerId ?? Platform.Domain.Common.AuditConstants.SystemUserId;
-        order.UpdatedBy = order.CreatedBy;
+        // CreatedBy/UpdatedBy are stamped automatically by AppDbContext from ICurrentActor.
 
         if (request.DeliveryAddress is not null)
         {
@@ -250,7 +249,7 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
     [HttpGet("{id:guid}/track")]
     public async Task<ActionResult<ApiResponse<TrackOrderDto>>> Track(Guid id)
     {
-        var order = await db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
+        var order = await db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id);
         if (order is null)
             return NotFound(ApiResponse<TrackOrderDto>.Fail("Order not found.", 404));
 

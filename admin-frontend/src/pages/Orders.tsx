@@ -342,9 +342,10 @@ const Orders = () => {
             </div>
           ) : (
             <div className="divide-y">
-              <div className="hidden lg:grid grid-cols-[100px_1fr_100px_110px_180px_160px_36px_36px] gap-3 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <div className="hidden lg:grid grid-cols-[80px_1fr_130px_90px_110px_1fr_1fr_36px_36px] gap-3 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 <span>Order</span>
                 <span>Customer</span>
+                <span />
                 <span>Total</span>
                 <span>Time</span>
                 <span>Status</span>
@@ -361,7 +362,7 @@ const Orders = () => {
                   <div
                     key={order.id}
                     onClick={() => openOrder(order.id)}
-                    className="grid grid-cols-1 lg:grid-cols-[100px_1fr_100px_110px_180px_160px_36px_36px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center cursor-pointer"
+                    className="grid grid-cols-1 lg:grid-cols-[80px_1fr_130px_90px_110px_1fr_1fr_36px_36px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center cursor-pointer"
                   >
                     <div>
                       <span className="font-mono font-semibold text-sm">#{order.orderNumber}</span>
@@ -370,10 +371,11 @@ const Orders = () => {
                     <div className="min-w-0">
                       <p className="font-medium truncate">{order.customerName || 'Guest'}</p>
                       <p className="text-sm text-muted-foreground">{formatTime(order.createdAt)}</p>
-                      <div className="flex gap-1.5 flex-wrap mt-1">
-                        <Badge variant="secondary">{order.orderType}</Badge>
-                        <Badge variant="outline">{order.paymentMethod}</Badge>
-                      </div>
+                    </div>
+
+                    <div className="flex gap-1.5 flex-wrap">
+                      <Badge variant="secondary">{order.orderType}</Badge>
+                      <Badge variant="outline">{order.paymentMethod}</Badge>
                     </div>
 
                     <div className="font-medium">{formatCurrency(order.totalAmount)}</div>
@@ -385,12 +387,12 @@ const Orders = () => {
                       />
                     </div>
 
-                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <div className="inline-flex items-stretch rounded-md border overflow-hidden">
+                    <div className="flex items-center gap-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                      <div className={`flex items-stretch rounded-md overflow-hidden flex-1 min-w-0 ${statusColors(order.status)}`}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button type="button" className="px-2 py-1">
-                              <Badge variant="outline" className={`border-0 ${statusColors(order.status)}`}>{order.status}</Badge>
+                            <button type="button" className="flex-1 min-w-0 px-3 py-2 text-sm font-semibold text-left truncate">
+                              {order.status}
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
@@ -407,7 +409,7 @@ const Orders = () => {
                           title={nextS ? `Next status: ${nextS}` : 'No next status'}
                           disabled={!nextS || quickStatusMutation.isPending}
                           onClick={() => nextS && quickStatusMutation.mutate({ orderId: order.id, status: nextS })}
-                          className="px-1.5 border-l bg-muted/40 hover:bg-muted disabled:opacity-30 flex items-center"
+                          className="px-2 border-l border-black/10 bg-black/5 hover:bg-black/10 disabled:opacity-30 flex items-center shrink-0"
                         >
                           <ArrowRight className="w-3.5 h-3.5" />
                         </button>
@@ -416,14 +418,14 @@ const Orders = () => {
                           title={doneS ? `Mark as ${doneS}` : 'No completed status configured'}
                           disabled={!doneS || doneS === order.status || quickStatusMutation.isPending}
                           onClick={() => doneS && quickStatusMutation.mutate({ orderId: order.id, status: doneS })}
-                          className="px-1.5 border-l bg-muted/40 hover:bg-muted disabled:opacity-30 flex items-center text-green-600"
+                          className="px-2 border-l border-black/10 bg-black/5 hover:bg-black/10 disabled:opacity-30 flex items-center shrink-0"
                         >
                           <Check className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More status options"><MoreVertical className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="More status options"><MoreVertical className="w-4 h-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openStatusDialog(order)}>Jump to Status (with note)</DropdownMenuItem>
@@ -431,12 +433,12 @@ const Orders = () => {
                       </DropdownMenu>
                     </div>
 
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <div className="inline-flex items-stretch rounded-md border overflow-hidden">
+                    <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
+                      <div className={`flex items-stretch rounded-md overflow-hidden ${paymentStatusColors(order.paymentStatus)}`}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button type="button" className="px-2 py-1">
-                              <Badge variant="outline" className={`border-0 ${paymentStatusColors(order.paymentStatus)}`}>{order.paymentStatus}</Badge>
+                            <button type="button" className="flex-1 min-w-0 px-3 py-2 text-sm font-semibold text-left truncate">
+                              {order.paymentStatus}
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
@@ -453,7 +455,7 @@ const Orders = () => {
                           title={nextP ? `Next: ${nextP}` : 'No next status'}
                           disabled={!nextP || quickPaymentMutation.isPending}
                           onClick={() => nextP && quickPaymentMutation.mutate({ orderId: order.id, paymentStatus: nextP })}
-                          className="px-1.5 border-l bg-muted/40 hover:bg-muted disabled:opacity-30 flex items-center"
+                          className="px-2 border-l border-black/10 bg-black/5 hover:bg-black/10 disabled:opacity-30 flex items-center shrink-0"
                         >
                           <ArrowRight className="w-3.5 h-3.5" />
                         </button>
@@ -462,7 +464,7 @@ const Orders = () => {
                           title={paidP ? `Mark as ${paidP}` : 'No paid status configured'}
                           disabled={!paidP || paidP === order.paymentStatus || quickPaymentMutation.isPending}
                           onClick={() => paidP && quickPaymentMutation.mutate({ orderId: order.id, paymentStatus: paidP })}
-                          className="px-1.5 border-l bg-muted/40 hover:bg-muted disabled:opacity-30 flex items-center text-green-600"
+                          className="px-2 border-l border-black/10 bg-black/5 hover:bg-black/10 disabled:opacity-30 flex items-center shrink-0"
                         >
                           <Check className="w-3.5 h-3.5" />
                         </button>

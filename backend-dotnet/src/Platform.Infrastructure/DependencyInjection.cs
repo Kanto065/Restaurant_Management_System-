@@ -25,6 +25,8 @@ public static class DependencyInjection
 
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddScoped<ITenantDomainResolver, TenantDomainResolver>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentActor, CurrentActor>();
 
         services.AddIdentityCore<AppUser>(o =>
             {

@@ -52,17 +52,8 @@ public class Order : TenantEntity
     public DateTimeOffset? EstimatedReadyAt { get; set; }
     public string? SpecialRequests { get; set; }
     public OrderSource Source { get; set; } = OrderSource.Web;
-
-    /// <summary>Soft-delete flag - admin "Delete" hides the order rather than removing the row, since
-    /// orders are financial/audit records. Filtered out of admin lists, stats, and customer-facing
-    /// endpoints; the row itself is kept.</summary>
-    public bool IsDeleted { get; set; }
-
-    /// <summary>Who created/last touched this row - the authenticated customer for a self-service
-    /// order, the staff user for an admin-side change, or AuditConstants.SystemUserId when neither
-    /// applies (guest checkout, POS device, seeders). Always set, never left at Guid.Empty by omission.</summary>
-    public Guid CreatedBy { get; set; } = AuditConstants.SystemUserId;
-    public Guid UpdatedBy { get; set; } = AuditConstants.SystemUserId;
+    // IsDeleted/CreatedBy/UpdatedBy come from Entity - AppDbContext stamps CreatedBy/UpdatedBy
+    // automatically from ICurrentActor, and IsDeleted is filtered out by the global query filter.
 
     public List<OrderItem> Items { get; set; } = [];
     public List<OrderStatusHistory> StatusHistory { get; set; } = [];
