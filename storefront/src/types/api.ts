@@ -85,7 +85,7 @@ export interface DeliveryZone {
   minimumOrderAmount: number;
 }
 
-export type SpiceLevel = 'None' | 'Mild' | 'Medium' | 'Hot' | 'ExtraHot';
+export type SpiceLevel = 'None' | 'Mild' | 'Medium' | 'Hot';
 
 export interface ModifierOption {
   id: string;

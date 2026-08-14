@@ -59,11 +59,10 @@ public enum PaymentProvider
 
 public enum SpiceLevel
 {
-    None,
-    Mild,
-    Medium,
-    Hot,
-    ExtraHot
+    None = 0,
+    Mild = 1,
+    Medium = 2,
+    Hot = 3
 }
 
 public enum LoyaltyTransactionReason

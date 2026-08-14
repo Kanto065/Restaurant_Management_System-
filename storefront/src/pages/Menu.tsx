@@ -5,6 +5,7 @@ import { useMenu, useFavourites, useLastOrder, useRestaurant } from '../lib/quer
 import { useCartStore } from '../store/cart';
 import { api, customerAuth } from '../lib/api';
 import { currencySymbol } from '../lib/currency';
+import { spiceIcon } from '../lib/spice';
 import ModifierModal from '../components/ModifierModal';
 import CartPanel from '../components/CartPanel';
 import type { MenuItem, OrderType } from '../types/api';
@@ -198,7 +199,7 @@ export default function Menu() {
                   {item.description && <p className="text-sm text-brand-bg/70 mt-1 line-clamp-2">{item.description}</p>}
                   <div className="flex gap-1.5 mt-1.5 flex-wrap">
                     {item.spiceLevel !== 'None' && (
-                      <span className="text-xs text-brand-orange">🌶️ {item.spiceLevel}</span>
+                      <span className="text-xs text-brand-orange" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>
                     )}
                     {item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Vegan</span>}
                     {item.isVegetarian && !item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Veg</span>}

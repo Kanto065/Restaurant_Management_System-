@@ -3,8 +3,8 @@ import type { MenuItem, ModifierOption } from '../types/api';
 import { useCartStore } from '../store/cart';
 import { useRestaurant } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
+import { spiceIcon } from '../lib/spice';
 
-const SPICE_LABELS: Record<string, string> = { Mild: 'Mild', Medium: 'Medium', Hot: 'Hot', ExtraHot: 'Extra Hot' };
 
 export default function ModifierModal({ item, onClose }: { item: MenuItem; onClose: () => void }) {
   const addLine = useCartStore((s) => s.addLine);
@@ -61,7 +61,7 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
 
           <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 pt-4 border-t border-brand-cream/10 text-sm text-brand-cream/80">
             {item.spiceLevel !== 'None' && (
-              <span className="flex items-center gap-1.5">🌶️ {SPICE_LABELS[item.spiceLevel] ?? item.spiceLevel}</span>
+              <span className="flex items-center gap-1.5" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)} {item.spiceLevel}</span>
             )}
             {item.preparationTimeMinutes > 0 && (
               <span className="flex items-center gap-1.5">⏱ {item.preparationTimeMinutes} min</span>
