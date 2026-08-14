@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Loader2, Search, UtensilsCrossed, Leaf, Clock, Star, List, LayoutGrid, ChevronDown, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, Search, UtensilsCrossed, Leaf, Clock, Star, List, LayoutGrid, ChevronDown, ChevronRight, SlidersHorizontal, GripVertical } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from '@/components/ui/dialog';
@@ -93,6 +93,10 @@ const Menu = () => {
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [dragItemId, setDragItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const itemRowRefs = useRef(new Map<string, HTMLDivElement>());
+  const prevItemRects = useRef(new Map<string, DOMRect>());
 
   const toggleCategory = (id: string) =>
     setExpandedCategories((prev) => {
@@ -180,6 +184,60 @@ const Menu = () => {
     onSuccess: invalidateItems,
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
+
+  const reorderItemsMutation = useMutation({
+    mutationFn: (orderedIds: string[]) => api.put('/api/admin/menu-items/reorder', { orderedIds }),
+    onSuccess: invalidateItems,
+    onError: (error: Error) => { toast({ title: 'Error', description: error.message, variant: 'destructive' }); invalidateItems(); },
+  });
+
+  // Same FLIP pattern as Menus.tsx's category reorder - capture positions before the reorder
+  // commits, then animate each row from its old spot to its new one after the DOM repaints.
+  const captureItemRectsForFlip = () => {
+    prevItemRects.current.clear();
+    for (const [id, el] of itemRowRefs.current) prevItemRects.current.set(id, el.getBoundingClientRect());
+  };
+
+  useLayoutEffect(() => {
+    if (prevItemRects.current.size === 0) return;
+    for (const [id, el] of itemRowRefs.current) {
+      const prev = prevItemRects.current.get(id);
+      if (!prev) continue;
+      const next = el.getBoundingClientRect();
+      const deltaY = prev.top - next.top;
+      if (deltaY === 0) continue;
+      el.style.transition = 'none';
+      el.style.transform = `translateY(${deltaY}px)`;
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform 220ms ease';
+        el.style.transform = '';
+      });
+    }
+    prevItemRects.current.clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((i) => i.id).join(',')]);
+
+  const handleItemDrop = (catItems: MenuItem[], targetId: string) => {
+    setDragOverItemId(null);
+    if (!dragItemId || dragItemId === targetId) { setDragItemId(null); return; }
+    const ids = catItems.map((i) => i.id);
+    const from = ids.indexOf(dragItemId);
+    const to = ids.indexOf(targetId);
+    if (from === -1 || to === -1) { setDragItemId(null); return; }
+    ids.splice(from, 1);
+    ids.splice(to, 0, dragItemId);
+    setDragItemId(null);
+
+    captureItemRectsForFlip();
+    queryClient.setQueryData(['admin', 'menu-items'], (old: { data: MenuItem[] } | undefined) => {
+      if (!old) return old;
+      const byId = new Map(old.data.map((i) => [i.id, i]));
+      const reordered = ids.map((id, i) => ({ ...byId.get(id)!, displayOrder: i }));
+      const reorderedIds = new Set(ids);
+      return { ...old, data: old.data.map((i) => (reorderedIds.has(i.id) ? reordered[ids.indexOf(i.id)] : i)) };
+    });
+    reorderItemsMutation.mutate(ids);
+  };
 
   const toggleShowVariantsAsRowsMutation = useMutation({
     mutationFn: ({ item, value }: { item: MenuItem; value: boolean }) =>
@@ -450,13 +508,26 @@ const Menu = () => {
                 {isOpen && (
                   <CardContent className="p-0 divide-y border-t">
                     {catItems.map((item) => (
-                      <div key={item.id}>
+                      <div
+                        key={item.id}
+                        ref={(el) => { if (el) itemRowRefs.current.set(item.id, el); else itemRowRefs.current.delete(item.id); }}
+                        draggable={!isFiltering}
+                        onDragStart={() => setDragItemId(item.id)}
+                        onDragOver={(e) => { e.preventDefault(); if (dragItemId && dragItemId !== item.id) setDragOverItemId(item.id); }}
+                        onDragLeave={() => setDragOverItemId((id) => (id === item.id ? null : id))}
+                        onDragEnd={() => { setDragItemId(null); setDragOverItemId(null); }}
+                        onDrop={() => handleItemDrop(catItems, item.id)}
+                        className={`border-t-2 transition-colors ${
+                          dragItemId === item.id ? 'opacity-40' : dragOverItemId === item.id ? 'border-t-primary' : 'border-t-transparent'
+                        }`}
+                      >
                         <button
                           type="button"
                           onClick={() => toggleItem(item.id)}
                           className="w-full flex items-center justify-between gap-3 py-2 px-4 hover:bg-muted/30 text-left"
                         >
                           <div className="flex items-center gap-3 min-w-0">
+                            {!isFiltering && <GripVertical className="w-3.5 h-3.5 text-muted-foreground cursor-grab shrink-0" />}
                             {expandedItems.has(item.id) ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
                             {item.imageUrl ? (
                               <img src={getImageUrl(item.imageUrl)} alt={item.name} className="w-9 h-9 rounded object-cover shrink-0" />

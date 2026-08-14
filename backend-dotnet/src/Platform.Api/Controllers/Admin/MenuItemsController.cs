@@ -18,6 +18,8 @@ public record UpsertMenuItemRequest(
     bool IsVegetarian, bool IsVegan, bool IsBestSeller, SpiceLevel SpiceLevel, bool IsAvailable, int DisplayOrder,
     int PreparationTimeMinutes, bool ShowVariantsAsRows = false, bool ContainsAllergens = false, string? AllergenInfo = null);
 
+public record ReorderMenuItemsRequest(List<Guid> OrderedIds);
+
 [ApiController]
 [Route("api/admin/menu-items")]
 [Authorize(Policy = "StaffOnly")]
@@ -38,6 +40,22 @@ public class MenuItemsController(AppDbContext db) : ControllerBase
             .ToListAsync();
 
         return Ok(ApiResponse<List<MenuItemDto>>.Ok(items));
+    }
+
+    /// <summary>Reassigns DisplayOrder sequentially (0..n-1) to match the given id order. The ids
+    /// given are expected to be one category's items - items outside that set are left alone, so
+    /// reordering within one category's accordion doesn't renumber any other category.</summary>
+    [HttpPut("reorder")]
+    public async Task<ActionResult<ApiResponse<List<MenuItemDto>>>> Reorder(ReorderMenuItemsRequest request)
+    {
+        var items = await db.MenuItems.Where(i => request.OrderedIds.Contains(i.Id)).ToListAsync();
+        for (var i = 0; i < request.OrderedIds.Count; i++)
+        {
+            var item = items.FirstOrDefault(x => x.Id == request.OrderedIds[i]);
+            if (item is not null) item.DisplayOrder = i;
+        }
+        await db.SaveChangesAsync();
+        return Ok(ApiResponse<List<MenuItemDto>>.Ok(items.Select(ToDto).ToList()));
     }
 
     [HttpPost]
