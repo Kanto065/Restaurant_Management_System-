@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Loader2, BookOpen } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, BookOpen, GripVertical, List, LayoutGrid, UtensilsCrossed } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from '@/components/ui/dialog';
@@ -25,7 +25,10 @@ interface MenuCategory {
   imageUrl: string | null;
   displayOrder: number;
   isActive: boolean;
+  itemCount: number;
 }
+
+type ViewMode = 'list' | 'grid';
 
 const Menus = () => {
   const { toast } = useToast();
@@ -38,6 +41,8 @@ const Menus = () => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [displayOrder, setDisplayOrder] = useState('0');
   const [isActive, setIsActive] = useState(true);
+  const [view, setView] = useState<ViewMode>('list');
+  const [dragId, setDragId] = useState<string | null>(null);
 
   const categoriesQuery = useQuery({
     queryKey: ['admin', 'menu-categories'],
@@ -46,6 +51,23 @@ const Menus = () => {
   const categories = [...(categoriesQuery.data?.data ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'menu-categories'] });
+
+  const reorderMutation = useMutation({
+    mutationFn: (orderedIds: string[]) => api.put('/api/admin/menu-categories/reorder', { orderedIds }),
+    onSuccess: invalidate,
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
+  });
+
+  const handleDrop = (targetId: string) => {
+    if (!dragId || dragId === targetId) { setDragId(null); return; }
+    const ids = categories.map((c) => c.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    ids.splice(from, 1);
+    ids.splice(to, 0, dragId);
+    setDragId(null);
+    reorderMutation.mutate(ids);
+  };
 
   const createMutation = useMutation({
     mutationFn: (payload: { name: string; imageUrl: string | null; displayOrder: number; isActive: boolean }) => api.post('/api/admin/menu-categories', payload),
@@ -121,9 +143,18 @@ const Menus = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Menu Categories</h1>
           <p className="text-muted-foreground">
-            Manage the category sidebar customers see when browsing your menu — order controls display order.
+            Manage the category sidebar customers see when browsing your menu — drag rows to reorder.
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center border rounded-md">
+            <Button variant={view === 'list' ? 'secondary' : 'ghost'} size="icon" className="rounded-r-none" onClick={() => setView('list')} aria-label="List view">
+              <List className="w-4 h-4" />
+            </Button>
+            <Button variant={view === 'grid' ? 'secondary' : 'ghost'} size="icon" className="rounded-l-none" onClick={() => setView('grid')} aria-label="Grid view">
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+          </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => (open ? setIsDialogOpen(true) : resetForm())}>
           <DialogTrigger asChild>
             <Button onClick={() => { setEditing(null); setIsDialogOpen(true); }}>
@@ -161,6 +192,7 @@ const Menus = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -176,28 +208,66 @@ const Menus = () => {
               <p className="text-muted-foreground mb-4">Add your first category to start building your menu</p>
               <Button onClick={() => setIsDialogOpen(true)}><Plus className="w-4 h-4 mr-2" />Add Category</Button>
             </div>
-          ) : (
+          ) : view === 'list' ? (
             <div className="divide-y">
               {categories.map((cat) => (
-                <div key={cat.id} className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
+                <div
+                  key={cat.id}
+                  draggable
+                  onDragStart={() => setDragId(cat.id)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleDrop(cat.id)}
+                  className={`flex items-center justify-between py-1.5 ${dragId === cat.id ? 'opacity-40' : ''}`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab shrink-0" />
                     {cat.imageUrl ? (
-                      <img src={getImageUrl(cat.imageUrl)} alt={cat.name} className="w-10 h-10 rounded object-cover" />
+                      <img src={getImageUrl(cat.imageUrl)} alt={cat.name} className="w-8 h-8 rounded object-cover shrink-0" />
                     ) : (
-                      <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
-                        <BookOpen className="w-4 h-4 text-muted-foreground" />
+                      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
+                        <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
                       </div>
                     )}
-                    <Badge variant="outline">#{cat.displayOrder}</Badge>
-                    <span className="font-medium">{cat.name}</span>
-                    {!cat.isActive && <Badge variant="secondary">Hidden</Badge>}
+                    <span className="font-medium truncate">{cat.name}</span>
+                    <Badge variant="outline" className="shrink-0">{cat.itemCount} item{cat.itemCount === 1 ? '' : 's'}</Badge>
+                    {!cat.isActive && <Badge variant="secondary" className="shrink-0">Hidden</Badge>}
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Switch checked={cat.isActive} onCheckedChange={() => toggleActiveMutation.mutate(cat)} />
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(cat)}><Edit className="w-4 h-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => setDeleteId(cat.id)}><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {categories.map((cat) => (
+                <Card key={cat.id} className="overflow-hidden">
+                  {cat.imageUrl ? (
+                    <div className="h-28 bg-muted">
+                      <img src={getImageUrl(cat.imageUrl)} alt={cat.name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="h-28 bg-muted flex items-center justify-center">
+                      <UtensilsCrossed className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                  )}
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium truncate">{cat.name}</span>
+                      {!cat.isActive && <Badge variant="secondary">Hidden</Badge>}
+                    </div>
+                    <Badge variant="outline">{cat.itemCount} item{cat.itemCount === 1 ? '' : 's'}</Badge>
+                    <div className="flex items-center justify-between">
+                      <Switch checked={cat.isActive} onCheckedChange={() => toggleActiveMutation.mutate(cat)} />
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(cat)}><Edit className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(cat.id)}><Trash2 className="w-4 h-4" /></Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
