@@ -23,8 +23,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { POS_APP_DOWNLOAD_URL } from '@/config/api';
+import { POS_APP_DOWNLOAD_URL, getImageUrl } from '@/config/api';
+import { api } from '@/lib/api';
 
 const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
@@ -47,13 +49,24 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const collapsed = state === 'collapsed';
 
+  const { data: restaurant } = useQuery({
+    queryKey: ['admin', 'restaurant'],
+    queryFn: () => api.get<{ logoUrl: string | null }>('/api/admin/restaurant'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const logoUrl = restaurant?.data?.logoUrl;
+
   return (
     <Sidebar className={collapsed ? 'w-14' : 'w-64'} collapsible="icon">
       <SidebarContent>
         <div className="px-4 py-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0">
-              <UtensilsCrossed className="w-5 h-5 text-primary-foreground" />
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+              {logoUrl ? (
+                <img src={getImageUrl(logoUrl)} alt="Restaurant logo" className="w-full h-full object-cover" />
+              ) : (
+                <UtensilsCrossed className="w-5 h-5 text-primary-foreground" />
+              )}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
