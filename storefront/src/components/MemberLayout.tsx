@@ -1,5 +1,5 @@
 import { Link, NavLink, Navigate, Outlet } from 'react-router-dom';
-import { Home, Trophy, ShoppingBag, User, MapPin, Phone, LogOut, ShoppingCart } from 'lucide-react';
+import { Home, Trophy, ShoppingBag, User, MapPin, LogOut, ShoppingCart } from 'lucide-react';
 import { customerAuth } from '../lib/api';
 import { useProfile, useRestaurant } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
@@ -32,9 +32,6 @@ export default function MemberLayout() {
             <NavLink to="/account/orders" className={navLinkClass}><ShoppingBag className="w-4 h-4 shrink-0" />My Orders</NavLink>
             <NavLink to="/account/profile" className={navLinkClass}><User className="w-4 h-4 shrink-0" />My Profile</NavLink>
             <NavLink to="/account/addresses" className={navLinkClass}><MapPin className="w-4 h-4 shrink-0" />My Addresses</NavLink>
-            <span className="flex items-center gap-2 px-1 py-1 text-sm text-brand-bg/30">
-              <Phone className="w-4 h-4 shrink-0" />My Numbers <span className="text-xs">(Coming soon)</span>
-            </span>
           </nav>
 
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-bg/50 mb-2">My Statistics</p>

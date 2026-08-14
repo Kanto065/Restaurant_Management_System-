@@ -16,7 +16,7 @@ import { api } from '@/lib/api';
 import { useCurrency, useCurrencyCode } from '@/hooks/useCurrency';
 import {
   Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Eye, Timer,
-  RefreshCw, UtensilsCrossed, User, Phone, Mail, Search, MoreVertical, ListChecks,
+  RefreshCw, UtensilsCrossed, User, Phone, Mail, Search, MoreVertical, ListChecks, ArrowRight, Check,
 } from 'lucide-react';
 
 const CURRENCY_ICONS: Record<string, typeof DollarSign> = {
@@ -68,7 +68,8 @@ const paymentStatusColors: Record<PaymentStatus, string> = {
   PartiallyRefunded: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
 };
 
-const formatTime = (date: string) => new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const formatTime = (date: string) =>
+  new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
 
 const Orders = () => {
   const { toast } = useToast();
@@ -92,6 +93,8 @@ const Orders = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
+  const [candidateStatus, setCandidateStatus] = useState<Record<string, OrderStatus>>({});
+  const [candidatePayment, setCandidatePayment] = useState<Record<string, PaymentStatus>>({});
 
   const statsQuery = useQuery({ queryKey: ['admin', 'orders', 'stats'], queryFn: () => api.get<OrderStats>('/api/admin/orders/stats') });
   const ordersQuery = useQuery({
@@ -157,6 +160,50 @@ const Orders = () => {
   const openStatusDialog = (order: OrderListItem) => { setSelectedOrderId(order.id); setNewStatus(order.status); setIsStatusDialogOpen(true); };
   const openTimeDialog = (order: OrderListItem) => { setSelectedOrderId(order.id); setEstimatedMinutes(''); setIsTimeDialogOpen(true); };
   const openPaymentDialog = (order: OrderListItem) => { setSelectedOrderId(order.id); setNewPaymentStatus(order.paymentStatus); setIsPaymentDialogOpen(true); };
+
+  const quickStatusMutation = useMutation({
+    mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>
+      api.put(`/api/admin/orders/${orderId}/status`, { status, note: null }),
+    onSuccess: (_data, { orderId }) => {
+      toast({ title: 'Success', description: 'Order status updated.' });
+      setCandidateStatus((prev) => { const next = { ...prev }; delete next[orderId]; return next; });
+      invalidateAll();
+    },
+    onError: (error: Error) => toast({ variant: 'destructive', title: 'Error', description: error.message }),
+  });
+
+  const quickPaymentMutation = useMutation({
+    mutationFn: ({ orderId, paymentStatus }: { orderId: string; paymentStatus: PaymentStatus }) =>
+      api.put(`/api/admin/orders/${orderId}/payment-status`, { paymentStatus }),
+    onSuccess: (_data, { orderId }) => {
+      toast({ title: 'Success', description: 'Payment status updated.' });
+      setCandidatePayment((prev) => { const next = { ...prev }; delete next[orderId]; return next; });
+      invalidateAll();
+    },
+    onError: (error: Error) => toast({ variant: 'destructive', title: 'Error', description: error.message }),
+  });
+
+  const nextStatusFor = (order: OrderListItem) => {
+    const candidates = ORDER_STATUSES.filter((s) => s !== order.status);
+    const stored = candidateStatus[order.id];
+    return stored && candidates.includes(stored) ? stored : candidates[0];
+  };
+  const cycleStatus = (order: OrderListItem) => {
+    const candidates = ORDER_STATUSES.filter((s) => s !== order.status);
+    const idx = candidates.indexOf(nextStatusFor(order));
+    setCandidateStatus((prev) => ({ ...prev, [order.id]: candidates[(idx + 1) % candidates.length] }));
+  };
+
+  const nextPaymentFor = (order: OrderListItem) => {
+    const candidates = PAYMENT_STATUSES.filter((s) => s !== order.paymentStatus);
+    const stored = candidatePayment[order.id];
+    return stored && candidates.includes(stored) ? stored : candidates[0];
+  };
+  const cyclePayment = (order: OrderListItem) => {
+    const candidates = PAYMENT_STATUSES.filter((s) => s !== order.paymentStatus);
+    const idx = candidates.indexOf(nextPaymentFor(order));
+    setCandidatePayment((prev) => ({ ...prev, [order.id]: candidates[(idx + 1) % candidates.length] }));
+  };
 
   if (ordersQuery.isLoading) {
     return (
@@ -259,41 +306,90 @@ const Orders = () => {
             </div>
           ) : (
             <div className="divide-y">
-              {orders.map((order) => (
-                <div key={order.id} className="px-4 py-3 hover:bg-muted/30 transition-colors flex items-center gap-4">
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <ShoppingCart className="h-4 w-4 text-primary" />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button onClick={() => openOrder(order.id)} className="font-semibold hover:underline">#{order.orderNumber}</button>
-                      <Badge variant="outline" className={statusColors[order.status]}>{order.status}</Badge>
-                      <Badge variant="secondary">{order.orderType}</Badge>
-                      <Badge variant="outline" className={paymentStatusColors[order.paymentStatus]}>{order.paymentStatus} · {order.paymentMethod}</Badge>
+              {/* Column header row */}
+              <div className="hidden lg:grid grid-cols-[90px_1fr_100px_240px_240px] gap-3 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                <span>Order</span>
+                <span>Customer</span>
+                <span>View</span>
+                <span>Status</span>
+                <span>Payment</span>
+              </div>
+              {orders.map((order) => {
+                const candidateS = nextStatusFor(order);
+                const candidateP = nextPaymentFor(order);
+                return (
+                  <div key={order.id} className="grid grid-cols-1 lg:grid-cols-[90px_1fr_100px_240px_240px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center">
+                    <div>
+                      <button onClick={() => openOrder(order.id)} className="font-semibold hover:underline block">#{order.orderNumber}</button>
+                      <p className="text-sm text-muted-foreground">{formatCurrency(order.totalAmount)}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {order.customerName ? `${order.customerName} · ` : ''}{formatTime(order.createdAt)}
-                    </p>
-                  </div>
 
-                  <p className="font-bold text-lg shrink-0">{formatCurrency(order.totalAmount)}</p>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{order.customerName || 'Guest'}</p>
+                      <p className="text-sm text-muted-foreground">{formatTime(order.createdAt)}</p>
+                      <div className="flex gap-1.5 flex-wrap mt-1">
+                        <Badge variant="secondary">{order.orderType}</Badge>
+                        <Badge variant="outline">{order.paymentMethod}</Badge>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" onClick={() => openOrder(order.id)} aria-label="View order"><Eye className="w-4 h-4" /></Button>
-                    <Button variant="outline" size="sm" onClick={() => openStatusDialog(order)}><ListChecks className="w-4 h-4 mr-2" />Status</Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label="More actions"><MoreVertical className="w-4 h-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openTimeDialog(order)}><Timer className="w-4 h-4 mr-2" />Set Estimated Time</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openPaymentDialog(order)}><DollarSign className="w-4 h-4 mr-2" />Update Payment</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div>
+                      <Button variant="outline" size="sm" onClick={() => openOrder(order.id)}><Eye className="w-4 h-4 mr-2" />View</Button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant="outline" className={statusColors[order.status]}>{order.status}</Badge>
+                      <button
+                        type="button"
+                        onClick={() => cycleStatus(order)}
+                        aria-label="Choose next status"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                      <Badge variant="outline" className={statusColors[candidateS]}>{candidateS}</Badge>
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7 text-green-600"
+                        disabled={quickStatusMutation.isPending}
+                        onClick={() => quickStatusMutation.mutate({ orderId: order.id, status: candidateS })}
+                        aria-label="Confirm status change"
+                      >
+                        <Check className="w-4 h-4" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More status options"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openStatusDialog(order)}><ListChecks className="w-4 h-4 mr-2" />Jump to Status (with note)</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openTimeDialog(order)}><Timer className="w-4 h-4 mr-2" />Set Estimated Time</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant="outline" className={paymentStatusColors[order.paymentStatus]}>{order.paymentStatus}</Badge>
+                      <button
+                        type="button"
+                        onClick={() => cyclePayment(order)}
+                        aria-label="Choose next payment status"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                      <Badge variant="outline" className={paymentStatusColors[candidateP]}>{candidateP}</Badge>
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7 text-green-600"
+                        disabled={quickPaymentMutation.isPending}
+                        onClick={() => quickPaymentMutation.mutate({ orderId: order.id, paymentStatus: candidateP })}
+                        aria-label="Confirm payment status change"
+                      >
+                        <Check className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
