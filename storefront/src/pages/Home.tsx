@@ -58,7 +58,7 @@ export default function Home() {
             {categories.map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => navigate(`/menu?category=${cat.id}`)}
+                onClick={() => navigate(`/menu/category/${cat.id}`)}
                 className="flex flex-col items-center gap-2 shrink-0 w-20"
               >
                 <div className="w-16 h-16 rounded-full overflow-hidden bg-brand-bg-light border border-brand-cream/10 flex items-center justify-center">

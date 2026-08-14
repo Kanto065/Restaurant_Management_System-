@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMenu, useFavourites, useLastOrder, useRestaurant } from '../lib/queries';
@@ -16,14 +16,15 @@ export default function Menu() {
   const { data, isLoading, isError } = useMenu();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { itemId } = useParams<{ itemId?: string }>();
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const { itemId, categoryId } = useParams<{ itemId?: string; categoryId?: string }>();
   const [viewMode, setViewMode] = useState<ViewMode>('category');
   const [changingType, setChangingType] = useState(false);
   const [search, setSearch] = useState('');
 
-  const openItem = (item: MenuItem) => navigate(`/menu/item/${item.id}?${searchParams.toString()}`);
-  const closeItem = () => navigate(`/menu?${searchParams.toString()}`);
+  const openItem = (item: MenuItem) =>
+    navigate(`${categoryId ? `/menu/category/${categoryId}` : '/menu'}/item/${item.id}?${searchParams.toString()}`);
+  const closeItem = () => navigate(`${categoryId ? `/menu/category/${categoryId}` : '/menu'}?${searchParams.toString()}`);
+  const openCategory = (id: string) => { navigate(`/menu/category/${id}?${searchParams.toString()}`); setViewMode('category'); };
   const setOrderType = useCartStore((s) => s.setOrderType);
   const addLine = useCartStore((s) => s.addLine);
   const itemCount = useCartStore((s) => s.itemCount());
@@ -48,16 +49,8 @@ export default function Menu() {
 
   const categories = data?.categories ?? [];
   const allItems = useMemo(() => categories.flatMap((c) => c.items), [categories]);
-  const currentCategory = categories.find((c) => c.id === activeCategory) ?? categories[0];
+  const currentCategory = categories.find((c) => c.id === categoryId) ?? categories[0];
   const modalItem = itemId ? allItems.find((i) => i.id === itemId) ?? null : null;
-
-  const categoryParam = searchParams.get('category');
-  useEffect(() => {
-    if (categoryParam && categories.some((c) => c.id === categoryParam)) {
-      setActiveCategory(categoryParam);
-      setViewMode('category');
-    }
-  }, [categoryParam, categories]);
 
   const bestSellers = useMemo(() => allItems.filter((i) => i.isBestSeller), [allItems]);
   const favouriteItems = useMemo(() => {
@@ -99,13 +92,13 @@ export default function Menu() {
         {changingType && (
           <div className="mt-2 flex gap-2">
             <button
-              onClick={() => { navigate('/menu?type=Collection'); setChangingType(false); }}
+              onClick={() => { navigate(`${categoryId ? `/menu/category/${categoryId}` : '/menu'}?type=Collection`); setChangingType(false); }}
               className={`px-4 py-2 rounded text-sm font-medium ${orderType === 'Collection' ? 'bg-brand-green text-white' : 'bg-brand-mint/20 text-brand-cream'}`}
             >
               Order for Collection
             </button>
             <button
-              onClick={() => { navigate('/menu?type=Delivery'); setChangingType(false); }}
+              onClick={() => { navigate(`${categoryId ? `/menu/category/${categoryId}` : '/menu'}?type=Delivery`); setChangingType(false); }}
               className={`px-4 py-2 rounded text-sm font-medium ${orderType === 'Delivery' ? 'bg-brand-orange text-white' : 'bg-brand-mint/20 text-brand-cream'}`}
             >
               Order for Home Delivery
@@ -120,7 +113,7 @@ export default function Menu() {
           {categories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => { setActiveCategory(cat.id); setViewMode('category'); }}
+              onClick={() => openCategory(cat.id)}
               className={`shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium whitespace-nowrap lg:whitespace-normal transition-colors ${
                 viewMode === 'category' && (currentCategory?.id ?? categories[0]?.id) === cat.id
                   ? 'bg-brand-green text-white'
@@ -199,7 +192,12 @@ export default function Menu() {
                     <div className="flex gap-3 sm:contents cursor-pointer" onClick={() => openItem(item)}>
                       {thumb}
                       <div className="min-w-0">
-                        <p className="font-display text-base leading-tight">{item.name}</p>
+                        <p className="font-display text-base leading-tight">
+                          {item.name}
+                          {item.spiceLevel !== 'None' && (
+                            <span className="text-xs ml-1.5 align-middle" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>
+                          )}
+                        </p>
                         {item.description && <p className="text-sm text-brand-bg/70">{item.description}</p>}
                       </div>
                     </div>
@@ -232,15 +230,19 @@ export default function Menu() {
                   <div className="flex gap-3 sm:contents">
                     {thumb}
                     <div className="min-w-0">
-                      <p className="font-display text-base leading-tight">{item.name}</p>
-                      {item.description && <p className="text-sm text-brand-bg/70">{item.description}</p>}
-                      <div className="flex gap-1.5 mt-0.5 flex-wrap">
+                      <p className="font-display text-base leading-tight">
+                        {item.name}
                         {item.spiceLevel !== 'None' && (
-                          <span className="text-xs text-brand-orange" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>
+                          <span className="text-xs ml-1.5 align-middle" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>
                         )}
-                        {item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Vegan</span>}
-                        {item.isVegetarian && !item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Veg</span>}
-                      </div>
+                      </p>
+                      {item.description && <p className="text-sm text-brand-bg/70">{item.description}</p>}
+                      {(item.isVegan || item.isVegetarian) && (
+                        <div className="flex gap-1.5 mt-0.5 flex-wrap">
+                          {item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Vegan</span>}
+                          {item.isVegetarian && !item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Veg</span>}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between sm:contents">
@@ -253,16 +255,18 @@ export default function Menu() {
                         ♥
                       </button>
                     ) : <span />}
-                    <p className="font-semibold text-brand-bg text-right whitespace-nowrap sm:self-center">{currency}{item.basePrice.toFixed(2)}</p>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        item.modifierGroups.length > 0 ? openItem(item) : addLine(item, []);
-                      }}
-                      className="sm:self-center bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
-                    >
-                      Add +
-                    </button>
+                    <div className="flex items-center gap-3 sm:contents">
+                      <p className="font-semibold text-brand-bg text-right whitespace-nowrap sm:self-center">{currency}{item.basePrice.toFixed(2)}</p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          item.modifierGroups.length > 0 ? openItem(item) : addLine(item, []);
+                        }}
+                        className="sm:self-center bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
+                      >
+                        Add +
+                      </button>
+                    </div>
                   </div>
                 </div>,
               ];
