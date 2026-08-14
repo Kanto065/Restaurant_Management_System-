@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
 }
@@ -45,9 +46,9 @@ android {
         buildConfig = true
         aidl = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.15"
-    }
+    // Compose compiler version is resolved by the org.jetbrains.kotlin.plugin.compose plugin
+    // (matched to the Kotlin version above) - composeOptions.kotlinCompilerExtensionVersion is
+    // the pre-Kotlin-2.0 way and no longer applies.
 
     packaging {
         resources.excludes.add("/META-INF/{AL2.0,LGPL2.1}")
