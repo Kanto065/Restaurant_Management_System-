@@ -203,17 +203,19 @@ export default function Menu() {
                     </div>
                     <div className="flex flex-col gap-2 shrink-0">
                       {item.modifierGroups[0].options.map((option) => (
-                        <div key={option.id} className="flex items-center gap-3 justify-between sm:justify-end">
+                        <div key={option.id} className="flex items-center justify-between gap-3">
                           <span className="text-sm text-brand-bg/80 whitespace-nowrap">{option.name}</span>
-                          <span className="font-semibold text-brand-bg whitespace-nowrap w-16 text-right">
-                            {currency}{(item.basePrice + option.priceDelta).toFixed(2)}
-                          </span>
-                          <button
-                            onClick={() => addLine(item, [option])}
-                            className="bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
-                          >
-                            Add +
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <span className="font-semibold text-brand-bg whitespace-nowrap w-16 text-right">
+                              {currency}{(item.basePrice + option.priceDelta).toFixed(2)}
+                            </span>
+                            <button
+                              onClick={() => addLine(item, [option])}
+                              className="bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
+                            >
+                              Add +
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
