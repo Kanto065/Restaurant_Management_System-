@@ -224,39 +224,43 @@ export default function Menu() {
                 <div
                   key={item.id}
                   onClick={() => setModalItem(item)}
-                  className="w-full text-left grid grid-cols-[56px_1fr_auto_72px_auto] items-start gap-3 p-3 hover:bg-brand-bg/5 transition-colors cursor-pointer"
+                  className="w-full text-left flex flex-col gap-2 p-3 sm:grid sm:grid-cols-[56px_1fr_auto_72px_auto] sm:items-start sm:gap-3 hover:bg-brand-bg/5 transition-colors cursor-pointer"
                 >
-                  {thumb}
-                  <div className="min-w-0">
-                    <p className="font-display text-base leading-tight">{item.name}</p>
-                    {item.description && <p className="text-sm text-brand-bg/70">{item.description}</p>}
-                    <div className="flex gap-1.5 mt-0.5 flex-wrap">
-                      {item.spiceLevel !== 'None' && (
-                        <span className="text-xs text-brand-orange" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>
-                      )}
-                      {item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Vegan</span>}
-                      {item.isVegetarian && !item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Veg</span>}
+                  <div className="flex gap-3 sm:contents">
+                    {thumb}
+                    <div className="min-w-0">
+                      <p className="font-display text-base leading-tight">{item.name}</p>
+                      {item.description && <p className="text-sm text-brand-bg/70">{item.description}</p>}
+                      <div className="flex gap-1.5 mt-0.5 flex-wrap">
+                        {item.spiceLevel !== 'None' && (
+                          <span className="text-xs text-brand-orange" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>
+                        )}
+                        {item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Vegan</span>}
+                        {item.isVegetarian && !item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Veg</span>}
+                      </div>
                     </div>
                   </div>
-                  {isMember ? (
+                  <div className="flex items-center justify-between sm:contents">
+                    {isMember ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleFavouriteMutation.mutate({ menuItemId: item.id, isFavourite: favouriteIds.has(item.id) }); }}
+                        aria-label="Toggle favourite"
+                        className={`sm:self-center ${favouriteIds.has(item.id) ? 'text-brand-orange' : 'text-brand-bg/30'}`}
+                      >
+                        ♥
+                      </button>
+                    ) : <span />}
+                    <p className="font-semibold text-brand-bg text-right whitespace-nowrap sm:self-center">{currency}{item.basePrice.toFixed(2)}</p>
                     <button
-                      onClick={(e) => { e.stopPropagation(); toggleFavouriteMutation.mutate({ menuItemId: item.id, isFavourite: favouriteIds.has(item.id) }); }}
-                      aria-label="Toggle favourite"
-                      className={`self-center ${favouriteIds.has(item.id) ? 'text-brand-orange' : 'text-brand-bg/30'}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        item.modifierGroups.length > 0 ? setModalItem(item) : addLine(item, []);
+                      }}
+                      className="sm:self-center bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
                     >
-                      ♥
+                      Add +
                     </button>
-                  ) : <span />}
-                  <p className="font-semibold text-brand-bg text-right whitespace-nowrap self-center">{currency}{item.basePrice.toFixed(2)}</p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      item.modifierGroups.length > 0 ? setModalItem(item) : addLine(item, []);
-                    }}
-                    className="self-center bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
-                  >
-                    Add +
-                  </button>
+                  </div>
                 </div>,
               ];
             })}
