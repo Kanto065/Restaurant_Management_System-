@@ -11,13 +11,13 @@ using Platform.Infrastructure.Persistence;
 namespace Platform.Api.Controllers.Admin;
 
 public record OrderListItemDto(
-    Guid Id, long OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
+    Guid Id, string OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
     PaymentMethod PaymentMethod, decimal TotalAmount, string? CustomerName, DateTimeOffset CreatedAt);
 
 public record OrderStatusHistoryDto(string Status, string? Note, DateTimeOffset Timestamp);
 
 public record OrderDetailDto(
-    Guid Id, long OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
+    Guid Id, string OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
     PaymentMethod PaymentMethod, decimal Subtotal, decimal DeliveryFee, decimal ProcessingFee,
     decimal DiscountAmount, decimal TotalAmount, string? CustomerName, string? CustomerPhone,
     string? CustomerEmail, string? SpecialRequests, DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt,
@@ -32,8 +32,10 @@ public record OrderItemDto(
 public record UpdateOrderStatusRequest(string Status, string? Note);
 public record UpdateEstimatedTimeRequest(int EstimatedMinutesFromNow);
 public record UpdatePaymentStatusRequest(string PaymentStatus);
+public record UpdateOrderDetailsRequest(string? CustomerName, string? CustomerPhone, string? CustomerEmail, string? SpecialRequests);
 
 public record OrderStatsDto(int TotalOrders, int PendingOrders, int CompletedOrders, decimal TotalRevenue);
+public record OrderListPageDto(List<OrderListItemDto> Items, int TotalCount);
 
 [ApiController]
 [Route("api/admin/orders")]
@@ -43,21 +45,36 @@ public record OrderStatsDto(int TotalOrders, int PendingOrders, int CompletedOrd
 public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOrderNotifier notifier) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<List<OrderListItemDto>>>> List(
-        [FromQuery] string? status, [FromQuery] string? paymentStatus, [FromQuery] PaymentMethod? paymentMethod)
+    public async Task<ActionResult<ApiResponse<OrderListPageDto>>> List(
+        [FromQuery] string? status, [FromQuery] string? paymentStatus, [FromQuery] PaymentMethod? paymentMethod,
+        [FromQuery] string? search, [FromQuery] DateOnly? dateFrom, [FromQuery] DateOnly? dateTo,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
     {
-        var query = db.Orders.AsQueryable();
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var query = db.Orders.Where(o => !o.IsDeleted);
         if (!string.IsNullOrEmpty(status)) query = query.Where(o => o.Status == status);
         if (!string.IsNullOrEmpty(paymentStatus)) query = query.Where(o => o.PaymentStatus == paymentStatus);
         if (paymentMethod.HasValue) query = query.Where(o => o.PaymentMethod == paymentMethod.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(o => o.OrderNumber.ToLower().Contains(term) || (o.CustomerName != null && o.CustomerName.ToLower().Contains(term)));
+        }
+        if (dateFrom.HasValue) query = query.Where(o => o.CreatedAt >= new DateTimeOffset(dateFrom.Value.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
+        if (dateTo.HasValue) query = query.Where(o => o.CreatedAt < new DateTimeOffset(dateTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
 
+        var totalCount = await query.CountAsync();
         var orders = await query
             .OrderByDescending(o => o.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(o => new OrderListItemDto(
                 o.Id, o.OrderNumber, o.OrderType, o.Status, o.PaymentStatus, o.PaymentMethod, o.TotalAmount, o.CustomerName, o.CreatedAt))
             .ToListAsync();
 
-        return Ok(ApiResponse<List<OrderListItemDto>>.Ok(orders));
+        return Ok(ApiResponse<OrderListPageDto>.Ok(new OrderListPageDto(orders, totalCount)));
     }
 
     [HttpGet("stats")]
@@ -66,10 +83,10 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
         var pendingNames = await db.OrderStatusDefinitions.Where(d => d.CountsAsPending).Select(d => d.Name).ToListAsync();
         var completedNames = await db.OrderStatusDefinitions.Where(d => d.CountsAsCompleted).Select(d => d.Name).ToListAsync();
 
-        var totalOrders = await db.Orders.CountAsync();
-        var pendingOrders = await db.Orders.CountAsync(o => pendingNames.Contains(o.Status));
-        var completedOrders = await db.Orders.CountAsync(o => completedNames.Contains(o.Status));
-        var totalRevenue = await db.Orders.Where(o => completedNames.Contains(o.Status)).SumAsync(o => (decimal?)o.TotalAmount) ?? 0;
+        var totalOrders = await db.Orders.CountAsync(o => !o.IsDeleted);
+        var pendingOrders = await db.Orders.CountAsync(o => !o.IsDeleted && pendingNames.Contains(o.Status));
+        var completedOrders = await db.Orders.CountAsync(o => !o.IsDeleted && completedNames.Contains(o.Status));
+        var totalRevenue = await db.Orders.Where(o => !o.IsDeleted && completedNames.Contains(o.Status)).SumAsync(o => (decimal?)o.TotalAmount) ?? 0;
 
         return Ok(ApiResponse<OrderStatsDto>.Ok(new OrderStatsDto(totalOrders, pendingOrders, completedOrders, totalRevenue)));
     }
@@ -77,7 +94,7 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ApiResponse<OrderDetailDto>>> Get(Guid id)
     {
-        var order = await db.Orders.Include(o => o.Items).ThenInclude(i => i.Modifiers).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
+        var order = await db.Orders.Include(o => o.Items).ThenInclude(i => i.Modifiers).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
         if (order is null)
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
@@ -92,18 +109,15 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
         order.Status = request.Status;
-
-        var changedByUserId = Guid.TryParse(
-            User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub), out var userId)
-            ? userId
-            : (Guid?)null;
+        order.UpdatedBy = CurrentActorId();
+        order.UpdatedAt = DateTimeOffset.UtcNow;
 
         var historyEntry = new OrderStatusHistory
         {
             RestaurantId = order.RestaurantId,
             OrderId = order.Id,
             Status = request.Status,
-            ChangedByUserId = changedByUserId,
+            ChangedByUserId = CurrentActorId(),
             Note = request.Note,
         };
         db.OrderStatusHistories.Add(historyEntry);
@@ -123,6 +137,8 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
         order.EstimatedReadyAt = DateTimeOffset.UtcNow.AddMinutes(request.EstimatedMinutesFromNow);
+        order.UpdatedBy = CurrentActorId();
+        order.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
 
         return Ok(ApiResponse<OrderDetailDto>.Ok(ToDetailDto(order)));
@@ -136,11 +152,54 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
         order.PaymentStatus = request.PaymentStatus;
+        order.UpdatedBy = CurrentActorId();
+        order.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
         await notifier.PaymentReceivedAsync(currentTenant.RestaurantId!.Value, order.Id);
 
         return Ok(ApiResponse<OrderDetailDto>.Ok(ToDetailDto(order)));
     }
+
+    /// <summary>Only the contact/note fields are editable after placement - items, pricing, and
+    /// loyalty/voucher effects are locked in at checkout and shouldn't be hand-edited afterward.</summary>
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<OrderDetailDto>>> UpdateDetails(Guid id, UpdateOrderDetailsRequest request)
+    {
+        var order = await db.Orders.Include(o => o.Items).ThenInclude(i => i.Modifiers).Include(o => o.StatusHistory).FirstOrDefaultAsync(o => o.Id == id);
+        if (order is null)
+            return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
+
+        order.CustomerName = request.CustomerName;
+        order.CustomerPhone = request.CustomerPhone;
+        order.CustomerEmail = request.CustomerEmail;
+        order.SpecialRequests = request.SpecialRequests;
+        order.UpdatedBy = CurrentActorId();
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+
+        return Ok(ApiResponse<OrderDetailDto>.Ok(ToDetailDto(order)));
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
+    {
+        var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
+        if (order is null)
+            return NotFound(ApiResponse<object>.Fail("Order not found.", 404));
+
+        order.IsDeleted = true;
+        order.UpdatedBy = CurrentActorId();
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        return Ok(ApiResponse<object>.Ok(new { }, "Order deleted."));
+    }
+
+    /// <summary>The staff user making this change, or AuditConstants.SystemUserId for a POS device
+    /// token (StaffOrDevice policy admits both, but only staff logins carry a user "sub" claim).</summary>
+    private Guid CurrentActorId() =>
+        Guid.TryParse(User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub), out var userId)
+            ? userId
+            : Platform.Domain.Common.AuditConstants.SystemUserId;
 
     private static OrderDetailDto ToDetailDto(Order o) => new(
         o.Id, o.OrderNumber, o.OrderType, o.Status, o.PaymentStatus, o.PaymentMethod, o.Subtotal, o.DeliveryFee,

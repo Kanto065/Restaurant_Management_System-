@@ -178,7 +178,7 @@ export interface CreateOrderRequest {
 
 export interface CreatedOrder {
   id: string;
-  orderNumber: number;
+  orderNumber: string;
   status: OrderStatus;
   subtotal: number;
   deliveryFee: number;
@@ -191,7 +191,7 @@ export interface CreatedOrder {
 
 export interface TrackOrder {
   id: string;
-  orderNumber: number;
+  orderNumber: string;
   orderType: OrderType;
   status: OrderStatus;
   paymentStatus: string;
@@ -203,7 +203,7 @@ export interface TrackOrder {
 
 export interface AccountOrderSummary {
   id: string;
-  orderNumber: number;
+  orderNumber: string;
   orderType: OrderType;
   status: OrderStatus;
   paymentMethod: PaymentMethod;

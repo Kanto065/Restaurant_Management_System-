@@ -16,8 +16,10 @@ public class Table : TenantEntity
 
 public class Order : TenantEntity
 {
-    /// <summary>Sequential per-restaurant order number (not a random id) — needed for receipts.</summary>
-    public long OrderNumber { get; set; }
+    /// <summary>Short random human-readable order code (e.g. "A3F9K"), unique per restaurant — generated
+    /// in PublicOrdersController.GenerateOrderCode. Doesn't reveal order volume the way a sequential
+    /// number would, and stays a fixed length regardless of how many orders the restaurant has taken.</summary>
+    public string OrderNumber { get; set; } = default!;
 
     public OrderType OrderType { get; set; }
     public Guid? TableId { get; set; }
@@ -50,6 +52,17 @@ public class Order : TenantEntity
     public DateTimeOffset? EstimatedReadyAt { get; set; }
     public string? SpecialRequests { get; set; }
     public OrderSource Source { get; set; } = OrderSource.Web;
+
+    /// <summary>Soft-delete flag - admin "Delete" hides the order rather than removing the row, since
+    /// orders are financial/audit records. Filtered out of admin lists, stats, and customer-facing
+    /// endpoints; the row itself is kept.</summary>
+    public bool IsDeleted { get; set; }
+
+    /// <summary>Who created/last touched this row - the authenticated customer for a self-service
+    /// order, the staff user for an admin-side change, or AuditConstants.SystemUserId when neither
+    /// applies (guest checkout, POS device, seeders). Always set, never left at Guid.Empty by omission.</summary>
+    public Guid CreatedBy { get; set; } = AuditConstants.SystemUserId;
+    public Guid UpdatedBy { get; set; } = AuditConstants.SystemUserId;
 
     public List<OrderItem> Items { get; set; } = [];
     public List<OrderStatusHistory> StatusHistory { get; set; } = [];

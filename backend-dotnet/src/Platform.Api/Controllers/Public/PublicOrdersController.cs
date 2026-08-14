@@ -20,12 +20,12 @@ public record CreatePublicOrderRequest(
     PaymentMethod PaymentMethod, string? VoucherCode, bool RedeemLoyaltyPoints = false);
 
 public record CreatedOrderDto(
-    Guid Id, long OrderNumber, string Status, decimal Subtotal, decimal DeliveryFee, decimal ProcessingFee,
+    Guid Id, string OrderNumber, string Status, decimal Subtotal, decimal DeliveryFee, decimal ProcessingFee,
     decimal DiscountAmount, decimal TotalAmount, int LoyaltyPointsEarned, int LoyaltyPointsRedeemed);
 
 public record TrackOrderItemDto(string NameSnapshot, int Quantity, decimal LineTotal);
 public record TrackOrderDto(
-    Guid Id, long OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
+    Guid Id, string OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
     decimal TotalAmount, DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt, List<TrackOrderItemDto> Items);
 
 /// <summary>Anonymous (guest) or customer-authenticated order placement and tracking, host-resolved tenant.</summary>
@@ -86,6 +86,8 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
         {
             order.CustomerId = customerId;
         }
+        order.CreatedBy = customerId ?? Platform.Domain.Common.AuditConstants.SystemUserId;
+        order.UpdatedBy = order.CreatedBy;
 
         if (request.DeliveryAddress is not null)
         {
@@ -197,8 +199,12 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
         if (restaurant is not null)
             order.LoyaltyPointsEarned = (int)Math.Floor(order.TotalAmount * restaurant.LoyaltyPointsPerCurrencyUnit);
 
-        var lastOrderNumber = await db.Orders.OrderByDescending(o => o.OrderNumber).Select(o => o.OrderNumber).FirstOrDefaultAsync();
-        order.OrderNumber = lastOrderNumber + 1;
+        string orderNumber;
+        do
+        {
+            orderNumber = GenerateOrderCode();
+        } while (await db.Orders.AnyAsync(o => o.OrderNumber == orderNumber));
+        order.OrderNumber = orderNumber;
 
         order.StatusHistory.Add(new OrderStatusHistory { Status = defaultOrderStatus, Note = "Order placed." });
 
@@ -244,7 +250,7 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
     [HttpGet("{id:guid}/track")]
     public async Task<ActionResult<ApiResponse<TrackOrderDto>>> Track(Guid id)
     {
-        var order = await db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id);
+        var order = await db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
         if (order is null)
             return NotFound(ApiResponse<TrackOrderDto>.Fail("Order not found.", 404));
 
@@ -254,6 +260,18 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
             order.Items.Select(i => new TrackOrderItemDto(i.NameSnapshot, i.Quantity, i.LineTotal)).ToList());
 
         return Ok(ApiResponse<TrackOrderDto>.Ok(dto));
+    }
+
+    // Excludes 0/O and 1/I so codes stay unambiguous when read aloud or handwritten on a ticket.
+    private const string OrderCodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+    private static string GenerateOrderCode()
+    {
+        Span<byte> bytes = stackalloc byte[5];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
+        var chars = new char[5];
+        for (var i = 0; i < 5; i++) chars[i] = OrderCodeChars[bytes[i] % OrderCodeChars.Length];
+        return new string(chars);
     }
 
     private async Task<Guid?> TryResolveAuthenticatedCustomerAsync()

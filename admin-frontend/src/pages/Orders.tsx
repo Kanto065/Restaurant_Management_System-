@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,8 +21,9 @@ import { api } from '@/lib/api';
 import { useCurrency, useCurrencyCode } from '@/hooks/useCurrency';
 import { statusBadgeColor } from '@/pages/Configurations';
 import {
-  Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Eye, Timer,
-  RefreshCw, UtensilsCrossed, User, Phone, Mail, Search, MoreVertical, ListChecks, ArrowRight, Check,
+  Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Timer,
+  RefreshCw, UtensilsCrossed, User, Phone, Mail, Search, MoreVertical, ArrowRight, Check, Pencil, Trash2,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
 const CURRENCY_ICONS: Record<string, typeof DollarSign> = {
@@ -32,7 +38,7 @@ type PaymentStatus = string;
 type PaymentMethod = 'Card' | 'Cash' | 'ApplePay' | 'GooglePay';
 
 interface OrderListItem {
-  id: string; orderNumber: number; orderType: OrderType; status: OrderStatus; paymentStatus: PaymentStatus;
+  id: string; orderNumber: string; orderType: OrderType; status: OrderStatus; paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod; totalAmount: number; customerName: string | null; createdAt: string;
 }
 
@@ -45,9 +51,12 @@ interface OrderDetail extends OrderListItem {
   estimatedReadyAt: string | null; items: OrderItem[]; statusHistory: StatusHistoryEntry[];
 }
 
+interface OrderListPage { items: OrderListItem[]; totalCount: number }
 interface OrderStats { totalOrders: number; pendingOrders: number; completedOrders: number; totalRevenue: number }
-interface OrderStatusDef { id: string; name: string; displayOrder: number }
+interface OrderStatusDef { id: string; name: string; displayOrder: number; countsAsCompleted: boolean }
 interface PaymentStatusDef { id: string; name: string; displayOrder: number }
+
+const PAGE_SIZE = 25;
 
 const formatTime = (date: string) =>
   new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
@@ -63,19 +72,25 @@ const Orders = () => {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
-  const [isTimeDialogOpen, setIsTimeDialogOpen] = useState(false);
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<OrderListItem | null>(null);
   const [newStatus, setNewStatus] = useState<OrderStatus | ''>('');
   const [statusNote, setStatusNote] = useState('');
-  const [estimatedMinutes, setEstimatedMinutes] = useState('');
-  const [newPaymentStatus, setNewPaymentStatus] = useState<PaymentStatus | ''>('');
+  const [editForm, setEditForm] = useState({ customerName: '', customerPhone: '', customerEmail: '', specialRequests: '' });
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPayment, setFilterPayment] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
-  const [candidateStatus, setCandidateStatus] = useState<Record<string, OrderStatus>>({});
-  const [candidatePayment, setCandidatePayment] = useState<Record<string, PaymentStatus>>({});
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch, filterStatus, filterPayment, dateFrom, dateTo]);
 
   const orderStatusesQuery = useQuery({ queryKey: ['admin', 'order-statuses'], queryFn: () => api.get<OrderStatusDef[]>('/api/admin/order-statuses') });
   const paymentStatusesQuery = useQuery({ queryKey: ['admin', 'payment-statuses'], queryFn: () => api.get<PaymentStatusDef[]>('/api/admin/payment-statuses') });
@@ -87,9 +102,19 @@ const Orders = () => {
   const paymentStatusColors = (name: string) => statusBadgeColor(paymentStatusDefs.find((d) => d.name === name)?.displayOrder ?? 0);
 
   const statsQuery = useQuery({ queryKey: ['admin', 'orders', 'stats'], queryFn: () => api.get<OrderStats>('/api/admin/orders/stats') });
+
+  const listParams = new URLSearchParams();
+  if (filterStatus !== 'all') listParams.set('status', filterStatus);
+  if (filterPayment !== 'all') listParams.set('paymentStatus', filterPayment);
+  if (debouncedSearch) listParams.set('search', debouncedSearch);
+  if (dateFrom) listParams.set('dateFrom', dateFrom);
+  if (dateTo) listParams.set('dateTo', dateTo);
+  listParams.set('page', String(page));
+  listParams.set('pageSize', String(PAGE_SIZE));
+
   const ordersQuery = useQuery({
-    queryKey: ['admin', 'orders', filterStatus],
-    queryFn: () => api.get<OrderListItem[]>(`/api/admin/orders${filterStatus !== 'all' ? `?status=${filterStatus}` : ''}`),
+    queryKey: ['admin', 'orders', filterStatus, filterPayment, debouncedSearch, dateFrom, dateTo, page],
+    queryFn: () => api.get<OrderListPage>(`/api/admin/orders?${listParams.toString()}`),
   });
   const detailQuery = useQuery({
     queryKey: ['admin', 'orders', 'detail', selectedOrderId],
@@ -97,17 +122,9 @@ const Orders = () => {
     enabled: !!selectedOrderId,
   });
 
-  const orders = (ordersQuery.data?.data ?? []).filter((order) => {
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      if (!order.orderNumber.toString().includes(q) && !(order.customerName ?? '').toLowerCase().includes(q)) return false;
-    }
-    if (filterPayment !== 'all' && order.paymentStatus !== filterPayment) return false;
-    const orderDate = order.createdAt.slice(0, 10);
-    if (dateFrom && orderDate < dateFrom) return false;
-    if (dateTo && orderDate > dateTo) return false;
-    return true;
-  });
+  const orders = ordersQuery.data?.data?.items ?? [];
+  const totalCount = ordersQuery.data?.data?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const stats = statsQuery.data?.data ?? { totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 };
   const selectedOrder = detailQuery.data?.data ?? null;
 
@@ -127,73 +144,102 @@ const Orders = () => {
     onError: (error: Error) => toast({ variant: 'destructive', title: 'Error', description: error.message }),
   });
 
-  const setTimeMutation = useMutation({
-    mutationFn: () => api.put(`/api/admin/orders/${selectedOrderId}/estimated-time`, { estimatedMinutesFromNow: parseInt(estimatedMinutes, 10) }),
+  const editMutation = useMutation({
+    mutationFn: () => api.put(`/api/admin/orders/${selectedOrderId}`, {
+      customerName: editForm.customerName || null,
+      customerPhone: editForm.customerPhone || null,
+      customerEmail: editForm.customerEmail || null,
+      specialRequests: editForm.specialRequests || null,
+    }),
     onSuccess: () => {
-      toast({ title: 'Success', description: `Estimated time set to ${estimatedMinutes} minutes from now.` });
-      setIsTimeDialogOpen(false); setEstimatedMinutes('');
+      toast({ title: 'Success', description: 'Order details updated.' });
+      setIsEditOpen(false);
       invalidateAll();
+      queryClient.invalidateQueries({ queryKey: ['admin', 'orders', 'detail'] });
     },
     onError: (error: Error) => toast({ variant: 'destructive', title: 'Error', description: error.message }),
   });
 
-  const updatePaymentMutation = useMutation({
-    mutationFn: () => api.put(`/api/admin/orders/${selectedOrderId}/payment-status`, { paymentStatus: newPaymentStatus }),
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/admin/orders/${id}`),
     onSuccess: () => {
-      toast({ title: 'Success', description: 'Payment status updated.' });
-      setIsPaymentDialogOpen(false); setNewPaymentStatus('');
+      toast({ title: 'Deleted', description: 'Order removed from the list.' });
+      setDeleteTarget(null);
       invalidateAll();
     },
     onError: (error: Error) => toast({ variant: 'destructive', title: 'Error', description: error.message }),
   });
 
   const openStatusDialog = (order: OrderListItem) => { setSelectedOrderId(order.id); setNewStatus(order.status); setIsStatusDialogOpen(true); };
-  const openTimeDialog = (order: OrderListItem) => { setSelectedOrderId(order.id); setEstimatedMinutes(''); setIsTimeDialogOpen(true); };
-  const openPaymentDialog = (order: OrderListItem) => { setSelectedOrderId(order.id); setNewPaymentStatus(order.paymentStatus); setIsPaymentDialogOpen(true); };
+
+  const [editLoading, setEditLoading] = useState(false);
+  const openEditDialog = async (order: OrderListItem, detail?: OrderDetail | null) => {
+    setSelectedOrderId(order.id);
+    if (detail) {
+      setEditForm({
+        customerName: detail.customerName ?? '',
+        customerPhone: detail.customerPhone ?? '',
+        customerEmail: detail.customerEmail ?? '',
+        specialRequests: detail.specialRequests ?? '',
+      });
+      setIsEditOpen(true);
+      return;
+    }
+    // Row's Edit button only has the list-view fields - fetch full detail first so phone/email/
+    // special requests don't get silently wiped by submitting a form that never saw them.
+    setEditLoading(true);
+    try {
+      const res = await api.get<OrderDetail>(`/api/admin/orders/${order.id}`);
+      setEditForm({
+        customerName: res.data?.customerName ?? '',
+        customerPhone: res.data?.customerPhone ?? '',
+        customerEmail: res.data?.customerEmail ?? '',
+        specialRequests: res.data?.specialRequests ?? '',
+      });
+      setIsEditOpen(true);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   const quickStatusMutation = useMutation({
     mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>
       api.put(`/api/admin/orders/${orderId}/status`, { status, note: null }),
-    onSuccess: (_data, { orderId }) => {
-      toast({ title: 'Success', description: 'Order status updated.' });
-      setCandidateStatus((prev) => { const next = { ...prev }; delete next[orderId]; return next; });
-      invalidateAll();
-    },
+    onSuccess: () => { invalidateAll(); },
     onError: (error: Error) => toast({ variant: 'destructive', title: 'Error', description: error.message }),
   });
 
   const quickPaymentMutation = useMutation({
     mutationFn: ({ orderId, paymentStatus }: { orderId: string; paymentStatus: PaymentStatus }) =>
       api.put(`/api/admin/orders/${orderId}/payment-status`, { paymentStatus }),
-    onSuccess: (_data, { orderId }) => {
-      toast({ title: 'Success', description: 'Payment status updated.' });
-      setCandidatePayment((prev) => { const next = { ...prev }; delete next[orderId]; return next; });
-      invalidateAll();
-    },
+    onSuccess: () => { invalidateAll(); },
     onError: (error: Error) => toast({ variant: 'destructive', title: 'Error', description: error.message }),
   });
 
-  const nextStatusFor = (order: OrderListItem) => {
-    const candidates = ORDER_STATUSES.filter((s) => s !== order.status);
-    const stored = candidateStatus[order.id];
-    return stored && candidates.includes(stored) ? stored : candidates[0];
-  };
-  const cycleStatus = (order: OrderListItem) => {
-    const candidates = ORDER_STATUSES.filter((s) => s !== order.status);
-    const idx = candidates.indexOf(nextStatusFor(order));
-    setCandidateStatus((prev) => ({ ...prev, [order.id]: candidates[(idx + 1) % candidates.length] }));
-  };
+  const timeMutation = useMutation({
+    mutationFn: ({ orderId, minutes }: { orderId: string; minutes: number }) =>
+      api.put(`/api/admin/orders/${orderId}/estimated-time`, { estimatedMinutesFromNow: minutes }),
+    onSuccess: () => { toast({ title: 'Success', description: 'Estimated time set.' }); invalidateAll(); },
+    onError: (error: Error) => toast({ variant: 'destructive', title: 'Error', description: error.message }),
+  });
 
-  const nextPaymentFor = (order: OrderListItem) => {
-    const candidates = PAYMENT_STATUSES.filter((s) => s !== order.paymentStatus);
-    const stored = candidatePayment[order.id];
-    return stored && candidates.includes(stored) ? stored : candidates[0];
+  // Advance one step in the admin-configured order (arrow), the "..." menu still offers a
+  // notes-based jump-to-any-status for cases that need an audit note.
+  const nextStatusName = (current: OrderStatus) => {
+    const idx = ORDER_STATUSES.indexOf(current);
+    if (idx === -1 || idx >= ORDER_STATUSES.length - 1) return null;
+    return ORDER_STATUSES[idx + 1];
   };
-  const cyclePayment = (order: OrderListItem) => {
-    const candidates = PAYMENT_STATUSES.filter((s) => s !== order.paymentStatus);
-    const idx = candidates.indexOf(nextPaymentFor(order));
-    setCandidatePayment((prev) => ({ ...prev, [order.id]: candidates[(idx + 1) % candidates.length] }));
+  const completedStatusName = () => orderStatusDefs.find((d) => d.countsAsCompleted)?.name ?? null;
+
+  const nextPaymentName = (current: PaymentStatus) => {
+    const idx = PAYMENT_STATUSES.indexOf(current);
+    if (idx === -1 || idx >= PAYMENT_STATUSES.length - 1) return null;
+    return PAYMENT_STATUSES[idx + 1];
   };
+  const paidStatusName = () => paymentStatusDefs.find((d) => d.name.toLowerCase() === 'paid')?.name ?? PAYMENT_STATUSES[PAYMENT_STATUSES.length - 1] ?? null;
 
   if (ordersQuery.isLoading) {
     return (
@@ -281,7 +327,7 @@ const Orders = () => {
             Clear
           </Button>
         )}
-        <span className="text-sm text-muted-foreground shrink-0 ml-auto">{orders.length} order{orders.length !== 1 ? 's' : ''}</span>
+        <span className="text-sm text-muted-foreground shrink-0 ml-auto">{totalCount} order{totalCount !== 1 ? 's' : ''}</span>
       </div>
 
       <Card>
@@ -296,22 +342,29 @@ const Orders = () => {
             </div>
           ) : (
             <div className="divide-y">
-              {/* Column header row */}
-              <div className="hidden lg:grid grid-cols-[90px_1fr_100px_240px_240px] gap-3 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <div className="hidden lg:grid grid-cols-[100px_1fr_100px_110px_180px_160px_36px_36px] gap-3 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 <span>Order</span>
                 <span>Customer</span>
-                <span>View</span>
+                <span>Total</span>
+                <span>Time</span>
                 <span>Status</span>
                 <span>Payment</span>
+                <span />
+                <span />
               </div>
               {orders.map((order) => {
-                const candidateS = nextStatusFor(order);
-                const candidateP = nextPaymentFor(order);
+                const nextS = nextStatusName(order.status);
+                const doneS = completedStatusName();
+                const nextP = nextPaymentName(order.paymentStatus);
+                const paidP = paidStatusName();
                 return (
-                  <div key={order.id} className="grid grid-cols-1 lg:grid-cols-[90px_1fr_100px_240px_240px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center">
+                  <div
+                    key={order.id}
+                    onClick={() => openOrder(order.id)}
+                    className="grid grid-cols-1 lg:grid-cols-[100px_1fr_100px_110px_180px_160px_36px_36px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center cursor-pointer"
+                  >
                     <div>
-                      <button onClick={() => openOrder(order.id)} className="font-semibold hover:underline block">#{order.orderNumber}</button>
-                      <p className="text-sm text-muted-foreground">{formatCurrency(order.totalAmount)}</p>
+                      <span className="font-mono font-semibold text-sm">#{order.orderNumber}</span>
                     </div>
 
                     <div className="min-w-0">
@@ -323,58 +376,107 @@ const Orders = () => {
                       </div>
                     </div>
 
-                    <div>
-                      <Button variant="outline" size="sm" onClick={() => openOrder(order.id)}><Eye className="w-4 h-4 mr-2" />View</Button>
+                    <div className="font-medium">{formatCurrency(order.totalAmount)}</div>
+
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <EstimatedTimeButton
+                        onSet={(minutes) => timeMutation.mutate({ orderId: order.id, minutes })}
+                        pending={timeMutation.isPending}
+                      />
                     </div>
 
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant="outline" className={statusColors(order.status)}>{order.status}</Badge>
-                      <button
-                        type="button"
-                        onClick={() => cycleStatus(order)}
-                        aria-label="Choose next status"
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                      <Badge variant="outline" className={statusColors(candidateS)}>{candidateS}</Badge>
-                      <Button
-                        variant="ghost" size="icon" className="h-7 w-7 text-green-600"
-                        disabled={quickStatusMutation.isPending}
-                        onClick={() => quickStatusMutation.mutate({ orderId: order.id, status: candidateS })}
-                        aria-label="Confirm status change"
-                      >
-                        <Check className="w-4 h-4" />
-                      </Button>
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <div className="inline-flex items-stretch rounded-md border overflow-hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button type="button" className="px-2 py-1">
+                              <Badge variant="outline" className={`border-0 ${statusColors(order.status)}`}>{order.status}</Badge>
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            {ORDER_STATUSES.map((s) => (
+                              <DropdownMenuItem key={s} onClick={() => quickStatusMutation.mutate({ orderId: order.id, status: s })}>
+                                {s === order.status && <Check className="w-4 h-4 mr-2" />}
+                                <span className={s === order.status ? '' : 'ml-6'}>{s}</span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <button
+                          type="button"
+                          title={nextS ? `Next status: ${nextS}` : 'No next status'}
+                          disabled={!nextS || quickStatusMutation.isPending}
+                          onClick={() => nextS && quickStatusMutation.mutate({ orderId: order.id, status: nextS })}
+                          className="px-1.5 border-l bg-muted/40 hover:bg-muted disabled:opacity-30 flex items-center"
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          title={doneS ? `Mark as ${doneS}` : 'No completed status configured'}
+                          disabled={!doneS || doneS === order.status || quickStatusMutation.isPending}
+                          onClick={() => doneS && quickStatusMutation.mutate({ orderId: order.id, status: doneS })}
+                          className="px-1.5 border-l bg-muted/40 hover:bg-muted disabled:opacity-30 flex items-center text-green-600"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More status options"><MoreVertical className="w-4 h-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openStatusDialog(order)}><ListChecks className="w-4 h-4 mr-2" />Jump to Status (with note)</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openTimeDialog(order)}><Timer className="w-4 h-4 mr-2" />Set Estimated Time</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openStatusDialog(order)}>Jump to Status (with note)</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
 
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant="outline" className={paymentStatusColors(order.paymentStatus)}>{order.paymentStatus}</Badge>
-                      <button
-                        type="button"
-                        onClick={() => cyclePayment(order)}
-                        aria-label="Choose next payment status"
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                      <Badge variant="outline" className={paymentStatusColors(candidateP)}>{candidateP}</Badge>
-                      <Button
-                        variant="ghost" size="icon" className="h-7 w-7 text-green-600"
-                        disabled={quickPaymentMutation.isPending}
-                        onClick={() => quickPaymentMutation.mutate({ orderId: order.id, paymentStatus: candidateP })}
-                        aria-label="Confirm payment status change"
-                      >
-                        <Check className="w-4 h-4" />
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <div className="inline-flex items-stretch rounded-md border overflow-hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button type="button" className="px-2 py-1">
+                              <Badge variant="outline" className={`border-0 ${paymentStatusColors(order.paymentStatus)}`}>{order.paymentStatus}</Badge>
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            {PAYMENT_STATUSES.map((s) => (
+                              <DropdownMenuItem key={s} onClick={() => quickPaymentMutation.mutate({ orderId: order.id, paymentStatus: s })}>
+                                {s === order.paymentStatus && <Check className="w-4 h-4 mr-2" />}
+                                <span className={s === order.paymentStatus ? '' : 'ml-6'}>{s}</span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <button
+                          type="button"
+                          title={nextP ? `Next: ${nextP}` : 'No next status'}
+                          disabled={!nextP || quickPaymentMutation.isPending}
+                          onClick={() => nextP && quickPaymentMutation.mutate({ orderId: order.id, paymentStatus: nextP })}
+                          className="px-1.5 border-l bg-muted/40 hover:bg-muted disabled:opacity-30 flex items-center"
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          title={paidP ? `Mark as ${paidP}` : 'No paid status configured'}
+                          disabled={!paidP || paidP === order.paymentStatus || quickPaymentMutation.isPending}
+                          onClick={() => paidP && quickPaymentMutation.mutate({ orderId: order.id, paymentStatus: paidP })}
+                          className="px-1.5 border-l bg-muted/40 hover:bg-muted disabled:opacity-30 flex items-center text-green-600"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Edit order" disabled={editLoading} onClick={() => openEditDialog(order)}>
+                        {editLoading && selectedOrderId === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" aria-label="Delete order" onClick={() => setDeleteTarget(order)}>
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
@@ -384,6 +486,18 @@ const Orders = () => {
           )}
         </CardContent>
       </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+            <ChevronLeft className="w-4 h-4 mr-1" />Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+            Next<ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
+      )}
 
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh]">
@@ -396,7 +510,7 @@ const Orders = () => {
             <ScrollArea className="max-h-[calc(90vh-200px)]">
               <div className="space-y-6 pr-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1"><p className="text-sm font-medium">Order Number</p><p className="text-sm text-muted-foreground">#{selectedOrder.orderNumber}</p></div>
+                  <div className="space-y-1"><p className="text-sm font-medium">Order Number</p><p className="text-sm text-muted-foreground font-mono">#{selectedOrder.orderNumber}</p></div>
                   <div className="space-y-1"><p className="text-sm font-medium">Created</p><p className="text-sm text-muted-foreground">{formatTime(selectedOrder.createdAt)}</p></div>
                   <div className="space-y-1"><p className="text-sm font-medium">Status</p><Badge variant="outline" className={statusColors(selectedOrder.status)}>{selectedOrder.status}</Badge></div>
                   <div className="space-y-1"><p className="text-sm font-medium">Estimated Ready</p><p className="text-sm text-muted-foreground">{selectedOrder.estimatedReadyAt ? formatTime(selectedOrder.estimatedReadyAt) : 'Not set'}</p></div>
@@ -467,6 +581,12 @@ const Orders = () => {
             </ScrollArea>
           )}
           <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { if (selectedOrder) { const o = orders.find((x) => x.id === selectedOrder.id) ?? selectedOrder; openEditDialog(o, selectedOrder); setIsDetailsOpen(false); } }}
+            >
+              <Pencil className="w-4 h-4 mr-2" />Edit
+            </Button>
             <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>Close</Button>
             <Button onClick={() => { if (selectedOrder) { setNewStatus(selectedOrder.status); setIsStatusDialogOpen(true); setIsDetailsOpen(false); } }}>Update Status</Button>
           </DialogFooter>
@@ -501,52 +621,94 @@ const Orders = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isTimeDialogOpen} onOpenChange={setIsTimeDialogOpen}>
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Set Estimated Time</DialogTitle>
-            <DialogDescription>Minutes from now until the order is ready</DialogDescription>
+            <DialogTitle>Edit Order</DialogTitle>
+            <DialogDescription>Only contact details and notes can be changed after placement.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="estimatedTime">Minutes from now *</Label>
-              <Input id="estimatedTime" type="number" min="0" value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(e.target.value)} placeholder="e.g., 15" disabled={setTimeMutation.isPending} />
+              <Label htmlFor="editName">Customer Name</Label>
+              <Input id="editName" value={editForm.customerName} onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value })} disabled={editMutation.isPending} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editPhone">Phone</Label>
+              <Input id="editPhone" value={editForm.customerPhone} onChange={(e) => setEditForm({ ...editForm, customerPhone: e.target.value })} disabled={editMutation.isPending} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editEmail">Email</Label>
+              <Input id="editEmail" type="email" value={editForm.customerEmail} onChange={(e) => setEditForm({ ...editForm, customerEmail: e.target.value })} disabled={editMutation.isPending} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editRequests">Special Requests</Label>
+              <Textarea id="editRequests" value={editForm.specialRequests} onChange={(e) => setEditForm({ ...editForm, specialRequests: e.target.value })} rows={3} disabled={editMutation.isPending} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTimeDialogOpen(false)} disabled={setTimeMutation.isPending}>Cancel</Button>
-            <Button onClick={() => setTimeMutation.mutate()} disabled={setTimeMutation.isPending || !estimatedMinutes}>
-              {setTimeMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Setting...</>) : 'Set Time'}
+            <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={editMutation.isPending}>Cancel</Button>
+            <Button onClick={() => editMutation.mutate()} disabled={editMutation.isPending}>
+              {editMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Payment Status</DialogTitle>
-            <DialogDescription>Change the order's payment status</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="paymentStatus">New Payment Status *</Label>
-              <Select value={newPaymentStatus} onValueChange={(v) => setNewPaymentStatus(v as PaymentStatus)} disabled={updatePaymentMutation.isPending}>
-                <SelectTrigger><SelectValue placeholder="Select payment status" /></SelectTrigger>
-                <SelectContent>{PAYMENT_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)} disabled={updatePaymentMutation.isPending}>Cancel</Button>
-            <Button onClick={() => updatePaymentMutation.mutate()} disabled={updatePaymentMutation.isPending || !newPaymentStatus}>
-              {updatePaymentMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</>) : 'Update Payment Status'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete order #{deleteTarget?.orderNumber}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the order from all lists and reports. It's a soft delete - the record itself is kept for financial history, but it won't show up anywhere in the admin panel again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              {deleteMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting...</>) : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
+
+function EstimatedTimeButton({ onSet, pending }: { onSet: (minutes: number) => void; pending: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [minutes, setMinutes] = useState('');
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full justify-start">
+          <Timer className="w-3.5 h-3.5 mr-1.5" />Time
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56" align="start">
+        <Label htmlFor="est-minutes" className="text-xs text-muted-foreground">Minutes from now</Label>
+        <div className="flex items-center gap-2 mt-1.5">
+          <Input
+            id="est-minutes" type="number" min="0" value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+            placeholder="e.g. 15"
+            className="h-8"
+          />
+          <Button
+            size="icon" className="h-8 w-8 shrink-0"
+            disabled={!minutes || pending}
+            onClick={() => { onSet(parseInt(minutes, 10)); setOpen(false); setMinutes(''); }}
+          >
+            <Check className="w-4 h-4" />
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default Orders;

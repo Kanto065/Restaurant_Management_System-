@@ -12,7 +12,7 @@ using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers;
 
-public record AccountOrderSummaryDto(Guid Id, long OrderNumber, OrderType OrderType, string Status, PaymentMethod PaymentMethod, decimal TotalAmount, DateTimeOffset CreatedAt);
+public record AccountOrderSummaryDto(Guid Id, string OrderNumber, OrderType OrderType, string Status, PaymentMethod PaymentMethod, decimal TotalAmount, DateTimeOffset CreatedAt);
 public record FavoriteMenuItemDto(Guid MenuItemId, string Name, decimal BasePrice, string? ImageUrl);
 public record AddFavoriteRequest(Guid MenuItemId);
 public record LoyaltyDto(int PointsBalance, List<LoyaltyTransactionDto> RecentTransactions);
@@ -232,7 +232,7 @@ public class AccountController(AppDbContext db, UserManager<AppUser> userManager
             return NotFound(ApiResponse<List<AccountOrderSummaryDto>>.Fail("Customer account not found.", 404));
 
         var orders = await db.Orders
-            .Where(o => o.CustomerId == customerId)
+            .Where(o => o.CustomerId == customerId && !o.IsDeleted)
             .OrderByDescending(o => o.CreatedAt)
             .Select(o => new AccountOrderSummaryDto(o.Id, o.OrderNumber, o.OrderType, o.Status, o.PaymentMethod, o.TotalAmount, o.CreatedAt))
             .ToListAsync();
@@ -251,7 +251,7 @@ public class AccountController(AppDbContext db, UserManager<AppUser> userManager
         var order = await db.Orders
             .Include(o => o.Items).ThenInclude(i => i.Modifiers)
             .Include(o => o.StatusHistory)
-            .Where(o => o.CustomerId == customerId)
+            .Where(o => o.CustomerId == customerId && !o.IsDeleted)
             .OrderByDescending(o => o.CreatedAt)
             .FirstOrDefaultAsync();
 
