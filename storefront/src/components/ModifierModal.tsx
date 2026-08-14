@@ -96,9 +96,7 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
             {item.isVegetarian && !item.isVegan && <span className="flex items-center gap-1.5">🌱 Vegetarian</span>}
           </div>
 
-          {!(item.basePrice === 0 && item.modifierGroups.some((g) => g.groupType === 'Variation')) && (
-            <p className="text-brand-mint text-xl font-semibold mt-4">{currency}{item.basePrice.toFixed(2)}</p>
-          )}
+          <p className="text-brand-mint text-xl font-semibold mt-4">{currency}{unitTotal.toFixed(2)}</p>
 
           {item.modifierGroups.length > 0 && (
             <div className="mt-5">
