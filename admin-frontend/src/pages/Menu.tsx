@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Loader2, Filter, UtensilsCrossed, Leaf, Clock, Star, List, LayoutGrid } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, Search, UtensilsCrossed, Leaf, Clock, Star, List, LayoutGrid, ChevronDown, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from '@/components/ui/dialog';
@@ -21,8 +21,11 @@ import { api } from '@/lib/api';
 import { getImageUrl } from '@/config/api';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ImageUploadField } from '@/components/ImageUploadField';
+import { ItemVariantsPanel } from '@/components/ItemVariantsPanel';
 
-const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Hot', 'ExtraHot'] as const;
+const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Hot'] as const;
+const SPICE_PEPPER_COUNT: Record<(typeof SPICE_LEVELS)[number], number> = { None: 0, Mild: 1, Medium: 2, Hot: 3 };
+const spiceIcon = (level: (typeof SPICE_LEVELS)[number]) => '🌶️'.repeat(SPICE_PEPPER_COUNT[level]);
 
 interface MenuCategory {
   id: string;
@@ -79,7 +82,24 @@ const Menu = () => {
   const [form, setForm] = useState<ItemFormState>(emptyForm);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterAvailable, setFilterAvailable] = useState<string>('all');
-  const [view, setView] = useState<'list' | 'grid'>('grid');
+  const [search, setSearch] = useState('');
+  const [view, setView] = useState<'list' | 'grid'>('list');
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  const toggleCategory = (id: string) =>
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const toggleItem = (id: string) =>
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   const categoriesQuery = useQuery({
     queryKey: ['admin', 'menu-categories'],
@@ -97,8 +117,14 @@ const Menu = () => {
   const filteredItems = items.filter((item) => {
     if (filterCategory !== 'all' && item.categoryId !== filterCategory) return false;
     if (filterAvailable !== 'all' && String(item.isAvailable) !== filterAvailable) return false;
+    if (search.trim() && !item.name.toLowerCase().includes(search.trim().toLowerCase())) return false;
     return true;
   });
+
+  const categoryGroups = categories
+    .map((cat) => ({ category: cat, items: filteredItems.filter((i) => i.categoryId === cat.id) }))
+    .filter((g) => g.items.length > 0);
+  const isFiltering = search.trim().length > 0 || filterAvailable !== 'all';
 
   const invalidateItems = () => queryClient.invalidateQueries({ queryKey: ['admin', 'menu-items'] });
 
@@ -320,41 +346,32 @@ const Menu = () => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2"><Filter className="w-5 h-5" />Filters</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => { setFilterCategory('all'); setFilterAvailable('all'); }}>
-              Clear All
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Availability</Label>
-              <Select value={filterAvailable} onValueChange={setFilterAvailable}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Items</SelectItem>
-                  <SelectItem value="true">Available</SelectItem>
-                  <SelectItem value="false">Unavailable</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items..." className="pl-8" />
+        </div>
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger className="w-44 shrink-0"><SelectValue placeholder="All Categories" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterAvailable} onValueChange={setFilterAvailable}>
+          <SelectTrigger className="w-36 shrink-0"><SelectValue placeholder="All Items" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Items</SelectItem>
+            <SelectItem value="true">Available</SelectItem>
+            <SelectItem value="false">Unavailable</SelectItem>
+          </SelectContent>
+        </Select>
+        {(search || filterCategory !== 'all' || filterAvailable !== 'all') && (
+          <Button variant="ghost" size="icon" onClick={() => { setSearch(''); setFilterCategory('all'); setFilterAvailable('all'); }} aria-label="Clear filters">
+            <SlidersHorizontal className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
 
       {filteredItems.length === 0 ? (
         <Card>
@@ -366,34 +383,66 @@ const Menu = () => {
           </CardContent>
         </Card>
       ) : view === 'list' ? (
-        <Card>
-          <CardContent className="p-0 divide-y">
-            {filteredItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-3 py-2 px-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  {item.imageUrl ? (
-                    <img src={getImageUrl(item.imageUrl)} alt={item.name} className="w-9 h-9 rounded object-cover shrink-0" />
-                  ) : (
-                    <div className="w-9 h-9 rounded bg-muted flex items-center justify-center shrink-0">
-                      <UtensilsCrossed className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                  )}
-                  <span className="font-medium truncate">{item.name}</span>
-                  <Badge variant="outline" className="shrink-0">{categoryName(item.categoryId)}</Badge>
-                  {item.isBestSeller && <Badge variant="default" className="gap-1 bg-amber-500 hover:bg-amber-600 shrink-0"><Star className="w-3 h-3 fill-white" /></Badge>}
-                  {item.spiceLevel !== 'None' && <Badge variant="secondary" className="shrink-0">{item.spiceLevel}</Badge>}
-                  {!item.isAvailable && <Badge variant="secondary" className="shrink-0">Unavailable</Badge>}
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-primary font-semibold whitespace-nowrap">{currency}{item.basePrice.toFixed(2)}</span>
-                  <Switch checked={item.isAvailable} onCheckedChange={() => toggleAvailableMutation.mutate(item)} />
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Edit className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => setDeleteItemId(item.id)}><Trash2 className="w-4 h-4" /></Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <div className="space-y-2">
+          {categoryGroups.map(({ category, items: catItems }) => {
+            const isOpen = isFiltering || expandedCategories.has(category.id);
+            return (
+              <Card key={category.id} className="overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(category.id)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/50"
+                >
+                  <span className="flex items-center gap-2 font-medium">
+                    {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                    {category.name}
+                  </span>
+                  <Badge variant="outline">{catItems.length} item{catItems.length === 1 ? '' : 's'}</Badge>
+                </button>
+
+                {isOpen && (
+                  <CardContent className="p-0 divide-y border-t">
+                    {catItems.map((item) => (
+                      <div key={item.id}>
+                        <button
+                          type="button"
+                          onClick={() => toggleItem(item.id)}
+                          className="w-full flex items-center justify-between gap-3 py-2 px-4 hover:bg-muted/30 text-left"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {expandedItems.has(item.id) ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+                            {item.imageUrl ? (
+                              <img src={getImageUrl(item.imageUrl)} alt={item.name} className="w-9 h-9 rounded object-cover shrink-0" />
+                            ) : (
+                              <div className="w-9 h-9 rounded bg-muted flex items-center justify-center shrink-0">
+                                <UtensilsCrossed className="w-4 h-4 text-muted-foreground" />
+                              </div>
+                            )}
+                            <span className="font-medium truncate">{item.name}</span>
+                            {item.isBestSeller && <Badge variant="default" className="gap-1 bg-amber-500 hover:bg-amber-600 shrink-0"><Star className="w-3 h-3 fill-white" /></Badge>}
+                            {item.spiceLevel !== 'None' && <span className="shrink-0" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>}
+                            {!item.isAvailable && <Badge variant="secondary" className="shrink-0">Unavailable</Badge>}
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <span className="text-primary font-semibold whitespace-nowrap">{currency}{item.basePrice.toFixed(2)}</span>
+                            <Switch checked={item.isAvailable} onCheckedChange={() => toggleAvailableMutation.mutate(item)} />
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Edit className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteItemId(item.id)}><Trash2 className="w-4 h-4" /></Button>
+                          </div>
+                        </button>
+                        {expandedItems.has(item.id) && (
+                          <div className="px-4 pb-3 pl-11">
+                            <ItemVariantsPanel itemId={item.id} />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredItems.map((item) => (
@@ -429,7 +478,7 @@ const Menu = () => {
                   {item.preparationTimeMinutes > 0 && (
                     <Badge variant="secondary" className="gap-1"><Clock className="w-3 h-3" />{item.preparationTimeMinutes}m</Badge>
                   )}
-                  {item.spiceLevel !== 'None' && <Badge variant="secondary">{item.spiceLevel}</Badge>}
+                  {item.spiceLevel !== 'None' && <Badge variant="secondary">{spiceIcon(item.spiceLevel)} {item.spiceLevel}</Badge>}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -448,6 +497,11 @@ const Menu = () => {
                     <Trash2 className="w-4 h-4 mr-2" />Delete
                   </Button>
                 </div>
+                <Button variant="ghost" size="sm" className="w-full" onClick={() => toggleItem(item.id)}>
+                  {expandedItems.has(item.id) ? <ChevronDown className="w-4 h-4 mr-2" /> : <ChevronRight className="w-4 h-4 mr-2" />}
+                  Variants
+                </Button>
+                {expandedItems.has(item.id) && <ItemVariantsPanel itemId={item.id} />}
               </CardContent>
             </Card>
           ))}
