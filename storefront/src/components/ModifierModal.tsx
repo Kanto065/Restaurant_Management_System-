@@ -4,6 +4,8 @@ import { useCartStore } from '../store/cart';
 import { useRestaurant } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
 
+const SPICE_LABELS: Record<string, string> = { Mild: 'Mild', Medium: 'Medium', Hot: 'Hot', ExtraHot: 'Extra Hot' };
+
 export default function ModifierModal({ item, onClose }: { item: MenuItem; onClose: () => void }) {
   const addLine = useCartStore((s) => s.addLine);
   const { data: restaurant } = useRestaurant();
@@ -11,9 +13,12 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
   const [selected, setSelected] = useState<Record<string, ModifierOption[]>>(() =>
     Object.fromEntries(item.modifierGroups.map((g) => [g.id, g.options.filter((o) => o.isDefault)]))
   );
+  const [quantity, setQuantity] = useState(1);
+  const [specialInstructions, setSpecialInstructions] = useState('');
 
   const allSelected = Object.values(selected).flat();
-  const total = item.basePrice + allSelected.reduce((s, o) => s + o.priceDelta, 0);
+  const unitTotal = item.basePrice + allSelected.reduce((s, o) => s + o.priceDelta, 0);
+  const total = unitTotal * quantity;
 
   const requiredMet = item.modifierGroups
     .filter((g) => g.isRequired)
@@ -31,61 +36,116 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4">
-      <div className="bg-brand-cream text-brand-bg w-full sm:max-w-lg sm:rounded-lg overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="bg-brand-green text-white px-5 py-4">
-          <h3 className="font-display text-xl">Customise the product</h3>
+      <div className="bg-brand-bg text-brand-cream w-full sm:max-w-lg sm:rounded-lg overflow-hidden max-h-[92vh] sm:max-h-[90vh] flex flex-col">
+        <div className="relative shrink-0">
+          <div className="aspect-[16/9] bg-brand-bg-light">
+            {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-3 left-3 w-9 h-9 rounded-full bg-brand-bg/70 text-brand-cream flex items-center justify-center"
+          >
+            ←
+          </button>
+          {item.isBestSeller && (
+            <span className="absolute top-3 right-3 bg-brand-orange text-white text-xs font-medium px-2.5 py-1 rounded-full">
+              Bestseller
+            </span>
+          )}
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          <p className="font-semibold">{item.name}</p>
-          {item.description && <p className="text-sm text-brand-bg/70 mt-1">{item.description}</p>}
+          <h3 className="font-display text-2xl">{item.name}</h3>
+          {item.description && <p className="text-sm text-brand-cream/70 mt-2 leading-relaxed">{item.description}</p>}
 
-          {item.modifierGroups.map((group) => (
-            <div key={group.id} className="mt-5 border-t border-brand-bg/10 pt-4">
-              <p className="font-medium text-sm mb-2">
-                {group.name} {group.isRequired && <span className="text-brand-orange">*</span>}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {group.options.map((option) => {
-                  const isSelected = (selected[group.id] ?? []).some((o) => o.id === option.id);
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => toggleOption(group.id, option, group.maxSelect)}
-                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                        isSelected
-                          ? 'bg-brand-green text-white border-brand-green'
-                          : 'border-brand-bg/20 hover:border-brand-green'
-                      }`}
-                    >
-                      {option.name}
-                      {option.priceDelta !== 0 && ` (${option.priceDelta > 0 ? '+' : ''}${currency}${option.priceDelta.toFixed(2)})`}
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 pt-4 border-t border-brand-cream/10 text-sm text-brand-cream/80">
+            {item.spiceLevel !== 'None' && (
+              <span className="flex items-center gap-1.5">🌶️ {SPICE_LABELS[item.spiceLevel] ?? item.spiceLevel}</span>
+            )}
+            {item.preparationTimeMinutes > 0 && (
+              <span className="flex items-center gap-1.5">⏱ {item.preparationTimeMinutes} min</span>
+            )}
+            {item.isVegan && <span className="flex items-center gap-1.5">🌱 Vegan</span>}
+            {item.isVegetarian && !item.isVegan && <span className="flex items-center gap-1.5">🌱 Vegetarian</span>}
+          </div>
+
+          <p className="text-brand-mint text-xl font-semibold mt-4">{currency}{item.basePrice.toFixed(2)}</p>
+
+          {item.modifierGroups.length > 0 && (
+            <div className="mt-5">
+              <p className="font-semibold mb-1">Customise Your Dish</p>
+              {item.modifierGroups.map((group) => (
+                <div key={group.id} className="mt-4 border-t border-brand-cream/10 pt-4">
+                  <p className="font-medium text-sm mb-2">
+                    {group.name} {group.isRequired && <span className="text-brand-orange">*</span>}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.options.map((option) => {
+                      const isSelected = (selected[group.id] ?? []).some((o) => o.id === option.id);
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => toggleOption(group.id, option, group.maxSelect)}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                            isSelected
+                              ? 'bg-brand-green text-white border-brand-green'
+                              : 'border-brand-cream/20 hover:border-brand-green'
+                          }`}
+                        >
+                          {option.name}
+                          {option.priceDelta !== 0 && ` (${option.priceDelta > 0 ? '+' : ''}${currency}${option.priceDelta.toFixed(2)})`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          <div className="mt-5">
+            <p className="font-medium text-sm mb-2">Special Instructions</p>
+            <input
+              value={specialInstructions}
+              onChange={(e) => setSpecialInstructions(e.target.value)}
+              placeholder="E.g. No coriander, less spicy..."
+              className="w-full rounded border border-brand-cream/20 bg-transparent px-3 py-2 text-sm placeholder:text-brand-cream/40"
+            />
+          </div>
         </div>
 
-        <div className="border-t border-brand-bg/10 px-5 py-4 flex items-center justify-between">
-          <p className="font-semibold">Total: {currency}{total.toFixed(2)}</p>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 rounded border border-brand-bg/20 text-sm">
-              Cancel
-            </button>
+        <div className="border-t border-brand-cream/10 px-5 py-4 flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 border border-brand-cream/20 rounded-lg px-2 py-2">
             <button
-              disabled={!requiredMet}
-              onClick={() => {
-                addLine(item, allSelected);
-                onClose();
-              }}
-              className="px-4 py-2 rounded bg-brand-green text-white text-sm font-medium disabled:opacity-40"
+              type="button"
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              className="w-6 h-6 flex items-center justify-center text-brand-orange"
+              aria-label="Decrease quantity"
             >
-              Add to Order
+              −
+            </button>
+            <span className="w-4 text-center text-sm">{quantity}</span>
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => q + 1)}
+              className="w-6 h-6 flex items-center justify-center text-brand-orange"
+              aria-label="Increase quantity"
+            >
+              +
             </button>
           </div>
+          <button
+            disabled={!requiredMet}
+            onClick={() => {
+              addLine(item, allSelected, quantity, specialInstructions.trim() || undefined);
+              onClose();
+            }}
+            className="flex-1 bg-brand-orange text-white rounded-lg py-3 text-sm font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            Add to Cart <span>{currency}{total.toFixed(2)}</span>
+          </button>
         </div>
       </div>
     </div>

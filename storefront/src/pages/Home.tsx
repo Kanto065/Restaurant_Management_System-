@@ -1,6 +1,8 @@
-import { Link } from 'react-router-dom';
-import { useState } from 'react';
-import { useRestaurant } from '../lib/queries';
+import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useMenu, useRestaurant } from '../lib/queries';
+import { useCartStore } from '../store/cart';
+import { currencySymbol } from '../lib/currency';
 import HeroCarousel from '../components/HeroCarousel';
 import type { HeroSlide } from '../types/api';
 
@@ -16,7 +18,17 @@ const DEFAULT_WELCOME_TEXT =
 
 export default function Home() {
   const { data: restaurant } = useRestaurant();
+  const { data: menu } = useMenu();
   const [postcode, setPostcode] = useState('');
+  const navigate = useNavigate();
+  const addLine = useCartStore((s) => s.addLine);
+  const currency = currencySymbol(restaurant?.currency);
+
+  const categories = menu?.categories ?? [];
+  const popularItems = useMemo(
+    () => categories.flatMap((c) => c.items).filter((i) => i.isBestSeller).slice(0, 8),
+    [categories]
+  );
 
   const content = restaurant?.homepageContent;
   const heroSlides: HeroSlide[] =
@@ -35,6 +47,75 @@ export default function Home() {
   return (
     <div>
       <HeroCarousel slides={heroSlides} />
+
+      {categories.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-xl">Categories</h2>
+            <Link to="/menu" className="text-sm text-brand-orange hover:underline">See All →</Link>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-1">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => navigate(`/menu?category=${cat.id}`)}
+                className="flex flex-col items-center gap-2 shrink-0 w-20"
+              >
+                <div className="w-16 h-16 rounded-full overflow-hidden bg-brand-bg-light border border-brand-cream/10 flex items-center justify-center">
+                  {cat.items[0]?.imageUrl ? (
+                    <img src={cat.items[0].imageUrl} alt={cat.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="font-display text-lg text-brand-mint">{cat.name.charAt(0)}</span>
+                  )}
+                </div>
+                <span className="text-xs text-brand-cream/80 text-center leading-tight">{cat.name}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {popularItems.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-xl">Popular Items</h2>
+            <Link to="/menu" className="text-sm text-brand-orange hover:underline">See All →</Link>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-1">
+            {popularItems.map((item) => (
+              <Link
+                key={item.id}
+                to="/menu"
+                className="shrink-0 w-48 bg-brand-bg-light rounded-lg overflow-hidden"
+              >
+                <div className="relative aspect-[4/3] bg-brand-bg">
+                  {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
+                  <span className="absolute top-2 left-2 bg-brand-orange text-white text-[10px] font-medium px-2 py-0.5 rounded-full">
+                    Bestseller
+                  </span>
+                </div>
+                <div className="p-3">
+                  <p className="text-sm font-medium truncate">{item.name}</p>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <span className="text-brand-mint text-sm font-semibold">{currency}{item.basePrice.toFixed(2)}</span>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (item.modifierGroups.length === 0) addLine(item, []);
+                        else navigate('/menu');
+                      }}
+                      aria-label={`Add ${item.name}`}
+                      className="w-7 h-7 rounded-full bg-brand-orange text-white flex items-center justify-center text-lg leading-none"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="bg-pattern-paisley">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 grid sm:grid-cols-3 gap-4">

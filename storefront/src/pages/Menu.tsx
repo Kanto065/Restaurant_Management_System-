@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMenu, useFavourites, useLastOrder, useRestaurant } from '../lib/queries';
@@ -46,6 +46,14 @@ export default function Menu() {
   const categories = data?.categories ?? [];
   const allItems = useMemo(() => categories.flatMap((c) => c.items), [categories]);
   const currentCategory = categories.find((c) => c.id === activeCategory) ?? categories[0];
+
+  const categoryParam = searchParams.get('category');
+  useEffect(() => {
+    if (categoryParam && categories.some((c) => c.id === categoryParam)) {
+      setActiveCategory(categoryParam);
+      setViewMode('category');
+    }
+  }, [categoryParam, categories]);
 
   const bestSellers = useMemo(() => allItems.filter((i) => i.isBestSeller), [allItems]);
   const favouriteItems = useMemo(() => {
@@ -165,38 +173,53 @@ export default function Menu() {
           </div>
           <div className="divide-y divide-brand-bg/10">
             {visibleItems.map((item) => (
-              <div key={item.id} className="p-4 flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-medium">{item.name}</p>
-                  {item.description && <p className="text-sm text-brand-bg/70 mt-0.5">{item.description}</p>}
-                  <div className="flex gap-1.5 mt-1">
-                    {item.isBestSeller && <span className="text-xs bg-amber-500/10 text-amber-700 px-1.5 py-0.5 rounded">★ Best Seller</span>}
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setModalItem(item)}
+                className="w-full text-left p-4 flex items-start gap-4 hover:bg-brand-bg/5 transition-colors"
+              >
+                <div className="relative shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-brand-bg-light">
+                  {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
+                  {item.isBestSeller && (
+                    <span className="absolute top-1 left-1 bg-brand-orange text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+                      Bestseller
+                    </span>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="font-display text-lg leading-tight">{item.name}</p>
+                  {item.description && <p className="text-sm text-brand-bg/70 mt-1 line-clamp-2">{item.description}</p>}
+                  <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                    {item.spiceLevel !== 'None' && (
+                      <span className="text-xs text-brand-orange">🌶️ {item.spiceLevel}</span>
+                    )}
                     {item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Vegan</span>}
                     {item.isVegetarian && !item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Veg</span>}
-                    {item.spiceLevel !== 'None' && <span className="text-xs bg-orange-500/10 text-orange-700 px-1.5 py-0.5 rounded">{item.spiceLevel}</span>}
                   </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="font-semibold mb-2">{currency}{item.basePrice.toFixed(2)}</p>
-                  <div className="flex items-center gap-2 justify-end">
-                    {isMember && (
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="font-semibold text-brand-bg">{currency}{item.basePrice.toFixed(2)}</p>
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      {isMember && (
+                        <button
+                          onClick={() => toggleFavouriteMutation.mutate({ menuItemId: item.id, isFavourite: favouriteIds.has(item.id) })}
+                          aria-label="Toggle favourite"
+                          className={favouriteIds.has(item.id) ? 'text-brand-orange' : 'text-brand-bg/30'}
+                        >
+                          ♥
+                        </button>
+                      )}
                       <button
-                        onClick={() => toggleFavouriteMutation.mutate({ menuItemId: item.id, isFavourite: favouriteIds.has(item.id) })}
-                        aria-label="Toggle favourite"
-                        className={favouriteIds.has(item.id) ? 'text-brand-orange' : 'text-brand-bg/30'}
+                        onClick={() => (item.modifierGroups.length > 0 ? setModalItem(item) : addLine(item, []))}
+                        className="bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
                       >
-                        ♥
+                        Add +
                       </button>
-                    )}
-                    <button
-                      onClick={() => (item.modifierGroups.length > 0 ? setModalItem(item) : addLine(item, []))}
-                      className="bg-brand-green text-white text-xs font-medium px-3 py-1.5 rounded"
-                    >
-                      ADD
-                    </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
             {visibleItems.length === 0 && (
               <p className="p-4 text-sm text-brand-bg/60">
@@ -216,7 +239,7 @@ export default function Menu() {
       <div className="lg:hidden fixed bottom-0 inset-x-0 bg-brand-green text-white px-4 py-3 flex items-center justify-between z-30">
         <span className="text-sm font-medium">{itemCount} item{itemCount === 1 ? '' : 's'} · {currency}{subtotal.toFixed(2)}</span>
         <button onClick={() => setCartOpenMobile(true)} className="bg-white text-brand-green text-sm font-semibold px-4 py-1.5 rounded">
-          View Order
+          View Cart
         </button>
       </div>
 

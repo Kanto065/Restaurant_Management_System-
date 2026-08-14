@@ -8,7 +8,7 @@ import type { CreateOrderRequest, PaymentMethod } from '../types/api';
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { orderType, lines, subtotal, clear } = useCartStore();
+  const { orderType, lines, subtotal, clear, incrementLine, decrementLine } = useCartStore();
   const createOrder = useCreateOrder();
   const { data: restaurant } = useRestaurant();
 
@@ -83,12 +83,29 @@ export default function Checkout() {
       <form onSubmit={handleSubmit} className="grid md:grid-cols-[1fr_1.4fr] gap-6">
         <div className="space-y-4">
           <div className="bg-brand-cream text-brand-bg rounded-lg p-5 h-fit">
-            <h2 className="font-semibold mb-3">Your order for {orderType === 'Delivery' ? 'Delivery' : 'Collection'}</h2>
+            <h2 className="font-semibold mb-3">Your Order ({lines.length} item{lines.length === 1 ? '' : 's'})</h2>
             <div className="divide-y divide-brand-bg/10 text-sm">
               {lines.map((l) => (
-                <div key={l.lineId} className="py-2 flex justify-between">
-                  <span>{l.quantity} x {l.menuItem.name}</span>
-                  <span>{currency}{((l.menuItem.basePrice + l.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * l.quantity).toFixed(2)}</span>
+                <div key={l.lineId} className="py-3 flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-lg overflow-hidden bg-brand-bg/10 shrink-0">
+                    {l.menuItem.imageUrl && (
+                      <img src={l.menuItem.imageUrl} alt={l.menuItem.name} className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{l.menuItem.name}</p>
+                    {l.selectedOptions.map((o) => (
+                      <p key={o.id} className="text-xs text-brand-bg/60 truncate">+{o.name}</p>
+                    ))}
+                    <div className="flex items-center gap-2 mt-1">
+                      <button type="button" onClick={() => decrementLine(l.lineId)} className="w-5 h-5 rounded bg-brand-bg/10 text-xs">−</button>
+                      <span className="text-xs w-4 text-center">{l.quantity}</span>
+                      <button type="button" onClick={() => incrementLine(l.lineId)} className="w-5 h-5 rounded bg-brand-bg/10 text-xs">+</button>
+                    </div>
+                  </div>
+                  <span className="font-medium shrink-0">
+                    {currency}{((l.menuItem.basePrice + l.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * l.quantity).toFixed(2)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -177,18 +194,23 @@ export default function Checkout() {
           </div>
 
           <div className="bg-brand-cream text-brand-bg rounded-lg p-5">
-            <h2 className="font-semibold mb-3">How do you want to pay?</h2>
-            <div className="flex gap-3">
+            <h2 className="font-semibold mb-3">Payment Method</h2>
+            <div className="space-y-2">
               {(['Card', 'Cash'] as PaymentMethod[]).map((method) => (
                 <button
                   type="button"
                   key={method}
                   onClick={() => setPaymentMethod(method)}
-                  className={`flex-1 border rounded-lg py-4 text-sm font-medium ${
+                  className={`w-full flex items-center justify-between border rounded-lg px-4 py-3 text-sm font-medium ${
                     paymentMethod === method ? 'border-brand-green bg-brand-green/10' : 'border-brand-bg/20'
                   }`}
                 >
-                  {method}
+                  <span>{method === 'Card' ? 'Pay by Card' : 'Cash on ' + (orderType === 'Delivery' ? 'Delivery' : 'Collection')}</span>
+                  <span
+                    className={`w-4 h-4 rounded-full border-2 ${
+                      paymentMethod === method ? 'border-brand-green bg-brand-green' : 'border-brand-bg/30'
+                    }`}
+                  />
                 </button>
               ))}
             </div>

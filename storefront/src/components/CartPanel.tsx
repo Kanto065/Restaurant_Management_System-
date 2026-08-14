@@ -21,10 +21,11 @@ export default function CartPanel() {
           <div key={line.lineId} className="p-3 flex items-start justify-between gap-2 text-sm">
             <div className="min-w-0">
               <p className="font-medium truncate">{line.quantity} x {line.menuItem.name}</p>
-              {line.selectedOptions.length > 0 && (
-                <p className="text-xs text-brand-bg/60 truncate">
-                  +{line.selectedOptions.map((o) => o.name).join(', ')}
-                </p>
+              {line.selectedOptions.map((o) => (
+                <p key={o.id} className="text-xs text-brand-green truncate">+{o.name}</p>
+              ))}
+              {line.specialInstructions && (
+                <p className="text-xs text-brand-bg/50 truncate italic">"{line.specialInstructions}"</p>
               )}
               <div className="flex items-center gap-2 mt-1">
                 <button onClick={() => decrementLine(line.lineId)} className="w-6 h-6 rounded bg-red-500 text-white text-xs">-</button>
