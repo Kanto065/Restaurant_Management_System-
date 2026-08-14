@@ -20,6 +20,7 @@ export default function Menu() {
   const [viewMode, setViewMode] = useState<ViewMode>('category');
   const [changingType, setChangingType] = useState(false);
   const [search, setSearch] = useState('');
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
 
   const openItem = (item: MenuItem) =>
     navigate(`${categoryId ? `/menu/category/${categoryId}` : '/menu'}/item/${item.id}?${searchParams.toString()}`);
@@ -80,8 +81,60 @@ export default function Menu() {
   if (isLoading) return <div className="max-w-7xl mx-auto px-4 py-12 text-center">Loading menu...</div>;
   if (isError || !data) return <div className="max-w-7xl mx-auto px-4 py-12 text-center">Could not load the menu. Please try again shortly.</div>;
 
+  // Shared between the desktop vertical sidebar and the mobile category-picker sheet - afterSelect
+  // closes the sheet on mobile and is a no-op (undefined) on desktop, where there's no sheet.
+  const renderCategoryButtons = (afterSelect?: () => void) => (
+    <>
+      {categories.map((cat) => (
+        <button
+          key={cat.id}
+          onClick={() => { openCategory(cat.id); afterSelect?.(); }}
+          className={`shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium transition-colors ${
+            viewMode === 'category' && (currentCategory?.id ?? categories[0]?.id) === cat.id
+              ? 'bg-brand-green text-white'
+              : 'bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream'
+          }`}
+        >
+          {cat.name}
+        </button>
+      ))}
+
+      <div className="h-px bg-brand-cream/10 my-1" />
+
+      <button
+        onClick={() => { setViewMode('best-sellers'); afterSelect?.(); }}
+        className={`shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium transition-colors ${
+          viewMode === 'best-sellers' ? 'bg-brand-orange text-white' : 'bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream'
+        }`}
+      >
+        Best Sellers ★
+      </button>
+
+      {isMember && (
+        <>
+          <button
+            onClick={() => { setViewMode('favourites'); afterSelect?.(); }}
+            className={`shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium transition-colors ${
+              viewMode === 'favourites' ? 'bg-brand-orange text-white' : 'bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream'
+            }`}
+          >
+            My Favourites ♥
+          </button>
+          {lastOrderQuery.data && (
+            <button
+              onClick={() => { handleReorderLast(); afterSelect?.(); }}
+              className="shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream"
+            >
+              My Last Order ⟳
+            </button>
+          )}
+        </>
+      )}
+    </>
+  );
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-6">
       <div className="mb-4">
         <h1 className="text-lg sm:text-xl">
           You are ordering for <span className="text-brand-mint font-semibold">{orderType === 'Delivery' ? 'Home Delivery' : 'Collection'}</span>{' '}
@@ -108,54 +161,37 @@ export default function Menu() {
       </div>
 
       <div className="grid lg:grid-cols-[220px_1fr_320px] gap-6">
-        {/* Category sidebar: horizontal scroll on mobile, vertical list on desktop */}
-        <nav className="flex lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => openCategory(cat.id)}
-              className={`shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium whitespace-nowrap lg:whitespace-normal transition-colors ${
-                viewMode === 'category' && (currentCategory?.id ?? categories[0]?.id) === cat.id
-                  ? 'bg-brand-green text-white'
-                  : 'bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream'
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
-
-          <div className="h-px bg-brand-cream/10 lg:my-1 shrink-0 w-px lg:w-auto lg:h-px" />
-
-          <button
-            onClick={() => setViewMode('best-sellers')}
-            className={`shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium whitespace-nowrap lg:whitespace-normal transition-colors ${
-              viewMode === 'best-sellers' ? 'bg-brand-orange text-white' : 'bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream'
-            }`}
-          >
-            Best Sellers ★
-          </button>
-
-          {isMember && (
-            <>
-              <button
-                onClick={() => setViewMode('favourites')}
-                className={`shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium whitespace-nowrap lg:whitespace-normal transition-colors ${
-                  viewMode === 'favourites' ? 'bg-brand-orange text-white' : 'bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream'
-                }`}
-              >
-                My Favourites ♥
-              </button>
-              {lastOrderQuery.data && (
-                <button
-                  onClick={handleReorderLast}
-                  className="shrink-0 text-left px-4 py-2.5 rounded text-sm font-medium whitespace-nowrap lg:whitespace-normal bg-brand-mint/20 hover:bg-brand-mint/30 text-brand-cream"
-                >
-                  My Last Order ⟳
-                </button>
-              )}
-            </>
-          )}
+        {/* Category sidebar: a "Change Category" button opening a picker sheet on mobile,
+            a plain vertical list on desktop - no more horizontally-scrolling pill row. */}
+        <nav className="hidden lg:flex lg:flex-col gap-2">
+          {renderCategoryButtons()}
         </nav>
+
+        <button
+          onClick={() => setCategoryPickerOpen(true)}
+          className="lg:hidden bg-brand-orange text-white font-semibold py-3 rounded-lg text-sm text-center"
+        >
+          {heading} · Change Category
+        </button>
+
+        {categoryPickerOpen && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 lg:hidden" onClick={() => setCategoryPickerOpen(false)}>
+            <div
+              className="bg-brand-bg text-brand-cream w-full rounded-t-2xl overflow-hidden max-h-[80vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-brand-cream/10 shrink-0">
+                <h3 className="font-display text-lg">Choose a Category</h3>
+                <button onClick={() => setCategoryPickerOpen(false)} aria-label="Close" className="text-brand-cream/70 text-xl leading-none px-1">
+                  ×
+                </button>
+              </div>
+              <div className="overflow-y-auto p-3 flex flex-col gap-2">
+                {renderCategoryButtons(() => setCategoryPickerOpen(false))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Item list */}
         <div className="bg-brand-cream text-brand-bg rounded-lg overflow-hidden">

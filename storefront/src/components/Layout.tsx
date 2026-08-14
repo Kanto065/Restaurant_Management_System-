@@ -80,6 +80,38 @@ export default function Layout() {
     navigate(`/menu?type=${type}`);
   };
 
+  const accountInfo = (
+    <>
+      <p className="flex items-center gap-1.5">
+        <User className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        {loggedIn ? (
+          <>
+            Welcome back <span className="font-semibold text-brand-cream">{profile?.fullName?.split(' ')[0] ?? ''}</span>
+            {' ['}
+            <Link to="/account" className="underline" onClick={() => setMenuOpen(false)}>My Account</Link>
+            {' | '}
+            <button
+              onClick={() => { customerAuth.clear(); window.location.href = '/'; }}
+              className="underline"
+            >
+              Logout
+            </button>
+            {']'}
+          </>
+        ) : (
+          <>Welcome guest! Please <Link to="/account/members" className="underline" onClick={() => setMenuOpen(false)}>login</Link> or{' '}
+            <Link to="/account/members" className="underline" onClick={() => setMenuOpen(false)}>register</Link> so we know who you are.</>
+        )}
+      </p>
+      {restaurant && (
+        <p className="flex items-center gap-1.5">
+          <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          {restaurant.city}, {restaurant.addressLine1}, {restaurant.postcode}
+        </p>
+      )}
+    </>
+  );
+
   const orderingOptions = (
     <>
       {(restaurant?.supportsDelivery ?? true) && (
@@ -153,45 +185,22 @@ export default function Layout() {
         {menuOpen && (
           <nav className="md:hidden flex flex-col gap-2 px-4 pb-4">
             {navLink('/', 'Home')}
-            <div className="border border-brand-cream/30 rounded overflow-hidden">
-              <p className="px-4 py-2 text-sm font-medium border-b border-brand-cream/10">Menu &amp; Ordering</p>
+            <div className="bg-brand-cream text-brand-bg border border-brand-cream/30 rounded overflow-hidden">
+              <p className="px-4 py-2 text-sm font-medium border-b border-brand-bg/10">Menu &amp; Ordering</p>
               {orderingOptions}
             </div>
             {navLink('/reviews', 'Reviews')}
             {navLink('/contact-us', 'Contact Us')}
             {navLink('/account', loggedIn ? 'My Account' : 'Members')}
+            <div className="border-t border-brand-cream/10 pt-2 mt-1 flex flex-col gap-1 text-xs text-brand-cream/80">
+              {accountInfo}
+            </div>
           </nav>
         )}
 
-        <div className="bg-brand-bg-light/60 border-t border-brand-cream/10">
+        <div className="hidden md:block bg-brand-bg-light/60 border-t border-brand-cream/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs sm:text-sm text-brand-cream/80">
-            <p className="flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              {loggedIn ? (
-                <>
-                  Welcome back <span className="font-semibold text-brand-cream">{profile?.fullName?.split(' ')[0] ?? ''}</span>
-                  {' ['}
-                  <Link to="/account" className="underline">My Account</Link>
-                  {' | '}
-                  <button
-                    onClick={() => { customerAuth.clear(); window.location.href = '/'; }}
-                    className="underline"
-                  >
-                    Logout
-                  </button>
-                  {']'}
-                </>
-              ) : (
-                <>Welcome guest! Please <Link to="/account/members" className="underline">login</Link> or{' '}
-                  <Link to="/account/members" className="underline">register</Link> so we know who you are.</>
-              )}
-            </p>
-            {restaurant && (
-              <p className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                {restaurant.city}, {restaurant.addressLine1}, {restaurant.postcode}
-              </p>
-            )}
+            {accountInfo}
           </div>
         </div>
       </header>
@@ -200,14 +209,20 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <Link
-        to={itemCount > 0 ? '/cart' : '/menu'}
-        className="md:hidden fixed bottom-4 right-4 bg-brand-orange text-white rounded-full px-5 py-3 shadow-lg font-medium text-sm z-40"
-      >
-        Cart {itemCount > 0 && `(${itemCount})`}
-      </Link>
+      {/* The menu/ordering page has its own full-width mobile cart bar (Menu.tsx) - this
+          floating pill would just duplicate it, so skip it there. */}
+      {!location.pathname.startsWith('/menu') && (
+        <Link
+          to={itemCount > 0 ? '/cart' : '/menu'}
+          className="md:hidden fixed bottom-4 right-4 bg-brand-orange text-white rounded-full px-5 py-3 shadow-lg font-medium text-sm z-40"
+        >
+          Cart {itemCount > 0 && `(${itemCount})`}
+        </Link>
+      )}
 
-      <footer className="bg-brand-green/90 mt-12 py-6">
+      {/* Also skip the footer on mobile for /menu - it sits in normal flow behind Menu.tsx's
+          fixed bottom cart bar and gets visually overlapped. */}
+      <footer className={`bg-brand-green/90 mt-12 py-6 ${location.pathname.startsWith('/menu') ? 'hidden md:block' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs sm:text-sm text-white/90">
           <p>Copyright &copy; {new Date().getFullYear()} {restaurant?.name ?? 'Port Tennant Tandoori'}. All Rights Reserved.</p>
           <p>{restaurant?.phone}</p>
