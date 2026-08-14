@@ -342,7 +342,7 @@ const Orders = () => {
             </div>
           ) : (
             <div className="divide-y">
-              <div className="hidden lg:grid grid-cols-[80px_1fr_130px_90px_110px_1fr_1fr_36px_36px] gap-3 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <div className="hidden lg:grid grid-cols-[70px_1fr_100px_90px_100px_220px_190px_36px_36px] gap-3 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 <span>Order</span>
                 <span>Customer</span>
                 <span />
@@ -362,7 +362,7 @@ const Orders = () => {
                   <div
                     key={order.id}
                     onClick={() => openOrder(order.id)}
-                    className="grid grid-cols-1 lg:grid-cols-[80px_1fr_130px_90px_110px_1fr_1fr_36px_36px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center cursor-pointer"
+                    className="grid grid-cols-1 lg:grid-cols-[70px_1fr_100px_90px_100px_220px_190px_36px_36px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center cursor-pointer"
                   >
                     <div>
                       <span className="font-mono font-semibold text-sm">#{order.orderNumber}</span>
@@ -391,7 +391,7 @@ const Orders = () => {
                       <div className={`flex items-stretch rounded-md overflow-hidden flex-1 min-w-0 ${statusColors(order.status)}`}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button type="button" className="flex-1 min-w-0 px-3 py-2 text-sm font-semibold text-left truncate">
+                            <button type="button" title={order.status} className="flex-1 min-w-0 px-3 py-2 text-sm font-semibold text-left truncate">
                               {order.status}
                             </button>
                           </DropdownMenuTrigger>
@@ -437,7 +437,7 @@ const Orders = () => {
                       <div className={`flex items-stretch rounded-md overflow-hidden ${paymentStatusColors(order.paymentStatus)}`}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button type="button" className="flex-1 min-w-0 px-3 py-2 text-sm font-semibold text-left truncate">
+                            <button type="button" title={order.paymentStatus} className="flex-1 min-w-0 px-3 py-2 text-sm font-semibold text-left truncate">
                               {order.paymentStatus}
                             </button>
                           </DropdownMenuTrigger>

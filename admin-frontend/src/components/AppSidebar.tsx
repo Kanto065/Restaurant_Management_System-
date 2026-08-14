@@ -41,6 +41,7 @@ const menuItems = [
   { title: 'Delivery Zones', url: '/dashboard/delivery-zones', icon: Truck },
   { title: 'Opening Hours', url: '/dashboard/opening-hours', icon: Clock3 },
   { title: 'Configurations', url: '/dashboard/configurations', icon: Settings2 },
+  { title: 'POS Terminals', url: '/dashboard/devices', icon: Smartphone },
   { title: 'Notifications', url: '/dashboard/notifications', icon: Bell },
 ];
 
@@ -61,22 +62,29 @@ export function AppSidebar() {
     <Sidebar className={collapsed ? 'w-14' : 'w-64'} collapsible="icon">
       <SidebarContent>
         <div className="px-4 py-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
-              {logoUrl ? (
-                <img src={getImageUrl(logoUrl)} alt="Restaurant logo" className="w-full h-full object-cover" />
-              ) : (
-                <UtensilsCrossed className="w-5 h-5 text-primary-foreground" />
-              )}
+          {collapsed ? (
+            // Collapsed to a 56px icon rail - the logo+text+trigger row from the expanded
+            // state doesn't fit, so show only the trigger (full width, always clickable)
+            // rather than have it get squeezed off and become unreachable.
+            <div className="flex justify-center">
+              <SidebarTrigger />
             </div>
-            {!collapsed && (
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                {logoUrl ? (
+                  <img src={getImageUrl(logoUrl)} alt="Restaurant logo" className="w-full h-full object-cover" />
+                ) : (
+                  <UtensilsCrossed className="w-5 h-5 text-primary-foreground" />
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-lg truncate">Port Tennant Tandoori</h2>
                 <p className="text-xs text-muted-foreground">Admin Panel</p>
               </div>
-            )}
-            <SidebarTrigger className="shrink-0" />
-          </div>
+              <SidebarTrigger className="shrink-0" />
+            </div>
+          )}
         </div>
 
         <SidebarGroup>

@@ -17,6 +17,7 @@ import DeliveryZones from "./pages/DeliveryZones";
 import OpeningHours from "./pages/OpeningHours";
 import Notifications from "./pages/Notifications";
 import Configurations from "./pages/Configurations";
+import Devices from "./pages/Devices";
 import ChangePassword from "./pages/ChangePassword";
 import Takeout from "./pages/Takeout";
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="opening-hours" element={<OpeningHours />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="configurations" element={<Configurations />} />
+              <Route path="devices" element={<Devices />} />
               <Route path="takeout" element={<Takeout />} />
               <Route path="change-password" element={<ChangePassword />} />
             </Route>
