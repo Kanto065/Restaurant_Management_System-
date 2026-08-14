@@ -97,15 +97,17 @@ export default function Checkout() {
                     {l.selectedOptions.map((o) => (
                       <p key={o.id} className="text-xs text-brand-bg/60 truncate">+{o.name}</p>
                     ))}
-                    <div className="flex items-center gap-2 mt-1">
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="font-medium">
+                      {currency}{((l.menuItem.basePrice + l.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * l.quantity).toFixed(2)}
+                    </span>
+                    <div className="flex items-center gap-2">
                       <button type="button" onClick={() => decrementLine(l.lineId)} className="w-5 h-5 rounded bg-brand-bg/10 text-xs">−</button>
                       <span className="text-xs w-4 text-center">{l.quantity}</span>
                       <button type="button" onClick={() => incrementLine(l.lineId)} className="w-5 h-5 rounded bg-brand-bg/10 text-xs">+</button>
                     </div>
                   </div>
-                  <span className="font-medium shrink-0">
-                    {currency}{((l.menuItem.basePrice + l.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * l.quantity).toFixed(2)}
-                  </span>
                 </div>
               ))}
             </div>

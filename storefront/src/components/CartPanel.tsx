@@ -4,7 +4,7 @@ import { useRestaurant } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
 
 export default function CartPanel() {
-  const { lines, incrementLine, decrementLine, removeLine, clear, subtotal } = useCartStore();
+  const { lines, incrementLine, decrementLine, clear, subtotal } = useCartStore();
   const total = subtotal();
   const { data: restaurant } = useRestaurant();
   const currency = currencySymbol(restaurant?.currency);
@@ -27,18 +27,17 @@ export default function CartPanel() {
               {line.specialInstructions && (
                 <p className="text-xs text-brand-bg/50 truncate italic">"{line.specialInstructions}"</p>
               )}
-              <div className="flex items-center gap-2 mt-1">
-                <button onClick={() => decrementLine(line.lineId)} className="w-6 h-6 rounded bg-red-500 text-white text-xs">-</button>
+            </div>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <p className="font-medium">
+                {currency}{((line.menuItem.basePrice + line.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * line.quantity).toFixed(2)}
+              </p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => decrementLine(line.lineId)} className="w-6 h-6 rounded bg-red-500 text-white text-xs">−</button>
                 <span>{line.quantity}</span>
                 <button onClick={() => incrementLine(line.lineId)} className="w-6 h-6 rounded bg-brand-green text-white text-xs">+</button>
-                <button onClick={() => removeLine(line.lineId)} className="text-xs text-brand-bg/50 underline ml-1">
-                  remove
-                </button>
               </div>
             </div>
-            <p className="font-medium shrink-0">
-              {currency}{((line.menuItem.basePrice + line.selectedOptions.reduce((s, o) => s + o.priceDelta, 0)) * line.quantity).toFixed(2)}
-            </p>
           </div>
         ))}
       </div>

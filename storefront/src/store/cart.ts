@@ -34,10 +34,24 @@ export const useCartStore = create<CartState>()(
       setOrderType: (orderType) => set({ orderType }),
 
       addLine: (menuItem, selectedOptions, quantity = 1, specialInstructions) => {
-        const lineId = `${menuItem.id}:${selectedOptions.map((o) => o.id).sort().join(',')}:${Date.now()}`;
-        set((state) => ({
-          lines: [...state.lines, { lineId, menuItem, quantity, selectedOptions, specialInstructions }],
-        }));
+        const optionKey = selectedOptions.map((o) => o.id).sort().join(',');
+        set((state) => {
+          const existing = state.lines.find(
+            (l) =>
+              l.menuItem.id === menuItem.id &&
+              l.selectedOptions.map((o) => o.id).sort().join(',') === optionKey &&
+              (l.specialInstructions ?? '') === (specialInstructions ?? '')
+          );
+          if (existing) {
+            return {
+              lines: state.lines.map((l) =>
+                l.lineId === existing.lineId ? { ...l, quantity: l.quantity + quantity } : l
+              ),
+            };
+          }
+          const lineId = `${menuItem.id}:${optionKey}:${Date.now()}`;
+          return { lines: [...state.lines, { lineId, menuItem, quantity, selectedOptions, specialInstructions }] };
+        });
       },
 
       incrementLine: (lineId) =>
