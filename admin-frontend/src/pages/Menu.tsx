@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Loader2, Filter, UtensilsCrossed, Leaf, Clock, Star } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, Filter, UtensilsCrossed, Leaf, Clock, Star, List, LayoutGrid } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from '@/components/ui/dialog';
@@ -79,6 +79,7 @@ const Menu = () => {
   const [form, setForm] = useState<ItemFormState>(emptyForm);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterAvailable, setFilterAvailable] = useState<string>('all');
+  const [view, setView] = useState<'list' | 'grid'>('grid');
 
   const categoriesQuery = useQuery({
     queryKey: ['admin', 'menu-categories'],
@@ -212,6 +213,15 @@ const Menu = () => {
           <h1 className="text-3xl font-bold tracking-tight">Menu Items</h1>
           <p className="text-muted-foreground">Manage your restaurant menu</p>
         </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center border rounded-md">
+            <Button variant={view === 'list' ? 'secondary' : 'ghost'} size="icon" className="rounded-r-none" onClick={() => setView('list')} aria-label="List view">
+              <List className="w-4 h-4" />
+            </Button>
+            <Button variant={view === 'grid' ? 'secondary' : 'ghost'} size="icon" className="rounded-l-none" onClick={() => setView('grid')} aria-label="Grid view">
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+          </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => (open ? setIsDialogOpen(true) : resetForm())}>
           <DialogTrigger asChild>
             <Button onClick={() => { setEditingItem(null); setForm(emptyForm); setIsDialogOpen(true); }}>
@@ -307,6 +317,7 @@ const Menu = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -345,18 +356,47 @@ const Menu = () => {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredItems.length === 0 ? (
-          <Card className="col-span-full">
-            <CardContent className="flex flex-col items-center justify-center h-40 gap-4">
-              <UtensilsCrossed className="w-12 h-12 text-muted-foreground" />
-              <p className="text-muted-foreground">
-                {items.length === 0 ? 'No menu items yet. Add your first item to get started.' : 'No items match the selected filters.'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredItems.map((item) => (
+      {filteredItems.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-40 gap-4">
+            <UtensilsCrossed className="w-12 h-12 text-muted-foreground" />
+            <p className="text-muted-foreground">
+              {items.length === 0 ? 'No menu items yet. Add your first item to get started.' : 'No items match the selected filters.'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : view === 'list' ? (
+        <Card>
+          <CardContent className="p-0 divide-y">
+            {filteredItems.map((item) => (
+              <div key={item.id} className="flex items-center justify-between gap-3 py-2 px-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  {item.imageUrl ? (
+                    <img src={getImageUrl(item.imageUrl)} alt={item.name} className="w-9 h-9 rounded object-cover shrink-0" />
+                  ) : (
+                    <div className="w-9 h-9 rounded bg-muted flex items-center justify-center shrink-0">
+                      <UtensilsCrossed className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  )}
+                  <span className="font-medium truncate">{item.name}</span>
+                  <Badge variant="outline" className="shrink-0">{categoryName(item.categoryId)}</Badge>
+                  {item.isBestSeller && <Badge variant="default" className="gap-1 bg-amber-500 hover:bg-amber-600 shrink-0"><Star className="w-3 h-3 fill-white" /></Badge>}
+                  {item.spiceLevel !== 'None' && <Badge variant="secondary" className="shrink-0">{item.spiceLevel}</Badge>}
+                  {!item.isAvailable && <Badge variant="secondary" className="shrink-0">Unavailable</Badge>}
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-primary font-semibold whitespace-nowrap">{currency}{item.basePrice.toFixed(2)}</span>
+                  <Switch checked={item.isAvailable} onCheckedChange={() => toggleAvailableMutation.mutate(item)} />
+                  <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Edit className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => setDeleteItemId(item.id)}><Trash2 className="w-4 h-4" /></Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredItems.map((item) => (
             <Card key={item.id} className="overflow-hidden">
               {item.imageUrl ? (
                 <div className="h-48 overflow-hidden bg-muted relative">
@@ -410,9 +450,9 @@ const Menu = () => {
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       <AlertDialog open={!!deleteItemId} onOpenChange={() => setDeleteItemId(null)}>
         <AlertDialogContent>
