@@ -54,12 +54,47 @@ function extractErrorMessage(data: any, fallback: string): string {
   return data?.message || data?.title || fallback;
 }
 
+// Access tokens expire after 30 minutes (see JwtOptions.AccessTokenMinutes) - this dedupes
+// concurrent 401s into a single /api/auth/refresh call and retries them once the new access
+// token lands. If refresh itself fails, tokens are cleared so AuthContext bounces to /login.
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = localStorage.getItem('admin_refresh_token');
+  if (!refreshToken) return null;
+
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data?.success || !data?.data) return null;
+
+        localStorage.setItem('admin_token', data.data.accessToken);
+        localStorage.setItem('admin_refresh_token', data.data.refreshToken);
+        return data.data.accessToken as string;
+      } catch {
+        return null;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+
+  return refreshInFlight;
+}
+
 async function request<T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  isRetry = false
 ): Promise<ApiResponse<T>> {
   const token = localStorage.getItem('admin_token');
-  
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
@@ -74,6 +109,13 @@ async function request<T = any>(
       ...options,
       headers,
     });
+
+    if (response.status === 401 && !isRetry && localStorage.getItem('admin_refresh_token')) {
+      const newAccessToken = await refreshAccessToken();
+      if (newAccessToken) return request<T>(endpoint, options, true);
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_refresh_token');
+    }
 
     const data = await response.json();
 
@@ -123,7 +165,7 @@ export const api = {
     });
   },
 
-  async upload<T = any>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
+  async upload<T = any>(endpoint: string, formData: FormData, isRetry = false): Promise<ApiResponse<T>> {
     const token = localStorage.getItem('admin_token');
     const headers: HeadersInit = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -136,6 +178,14 @@ export const api = {
         headers,
         body: formData,
       });
+
+      if (response.status === 401 && !isRetry && localStorage.getItem('admin_refresh_token')) {
+        const newAccessToken = await refreshAccessToken();
+        if (newAccessToken) return api.upload<T>(endpoint, formData, true);
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_refresh_token');
+      }
+
       const data = await response.json();
       if (!response.ok) {
         throw new ApiError(response.status, extractErrorMessage(data, 'Upload failed'));
