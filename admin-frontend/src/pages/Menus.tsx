@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,9 @@ const Menus = () => {
   const [isActive, setIsActive] = useState(true);
   const [view, setView] = useState<ViewMode>('list');
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+  const prevRects = useRef(new Map<string, DOMRect>());
 
   const categoriesQuery = useQuery({
     queryKey: ['admin', 'menu-categories'],
@@ -55,10 +58,39 @@ const Menus = () => {
   const reorderMutation = useMutation({
     mutationFn: (orderedIds: string[]) => api.put('/api/admin/menu-categories/reorder', { orderedIds }),
     onSuccess: invalidate,
-    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
+    onError: (error: Error) => { toast({ title: 'Error', description: error.message, variant: 'destructive' }); invalidate(); },
   });
 
+  // FLIP: capture each row's current position before the reorder commits, then in the
+  // layout effect below (fires after the reordered DOM paints) work out how far each row
+  // visually jumped and animate it back from there - a plain CSS transition can't do this
+  // because the rows aren't moving continuously, they're being reordered discretely.
+  const captureRectsForFlip = () => {
+    prevRects.current.clear();
+    for (const [id, el] of rowRefs.current) prevRects.current.set(id, el.getBoundingClientRect());
+  };
+
+  useLayoutEffect(() => {
+    if (prevRects.current.size === 0) return;
+    for (const [id, el] of rowRefs.current) {
+      const prev = prevRects.current.get(id);
+      if (!prev) continue;
+      const next = el.getBoundingClientRect();
+      const deltaY = prev.top - next.top;
+      if (deltaY === 0) continue;
+      el.style.transition = 'none';
+      el.style.transform = `translateY(${deltaY}px)`;
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform 220ms ease';
+        el.style.transform = '';
+      });
+    }
+    prevRects.current.clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories.map((c) => c.id).join(',')]);
+
   const handleDrop = (targetId: string) => {
+    setDragOverId(null);
     if (!dragId || dragId === targetId) { setDragId(null); return; }
     const ids = categories.map((c) => c.id);
     const from = ids.indexOf(dragId);
@@ -66,6 +98,15 @@ const Menus = () => {
     ids.splice(from, 1);
     ids.splice(to, 0, dragId);
     setDragId(null);
+
+    captureRectsForFlip();
+    // Optimistic reorder so the row animates into place immediately instead of jumping
+    // once the network round-trip finishes.
+    queryClient.setQueryData(['admin', 'menu-categories'], (old: { data: MenuCategory[] } | undefined) => {
+      if (!old) return old;
+      const byId = new Map(old.data.map((c) => [c.id, c]));
+      return { ...old, data: ids.map((id, i) => ({ ...byId.get(id)!, displayOrder: i })) };
+    });
     reorderMutation.mutate(ids);
   };
 
@@ -210,16 +251,22 @@ const Menus = () => {
             </div>
           ) : view === 'list' ? (
             <div className="divide-y">
-              {categories.map((cat) => (
+              {categories.map((cat, index) => (
                 <div
                   key={cat.id}
+                  ref={(el) => { if (el) rowRefs.current.set(cat.id, el); else rowRefs.current.delete(cat.id); }}
                   draggable
                   onDragStart={() => setDragId(cat.id)}
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragOver={(e) => { e.preventDefault(); if (dragId && dragId !== cat.id) setDragOverId(cat.id); }}
+                  onDragLeave={() => setDragOverId((id) => (id === cat.id ? null : id))}
+                  onDragEnd={() => { setDragId(null); setDragOverId(null); }}
                   onDrop={() => handleDrop(cat.id)}
-                  className={`flex items-center justify-between py-1.5 ${dragId === cat.id ? 'opacity-40' : ''}`}
+                  className={`flex items-center justify-between py-1.5 border-t-2 transition-colors ${
+                    dragId === cat.id ? 'opacity-40' : dragOverId === cat.id ? 'border-t-primary' : 'border-t-transparent'
+                  }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-muted-foreground w-5 text-right tabular-nums shrink-0">{index + 1}</span>
                     <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab shrink-0" />
                     {cat.imageUrl ? (
                       <img src={getImageUrl(cat.imageUrl)} alt={cat.name} className="w-8 h-8 rounded object-cover shrink-0" />
@@ -242,8 +289,9 @@ const Menus = () => {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {categories.map((cat) => (
-                <Card key={cat.id} className="overflow-hidden">
+              {categories.map((cat, index) => (
+                <Card key={cat.id} className="overflow-hidden relative">
+                  <Badge variant="secondary" className="absolute top-2 left-2 z-10">{index + 1}</Badge>
                   {cat.imageUrl ? (
                     <div className="h-28 bg-muted">
                       <img src={getImageUrl(cat.imageUrl)} alt={cat.name} className="w-full h-full object-cover" />
