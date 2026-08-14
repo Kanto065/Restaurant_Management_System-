@@ -193,7 +193,7 @@ export default function Menu() {
               if (item.showVariantsAsRows && item.modifierGroups.length === 1) {
                 return (
                   <div key={item.id} className="flex flex-col gap-3 p-3 sm:grid sm:grid-cols-[56px_1fr_auto] sm:items-start">
-                    <div className="flex gap-3 sm:contents">
+                    <div className="flex gap-3 sm:contents cursor-pointer" onClick={() => setModalItem(item)}>
                       {thumb}
                       <div className="min-w-0">
                         <p className="font-display text-base leading-tight">{item.name}</p>
