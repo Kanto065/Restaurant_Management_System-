@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Loader2, Smartphone, Copy, Check } from 'lucide-react';
+import { Plus, Trash2, Loader2, Smartphone, Copy, Check, Ban } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from '@/components/ui/dialog';
@@ -38,6 +38,7 @@ const Devices = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [deviceName, setDeviceName] = useState('');
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeviceRow | null>(null);
   const [paired, setPaired] = useState<DevicePaired | null>(null);
   const [copiedField, setCopiedField] = useState<'id' | 'secret' | null>(null);
 
@@ -61,10 +62,17 @@ const Devices = () => {
   });
 
   const deactivateMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/admin/devices/${id}`),
+    mutationFn: (id: string) => api.put(`/api/admin/devices/${id}/deactivate`, {}),
     onSuccess: () => { toast({ title: 'Success', description: 'Terminal deactivated.' }); invalidate(); },
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
     onSettled: () => setDeactivateId(null),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/admin/devices/${id}`),
+    onSuccess: () => { toast({ title: 'Deleted', description: 'Terminal removed.' }); invalidate(); },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
+    onSettled: () => setDeleteTarget(null),
   });
 
   const copy = (text: string, field: 'id' | 'secret') => {
@@ -153,11 +161,16 @@ const Devices = () => {
                     </p>
                     <p className="text-xs text-muted-foreground">Last seen: {formatLastSeen(d.lastSeenAt)}</p>
                   </div>
-                  {d.isActive && (
-                    <Button variant="ghost" size="icon" aria-label="Deactivate terminal" onClick={() => setDeactivateId(d.id)}>
+                  <div className="flex items-center gap-1">
+                    {d.isActive && (
+                      <Button variant="ghost" size="icon" aria-label="Deactivate terminal" onClick={() => setDeactivateId(d.id)}>
+                        <Ban className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="text-destructive" aria-label="Delete terminal" onClick={() => setDeleteTarget(d)}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -181,6 +194,28 @@ const Devices = () => {
               onClick={() => deactivateId && deactivateMutation.mutate(deactivateId)}
             >
               Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{deleteTarget?.deviceName}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the terminal from the list entirely, not just signs it out. If it's still active it'll be
+              signed out too. This can't be undone from here — you'd need to register it again from scratch.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              {deleteMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting...</>) : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

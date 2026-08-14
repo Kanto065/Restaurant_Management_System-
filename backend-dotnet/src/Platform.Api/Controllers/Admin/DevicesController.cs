@@ -58,7 +58,9 @@ public class DevicesController(AppDbContext db, ICurrentTenant currentTenant) : 
             new DevicePairedDto(device.Id, device.DeviceName, secret), statusCode: 201));
     }
 
-    [HttpDelete("{id:guid}")]
+    /// <summary>Signs the device out and blocks it from pairing again with the same credentials,
+    /// but keeps the row (and its order/audit history) around - distinct from Delete below.</summary>
+    [HttpPut("{id:guid}/deactivate")]
     public async Task<ActionResult<ApiResponse<object>>> Deactivate(Guid id)
     {
         var device = await db.Devices.FirstOrDefaultAsync(d => d.Id == id);
@@ -69,5 +71,22 @@ public class DevicesController(AppDbContext db, ICurrentTenant currentTenant) : 
         await db.SaveChangesAsync();
 
         return Ok(ApiResponse<object>.Ok(new { }, "Device deactivated."));
+    }
+
+    /// <summary>Removes the device from the list entirely (soft-delete via IsDeleted, same as every
+    /// other entity - filtered out by the global query filter). For cleaning up mistaken/test
+    /// registrations; a still-active device is deactivated as part of the same request first.</summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
+    {
+        var device = await db.Devices.FirstOrDefaultAsync(d => d.Id == id);
+        if (device is null)
+            return NotFound(ApiResponse<object>.Fail("Device not found.", 404));
+
+        device.IsActive = false;
+        device.IsDeleted = true;
+        await db.SaveChangesAsync();
+
+        return Ok(ApiResponse<object>.Ok(new { }, "Device deleted."));
     }
 }
