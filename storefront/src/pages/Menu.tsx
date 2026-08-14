@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMenu, useFavourites, useLastOrder, useRestaurant } from '../lib/queries';
 import { useCartStore } from '../store/cart';
@@ -16,12 +16,14 @@ export default function Menu() {
   const { data, isLoading, isError } = useMenu();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { itemId } = useParams<{ itemId?: string }>();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('category');
   const [changingType, setChangingType] = useState(false);
   const [search, setSearch] = useState('');
-  const [modalItem, setModalItem] = useState<MenuItem | null>(null);
-  const [cartOpenMobile, setCartOpenMobile] = useState(false);
+
+  const openItem = (item: MenuItem) => navigate(`/menu/item/${item.id}?${searchParams.toString()}`);
+  const closeItem = () => navigate(`/menu?${searchParams.toString()}`);
   const setOrderType = useCartStore((s) => s.setOrderType);
   const addLine = useCartStore((s) => s.addLine);
   const itemCount = useCartStore((s) => s.itemCount());
@@ -47,6 +49,7 @@ export default function Menu() {
   const categories = data?.categories ?? [];
   const allItems = useMemo(() => categories.flatMap((c) => c.items), [categories]);
   const currentCategory = categories.find((c) => c.id === activeCategory) ?? categories[0];
+  const modalItem = itemId ? allItems.find((i) => i.id === itemId) ?? null : null;
 
   const categoryParam = searchParams.get('category');
   useEffect(() => {
@@ -193,7 +196,7 @@ export default function Menu() {
               if (item.showVariantsAsRows && item.modifierGroups.length === 1) {
                 return (
                   <div key={item.id} className="flex flex-col gap-3 p-3 sm:grid sm:grid-cols-[56px_1fr_auto] sm:items-start">
-                    <div className="flex gap-3 sm:contents cursor-pointer" onClick={() => setModalItem(item)}>
+                    <div className="flex gap-3 sm:contents cursor-pointer" onClick={() => openItem(item)}>
                       {thumb}
                       <div className="min-w-0">
                         <p className="font-display text-base leading-tight">{item.name}</p>
@@ -223,7 +226,7 @@ export default function Menu() {
               return [
                 <div
                   key={item.id}
-                  onClick={() => setModalItem(item)}
+                  onClick={() => openItem(item)}
                   className="w-full text-left flex flex-col gap-2 p-3 sm:grid sm:grid-cols-[56px_1fr_auto_72px_auto] sm:items-start sm:gap-3 hover:bg-brand-bg/5 transition-colors cursor-pointer"
                 >
                   <div className="flex gap-3 sm:contents">
@@ -254,7 +257,7 @@ export default function Menu() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        item.modifierGroups.length > 0 ? setModalItem(item) : addLine(item, []);
+                        item.modifierGroups.length > 0 ? openItem(item) : addLine(item, []);
                       }}
                       className="sm:self-center bg-brand-green text-white text-xs font-semibold px-4 py-2 rounded-lg"
                     >
@@ -281,23 +284,12 @@ export default function Menu() {
       {/* Mobile cart bar */}
       <div className="lg:hidden fixed bottom-0 inset-x-0 bg-brand-green text-white px-4 py-3 flex items-center justify-between z-30">
         <span className="text-sm font-medium">{itemCount} item{itemCount === 1 ? '' : 's'} · {currency}{subtotal.toFixed(2)}</span>
-        <button onClick={() => setCartOpenMobile(true)} className="bg-white text-brand-green text-sm font-semibold px-4 py-1.5 rounded">
+        <button onClick={() => navigate('/cart')} className="bg-white text-brand-green text-sm font-semibold px-4 py-1.5 rounded">
           View Cart
         </button>
       </div>
 
-      {cartOpenMobile && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-black/60 flex items-end" onClick={() => setCartOpenMobile(false)}>
-          <div className="w-full" onClick={(e) => e.stopPropagation()}>
-            <CartPanel />
-            <button onClick={() => setCartOpenMobile(false)} className="w-full bg-brand-bg text-brand-cream py-3 text-sm">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {modalItem && <ModifierModal item={modalItem} onClose={() => setModalItem(null)} />}
+      {modalItem && <ModifierModal item={modalItem} onClose={closeItem} />}
     </div>
   );
 }

@@ -85,7 +85,7 @@ export default function Home() {
             {popularItems.map((item) => (
               <Link
                 key={item.id}
-                to="/menu"
+                to={`/menu/item/${item.id}`}
                 className="shrink-0 w-48 bg-brand-bg-light rounded-lg overflow-hidden"
               >
                 <div className="relative aspect-[4/3] bg-brand-bg">
@@ -102,7 +102,7 @@ export default function Home() {
                       onClick={(e) => {
                         e.preventDefault();
                         if (item.modifierGroups.length === 0) addLine(item, []);
-                        else navigate('/menu');
+                        else navigate(`/menu/item/${item.id}`);
                       }}
                       aria-label={`Add ${item.name}`}
                       className="w-7 h-7 rounded-full bg-brand-orange text-white flex items-center justify-center text-lg leading-none"

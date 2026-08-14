@@ -183,7 +183,7 @@ export default function Layout() {
       </main>
 
       <Link
-        to="/menu"
+        to={itemCount > 0 ? '/cart' : '/menu'}
         className="md:hidden fixed bottom-4 right-4 bg-brand-orange text-white rounded-full px-5 py-3 shadow-lg font-medium text-sm z-40"
       >
         Cart {itemCount > 0 && `(${itemCount})`}
