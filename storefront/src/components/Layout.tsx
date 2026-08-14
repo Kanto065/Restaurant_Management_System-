@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { useRestaurant } from '../lib/queries';
+import { useRestaurant, useProfile } from '../lib/queries';
 import { useCartStore } from '../store/cart';
 import { customerAuth } from '../lib/api';
 import type { DayOfWeekName, OpeningHour, OpeningHourException } from '../types/api';
@@ -42,6 +42,7 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const loggedIn = customerAuth.isLoggedIn();
+  const { data: profile } = useProfile();
 
   useEffect(() => {
     if (!orderingDropdownOpen) return;
@@ -163,16 +164,32 @@ export default function Layout() {
 
         <div className="bg-brand-bg-light/60 border-t border-brand-cream/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs sm:text-sm text-brand-cream/80">
-            <p>
+            <p className="flex items-center gap-1.5">
+              <span aria-hidden="true">👤</span>
               {loggedIn ? (
-                <Link to="/account" className="underline">My Account</Link>
+                <>
+                  Welcome back <span className="font-semibold text-brand-cream">{profile?.fullName?.split(' ')[0] ?? ''}</span>
+                  {' ['}
+                  <Link to="/account" className="underline">My Account</Link>
+                  {' | '}
+                  <button
+                    onClick={() => { customerAuth.clear(); window.location.href = '/'; }}
+                    className="underline"
+                  >
+                    Logout
+                  </button>
+                  {']'}
+                </>
               ) : (
                 <>Welcome guest! Please <Link to="/account/members" className="underline">login</Link> or{' '}
                   <Link to="/account/members" className="underline">register</Link> so we know who you are.</>
               )}
             </p>
             {restaurant && (
-              <p>{restaurant.city}, {restaurant.addressLine1}, {restaurant.postcode}</p>
+              <p className="flex items-center gap-1.5">
+                <span aria-hidden="true">📍</span>
+                {restaurant.city}, {restaurant.addressLine1}, {restaurant.postcode}
+              </p>
             )}
           </div>
         </div>

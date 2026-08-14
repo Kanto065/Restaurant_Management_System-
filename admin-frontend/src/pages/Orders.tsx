@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,7 +14,10 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { api } from '@/lib/api';
 import { useCurrency, useCurrencyCode } from '@/hooks/useCurrency';
-import { Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Eye, Timer, RefreshCw, UtensilsCrossed, User, Phone, Mail } from 'lucide-react';
+import {
+  Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Eye, Timer,
+  RefreshCw, UtensilsCrossed, User, Phone, Mail, Search, MoreVertical, ListChecks,
+} from 'lucide-react';
 
 const CURRENCY_ICONS: Record<string, typeof DollarSign> = {
   GBP: PoundSterling,
@@ -84,6 +88,7 @@ const Orders = () => {
   const [estimatedMinutes, setEstimatedMinutes] = useState('');
   const [newPaymentStatus, setNewPaymentStatus] = useState<PaymentStatus | ''>('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [search, setSearch] = useState('');
 
   const statsQuery = useQuery({ queryKey: ['admin', 'orders', 'stats'], queryFn: () => api.get<OrderStats>('/api/admin/orders/stats') });
   const ordersQuery = useQuery({
@@ -96,7 +101,11 @@ const Orders = () => {
     enabled: !!selectedOrderId,
   });
 
-  const orders = ordersQuery.data?.data ?? [];
+  const orders = (ordersQuery.data?.data ?? []).filter((order) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return order.orderNumber.toString().includes(q) || (order.customerName ?? '').toLowerCase().includes(q);
+  });
   const stats = statsQuery.data?.data ?? { totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 };
   const selectedOrder = detailQuery.data?.data ?? null;
 
@@ -194,27 +203,22 @@ const Orders = () => {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle>Filters</CardTitle></CardHeader>
-        <CardContent>
-          <div className="space-y-2 max-w-xs">
-            <Label>Order Status</Label>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {ORDER_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by order # or customer..." className="pl-8" />
+        </div>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-44 shrink-0"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            {ORDER_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-muted-foreground shrink-0">{orders.length} order{orders.length !== 1 ? 's' : ''}</span>
+      </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Orders List</CardTitle>
-          <CardDescription>{orders.length} order{orders.length !== 1 ? 's' : ''} found</CardDescription>
-        </CardHeader>
         <CardContent className="p-0">
           {orders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4">
@@ -227,48 +231,37 @@ const Orders = () => {
           ) : (
             <div className="divide-y">
               {orders.map((order) => (
-                <div key={order.id} className="p-6 hover:bg-muted/30 transition-colors">
-                  <div className="flex items-start justify-between gap-6 flex-wrap">
-                    <div className="flex-1 space-y-3 min-w-[240px]">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <ShoppingCart className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-base">#{order.orderNumber}</span>
-                            <Badge variant="outline" className={statusColors[order.status]}>{order.status}</Badge>
-                            <Badge variant="secondary">{order.orderType}</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{formatTime(order.createdAt)}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-4 pl-[52px]">
-                        {order.customerName && (
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-medium">{order.customerName}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-muted-foreground" />
-                          <Badge variant="outline" className={paymentStatusColors[order.paymentStatus]}>{order.paymentStatus}</Badge>
-                          <span className="text-sm text-muted-foreground">via {order.paymentMethod}</span>
-                        </div>
-                      </div>
+                <div key={order.id} className="px-4 py-3 hover:bg-muted/30 transition-colors flex items-center gap-4">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <ShoppingCart className="h-4 w-4 text-primary" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button onClick={() => openOrder(order.id)} className="font-semibold hover:underline">#{order.orderNumber}</button>
+                      <Badge variant="outline" className={statusColors[order.status]}>{order.status}</Badge>
+                      <Badge variant="secondary">{order.orderType}</Badge>
+                      <Badge variant="outline" className={paymentStatusColors[order.paymentStatus]}>{order.paymentStatus} · {order.paymentMethod}</Badge>
                     </div>
-                    <div className="flex items-start gap-4">
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground mb-1">Total</p>
-                        <p className="text-2xl font-bold">{formatCurrency(order.totalAmount)}</p>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openOrder(order.id)} className="w-full"><Eye className="w-4 h-4 mr-2" />View</Button>
-                        <Button variant="outline" size="sm" onClick={() => openStatusDialog(order)} className="w-full">Status</Button>
-                        <Button variant="outline" size="sm" onClick={() => openTimeDialog(order)} className="w-full"><Timer className="w-4 h-4 mr-2" />Time</Button>
-                        <Button variant="outline" size="sm" onClick={() => openPaymentDialog(order)} className="w-full"><DollarSign className="w-4 h-4 mr-2" />Pay</Button>
-                      </div>
-                    </div>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {order.customerName ? `${order.customerName} · ` : ''}{formatTime(order.createdAt)}
+                    </p>
+                  </div>
+
+                  <p className="font-bold text-lg shrink-0">{formatCurrency(order.totalAmount)}</p>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" onClick={() => openOrder(order.id)} aria-label="View order"><Eye className="w-4 h-4" /></Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" aria-label="More actions"><MoreVertical className="w-4 h-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openStatusDialog(order)}><ListChecks className="w-4 h-4 mr-2" />Update Status</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openTimeDialog(order)}><Timer className="w-4 h-4 mr-2" />Set Estimated Time</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openPaymentDialog(order)}><DollarSign className="w-4 h-4 mr-2" />Update Payment</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               ))}
