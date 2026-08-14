@@ -40,8 +40,8 @@ const menuItems = [
   { title: 'Vouchers', url: '/dashboard/vouchers', icon: Ticket },
   { title: 'Delivery Zones', url: '/dashboard/delivery-zones', icon: Truck },
   { title: 'Opening Hours', url: '/dashboard/opening-hours', icon: Clock3 },
-  { title: 'Notifications', url: '/dashboard/notifications', icon: Bell },
   { title: 'Configurations', url: '/dashboard/configurations', icon: Settings2 },
+  { title: 'Notifications', url: '/dashboard/notifications', icon: Bell },
 ];
 
 export function AppSidebar() {
