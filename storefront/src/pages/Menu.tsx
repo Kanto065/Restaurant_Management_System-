@@ -196,9 +196,9 @@ export default function Menu() {
                     {thumb}
                     <div className="min-w-0">
                       <p className="font-display text-base leading-tight truncate">{item.name}</p>
-                      <p className="text-sm text-brand-bg/70">{option.name}</p>
+                      {item.description && <p className="text-sm text-brand-bg/70 line-clamp-1">{item.description}</p>}
                     </div>
-                    <span />
+                    <span className="text-sm text-brand-bg/80 whitespace-nowrap">{option.name}</span>
                     <p className="font-semibold text-brand-bg text-right whitespace-nowrap">
                       {currency}{(item.basePrice + option.priceDelta).toFixed(2)}
                     </p>
