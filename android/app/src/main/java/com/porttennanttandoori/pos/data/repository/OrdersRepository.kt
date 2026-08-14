@@ -48,6 +48,8 @@ class OrdersRepository(
         } catch (e: IOException) {
             // Non-fatal: the status stepper just won't offer a "next" action until this succeeds
             // on a later refresh; the order list itself doesn't depend on these.
+        } catch (e: kotlinx.serialization.SerializationException) {
+            // Same as above - a response-shape mismatch here shouldn't crash the terminal.
         }
     }
 
@@ -65,12 +67,14 @@ class OrdersRepository(
         return try {
             val response = apiService.listOrders()
             if (response.isSuccessful) {
-                _orders.value = response.body()?.data.orEmpty()
+                _orders.value = response.body()?.data?.items.orEmpty()
                 Result.success(Unit)
             } else {
                 Result.failure(IOException("Failed to load orders (${response.code()})."))
             }
         } catch (e: IOException) {
+            Result.failure(e)
+        } catch (e: kotlinx.serialization.SerializationException) {
             Result.failure(e)
         }
     }
@@ -86,6 +90,8 @@ class OrdersRepository(
             }
         } catch (e: IOException) {
             Result.failure(e)
+        } catch (e: kotlinx.serialization.SerializationException) {
+            Result.failure(e)
         }
     }
 
@@ -100,6 +106,8 @@ class OrdersRepository(
                 Result.failure(IOException("Failed to update order status (${response.code()})."))
             }
         } catch (e: IOException) {
+            Result.failure(e)
+        } catch (e: kotlinx.serialization.SerializationException) {
             Result.failure(e)
         }
     }

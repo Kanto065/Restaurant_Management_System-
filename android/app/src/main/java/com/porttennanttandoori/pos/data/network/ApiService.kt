@@ -4,7 +4,7 @@ import com.porttennanttandoori.pos.data.model.ApiResponse
 import com.porttennanttandoori.pos.data.model.DeviceLoginRequest
 import com.porttennanttandoori.pos.data.model.DeviceTokenResponse
 import com.porttennanttandoori.pos.data.model.OrderDetailDto
-import com.porttennanttandoori.pos.data.model.OrderListItemDto
+import com.porttennanttandoori.pos.data.model.OrderListPageDto
 import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
 import com.porttennanttandoori.pos.data.model.PaymentStatusDefinitionDto
 import com.porttennanttandoori.pos.data.model.UpdateOrderStatusRequest
@@ -14,13 +14,16 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface ApiService {
     @POST("api/auth/device/login")
     suspend fun deviceLogin(@Body request: DeviceLoginRequest): Response<ApiResponse<DeviceTokenResponse>>
 
+    // Admin/OrdersController.List is paginated - the terminal asks for the max page size (100)
+    // rather than paging through, since it just needs a working set of current orders in memory.
     @GET("api/admin/orders")
-    suspend fun listOrders(): Response<ApiResponse<List<OrderListItemDto>>>
+    suspend fun listOrders(@Query("pageSize") pageSize: Int = 100): Response<ApiResponse<OrderListPageDto>>
 
     @GET("api/admin/orders/{id}")
     suspend fun getOrder(@Path("id") id: String): Response<ApiResponse<OrderDetailDto>>

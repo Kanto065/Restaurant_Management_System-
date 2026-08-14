@@ -39,11 +39,12 @@ data class PaymentStatusDefinitionDto(
     val isDefault: Boolean,
 )
 
-/** Matches Admin/OrdersController.OrderListItemDto. */
+/** Matches Admin/OrdersController.OrderListItemDto. OrderNumber is a short random human-readable
+ * code now (e.g. "A3F9K"), not a sequential number - see Domain.Entities.Order.OrderNumber. */
 @Serializable
 data class OrderListItemDto(
     val id: String,
-    val orderNumber: Long,
+    val orderNumber: String,
     val orderType: OrderType,
     val status: OrderStatus,
     val paymentStatus: PaymentStatus,
@@ -54,6 +55,13 @@ data class OrderListItemDto(
 ) {
     val createdAtInstant: Instant get() = OffsetDateTime.parse(createdAt).toInstant()
 }
+
+/** Matches Admin/OrdersController.OrderListPageDto - the admin orders list is now paginated. */
+@Serializable
+data class OrderListPageDto(
+    val items: List<OrderListItemDto>,
+    val totalCount: Int,
+)
 
 @Serializable
 data class OrderItemModifierDto(
@@ -85,7 +93,7 @@ data class OrderStatusHistoryDto(
 @Serializable
 data class OrderDetailDto(
     val id: String,
-    val orderNumber: Long,
+    val orderNumber: String,
     val orderType: OrderType,
     val status: OrderStatus,
     val paymentStatus: PaymentStatus,
