@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
 using Platform.Infrastructure;
@@ -54,8 +55,17 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// Applies pending migrations and seeds the first tenant. Safe to run on every boot
-// (idempotent) — set Seed:Enabled=false in production once onboarding is self-service.
+// Always applies pending migrations and status-definition defaults, regardless of
+// Seed:Enabled - those aren't demo data, they're required schema/config for the app to run.
+using (var startupScope = app.Services.CreateScope())
+{
+    var startupDb = startupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await startupDb.Database.MigrateAsync();
+}
+await StatusDefinitionSeeder.EnsureDefaultsAsync(app.Services);
+
+// Seeds the first tenant's demo data. Safe to run on every boot (idempotent) - set
+// Seed:Enabled=false in production once onboarding is self-service.
 if (builder.Configuration.GetValue("Seed:Enabled", true))
 {
     var seedOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<SeedOptions>>().Value;

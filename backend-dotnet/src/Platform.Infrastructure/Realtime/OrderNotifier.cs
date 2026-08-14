@@ -11,8 +11,8 @@ public class OrderNotifier(SseConnectionManager sse, AppDbContext db) : IOrderNo
     public Task OrderCreatedAsync(Guid restaurantId, Guid orderId, CancellationToken ct = default) =>
         SendAndPersist(restaurantId, NotificationEventType.NewOrder, "OrderCreated", new { orderId }, ct);
 
-    public Task OrderStatusChangedAsync(Guid restaurantId, Guid orderId, OrderStatus status, CancellationToken ct = default) =>
-        SendAndPersist(restaurantId, NotificationEventType.OrderStatusChanged, "OrderStatusChanged", new { orderId, status = status.ToString() }, ct);
+    public Task OrderStatusChangedAsync(Guid restaurantId, Guid orderId, string status, CancellationToken ct = default) =>
+        SendAndPersist(restaurantId, NotificationEventType.OrderStatusChanged, "OrderStatusChanged", new { orderId, status }, ct);
 
     public Task PaymentReceivedAsync(Guid restaurantId, Guid orderId, CancellationToken ct = default) =>
         SendAndPersist(restaurantId, NotificationEventType.PaymentReceived, "PaymentReceived", new { orderId }, ct);

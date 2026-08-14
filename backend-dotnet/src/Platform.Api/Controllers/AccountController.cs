@@ -12,7 +12,7 @@ using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers;
 
-public record AccountOrderSummaryDto(Guid Id, long OrderNumber, OrderType OrderType, OrderStatus Status, PaymentMethod PaymentMethod, decimal TotalAmount, DateTimeOffset CreatedAt);
+public record AccountOrderSummaryDto(Guid Id, long OrderNumber, OrderType OrderType, string Status, PaymentMethod PaymentMethod, decimal TotalAmount, DateTimeOffset CreatedAt);
 public record FavoriteMenuItemDto(Guid MenuItemId, string Name, decimal BasePrice, string? ImageUrl);
 public record AddFavoriteRequest(Guid MenuItemId);
 public record LoyaltyDto(int PointsBalance, List<LoyaltyTransactionDto> RecentTransactions);

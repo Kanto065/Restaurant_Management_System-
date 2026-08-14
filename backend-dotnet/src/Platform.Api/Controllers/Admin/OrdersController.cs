@@ -11,13 +11,13 @@ using Platform.Infrastructure.Persistence;
 namespace Platform.Api.Controllers.Admin;
 
 public record OrderListItemDto(
-    Guid Id, long OrderNumber, OrderType OrderType, OrderStatus Status, PaymentStatus PaymentStatus,
+    Guid Id, long OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
     PaymentMethod PaymentMethod, decimal TotalAmount, string? CustomerName, DateTimeOffset CreatedAt);
 
-public record OrderStatusHistoryDto(OrderStatus Status, string? Note, DateTimeOffset Timestamp);
+public record OrderStatusHistoryDto(string Status, string? Note, DateTimeOffset Timestamp);
 
 public record OrderDetailDto(
-    Guid Id, long OrderNumber, OrderType OrderType, OrderStatus Status, PaymentStatus PaymentStatus,
+    Guid Id, long OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
     PaymentMethod PaymentMethod, decimal Subtotal, decimal DeliveryFee, decimal ProcessingFee,
     decimal DiscountAmount, decimal TotalAmount, string? CustomerName, string? CustomerPhone,
     string? CustomerEmail, string? SpecialRequests, DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt,
@@ -29,9 +29,9 @@ public record OrderItemDto(
     Guid Id, string NameSnapshot, decimal UnitPriceSnapshot, int Quantity, string? SpecialInstructions,
     decimal LineTotal, List<OrderItemModifierDto> Modifiers);
 
-public record UpdateOrderStatusRequest(OrderStatus Status, string? Note);
+public record UpdateOrderStatusRequest(string Status, string? Note);
 public record UpdateEstimatedTimeRequest(int EstimatedMinutesFromNow);
-public record UpdatePaymentStatusRequest(PaymentStatus PaymentStatus);
+public record UpdatePaymentStatusRequest(string PaymentStatus);
 
 public record OrderStatsDto(int TotalOrders, int PendingOrders, int CompletedOrders, decimal TotalRevenue);
 
@@ -44,11 +44,11 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
 {
     [HttpGet]
     public async Task<ActionResult<ApiResponse<List<OrderListItemDto>>>> List(
-        [FromQuery] OrderStatus? status, [FromQuery] PaymentStatus? paymentStatus, [FromQuery] PaymentMethod? paymentMethod)
+        [FromQuery] string? status, [FromQuery] string? paymentStatus, [FromQuery] PaymentMethod? paymentMethod)
     {
         var query = db.Orders.AsQueryable();
-        if (status.HasValue) query = query.Where(o => o.Status == status.Value);
-        if (paymentStatus.HasValue) query = query.Where(o => o.PaymentStatus == paymentStatus.Value);
+        if (!string.IsNullOrEmpty(status)) query = query.Where(o => o.Status == status);
+        if (!string.IsNullOrEmpty(paymentStatus)) query = query.Where(o => o.PaymentStatus == paymentStatus);
         if (paymentMethod.HasValue) query = query.Where(o => o.PaymentMethod == paymentMethod.Value);
 
         var orders = await query
@@ -63,10 +63,13 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
     [HttpGet("stats")]
     public async Task<ActionResult<ApiResponse<OrderStatsDto>>> Stats()
     {
+        var pendingNames = await db.OrderStatusDefinitions.Where(d => d.CountsAsPending).Select(d => d.Name).ToListAsync();
+        var completedNames = await db.OrderStatusDefinitions.Where(d => d.CountsAsCompleted).Select(d => d.Name).ToListAsync();
+
         var totalOrders = await db.Orders.CountAsync();
-        var pendingOrders = await db.Orders.CountAsync(o => o.Status == OrderStatus.Pending || o.Status == OrderStatus.Confirmed || o.Status == OrderStatus.Preparing);
-        var completedOrders = await db.Orders.CountAsync(o => o.Status == OrderStatus.Completed);
-        var totalRevenue = await db.Orders.Where(o => o.Status == OrderStatus.Completed).SumAsync(o => (decimal?)o.TotalAmount) ?? 0;
+        var pendingOrders = await db.Orders.CountAsync(o => pendingNames.Contains(o.Status));
+        var completedOrders = await db.Orders.CountAsync(o => completedNames.Contains(o.Status));
+        var totalRevenue = await db.Orders.Where(o => completedNames.Contains(o.Status)).SumAsync(o => (decimal?)o.TotalAmount) ?? 0;
 
         return Ok(ApiResponse<OrderStatsDto>.Ok(new OrderStatsDto(totalOrders, pendingOrders, completedOrders, totalRevenue)));
     }

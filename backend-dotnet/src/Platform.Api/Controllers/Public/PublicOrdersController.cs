@@ -20,12 +20,12 @@ public record CreatePublicOrderRequest(
     PaymentMethod PaymentMethod, string? VoucherCode, bool RedeemLoyaltyPoints = false);
 
 public record CreatedOrderDto(
-    Guid Id, long OrderNumber, OrderStatus Status, decimal Subtotal, decimal DeliveryFee, decimal ProcessingFee,
+    Guid Id, long OrderNumber, string Status, decimal Subtotal, decimal DeliveryFee, decimal ProcessingFee,
     decimal DiscountAmount, decimal TotalAmount, int LoyaltyPointsEarned, int LoyaltyPointsRedeemed);
 
 public record TrackOrderItemDto(string NameSnapshot, int Quantity, decimal LineTotal);
 public record TrackOrderDto(
-    Guid Id, long OrderNumber, OrderType OrderType, OrderStatus Status, PaymentStatus PaymentStatus,
+    Guid Id, long OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
     decimal TotalAmount, DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt, List<TrackOrderItemDto> Items);
 
 /// <summary>Anonymous (guest) or customer-authenticated order placement and tracking, host-resolved tenant.</summary>
@@ -64,6 +64,9 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
             .Include(i => i.ModifierGroupLinks).ThenInclude(l => l.ModifierGroup!).ThenInclude(g => g.Options)
             .ToDictionaryAsync(i => i.Id);
 
+        var defaultOrderStatus = await db.OrderStatusDefinitions.Where(d => d.IsDefault).Select(d => d.Name).FirstOrDefaultAsync() ?? "Pending";
+        var defaultPaymentStatus = await db.PaymentStatusDefinitions.Where(d => d.IsDefault).Select(d => d.Name).FirstOrDefaultAsync() ?? "Pending";
+
         var order = new Order
         {
             OrderType = request.OrderType,
@@ -74,6 +77,8 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
             PaymentMethod = request.PaymentMethod,
             SpecialRequests = request.SpecialRequests,
             Source = OrderSource.Web,
+            Status = defaultOrderStatus,
+            PaymentStatus = defaultPaymentStatus,
         };
 
         var customerId = await TryResolveAuthenticatedCustomerAsync();
@@ -195,7 +200,7 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
         var lastOrderNumber = await db.Orders.OrderByDescending(o => o.OrderNumber).Select(o => o.OrderNumber).FirstOrDefaultAsync();
         order.OrderNumber = lastOrderNumber + 1;
 
-        order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Pending, Note = "Order placed." });
+        order.StatusHistory.Add(new OrderStatusHistory { Status = defaultOrderStatus, Note = "Order placed." });
 
         db.Orders.Add(order);
         await db.SaveChangesAsync();

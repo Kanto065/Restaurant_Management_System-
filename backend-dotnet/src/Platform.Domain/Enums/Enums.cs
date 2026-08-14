@@ -15,17 +15,6 @@ public enum OrderType
     Delivery
 }
 
-public enum OrderStatus
-{
-    Pending,
-    Confirmed,
-    Preparing,
-    Ready,
-    OutForDeliveryOrServed,
-    Completed,
-    Cancelled
-}
-
 public enum OrderSource
 {
     Web,
@@ -39,16 +28,6 @@ public enum PaymentMethod
     Cash,
     ApplePay,
     GooglePay
-}
-
-public enum PaymentStatus
-{
-    Pending,
-    Authorized,
-    Paid,
-    Failed,
-    Refunded,
-    PartiallyRefunded
 }
 
 public enum PaymentProvider

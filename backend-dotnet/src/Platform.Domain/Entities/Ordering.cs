@@ -43,8 +43,10 @@ public class Order : TenantEntity
     public decimal TotalAmount { get; set; }
 
     public PaymentMethod PaymentMethod { get; set; }
-    public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
-    public OrderStatus Status { get; set; } = OrderStatus.Pending;
+    /// <summary>Name of a PaymentStatusDefinition row, not an enum - see StatusDefinitions.cs.</summary>
+    public string PaymentStatus { get; set; } = default!;
+    /// <summary>Name of an OrderStatusDefinition row, not an enum - see StatusDefinitions.cs.</summary>
+    public string Status { get; set; } = default!;
     public DateTimeOffset? EstimatedReadyAt { get; set; }
     public string? SpecialRequests { get; set; }
     public OrderSource Source { get; set; } = OrderSource.Web;
@@ -84,7 +86,7 @@ public class OrderStatusHistory : TenantEntity
     public Guid OrderId { get; set; }
     public Order? Order { get; set; }
 
-    public OrderStatus Status { get; set; }
+    public string Status { get; set; } = default!;
     public Guid? ChangedByUserId { get; set; }
     public string? Note { get; set; }
     public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
@@ -99,7 +101,8 @@ public class Payment : TenantEntity
     public string? StripePaymentIntentId { get; set; }
     public decimal Amount { get; set; }
     public string Currency { get; set; } = "GBP";
-    public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
+    /// <summary>Name of a PaymentStatusDefinition row, not an enum - see StatusDefinitions.cs.</summary>
+    public string Status { get; set; } = default!;
     public string? RawEventLogJson { get; set; }
 }
 

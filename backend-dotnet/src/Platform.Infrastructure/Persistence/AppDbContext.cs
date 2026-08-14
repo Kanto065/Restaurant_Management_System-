@@ -44,6 +44,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
     public DbSet<OrderItemModifier> OrderItemModifiers => Set<OrderItemModifier>();
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<OrderStatusDefinition> OrderStatusDefinitions => Set<OrderStatusDefinition>();
+    public DbSet<PaymentStatusDefinition> PaymentStatusDefinitions => Set<PaymentStatusDefinition>();
     public DbSet<ProcessedPaymentEvent> ProcessedPaymentEvents => Set<ProcessedPaymentEvent>();
 
     // Customer / loyalty
