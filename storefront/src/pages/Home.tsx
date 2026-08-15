@@ -51,7 +51,7 @@ export default function Home() {
         src={mandalaCorner}
         alt=""
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 left-0 w-[28rem] sm:w-[42rem] -translate-x-1/4 translate-y-1/4 opacity-[0.035]"
+        className="pointer-events-none absolute bottom-0 left-0 w-[36rem] sm:w-[56rem] -translate-x-1/4 translate-y-1/4 opacity-[0.12]"
       />
 
       <HeroCarousel slides={heroSlides} />
