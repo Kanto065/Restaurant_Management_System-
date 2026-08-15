@@ -5,6 +5,19 @@ import { useCartStore } from '../store/cart';
 import { customerAuth } from '../lib/api';
 import { User, MapPin } from 'lucide-react';
 import type { DayOfWeekName, OpeningHour, OpeningHourException } from '../types/api';
+import visaIcon from '../assets/payment-icon-visa.svg';
+import mastercardIcon from '../assets/payment-icon-mastercard.svg';
+import applePayIcon from '../assets/payment-icon-applepay.svg';
+import googlePayIcon from '../assets/payment-icon-googlepay.svg';
+import cashIcon from '../assets/payment-icon-cash.svg';
+
+const PAYMENT_ICONS = [
+  { src: visaIcon, alt: 'Visa' },
+  { src: mastercardIcon, alt: 'Mastercard' },
+  { src: applePayIcon, alt: 'Apple Pay' },
+  { src: googlePayIcon, alt: 'Google Pay' },
+  { src: cashIcon, alt: 'Cash' },
+];
 
 const DAY_NAMES: DayOfWeekName[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -223,9 +236,16 @@ export default function Layout() {
       {/* Also skip the footer on mobile for /menu - it sits in normal flow behind Menu.tsx's
           fixed bottom cart bar and gets visually overlapped. */}
       <footer className={`bg-brand-green/90 mt-12 py-6 ${location.pathname.startsWith('/menu') ? 'hidden md:block' : ''}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs sm:text-sm text-white/90">
-          <p>Copyright &copy; {new Date().getFullYear()} {restaurant?.name ?? 'Port Tennant Tandoori'}. All Rights Reserved.</p>
-          <p>{restaurant?.phone}</p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-4">
+          <div className="flex items-center gap-2.5">
+            {PAYMENT_ICONS.map((icon) => (
+              <img key={icon.alt} src={icon.src} alt={icon.alt} className="h-7 w-auto" />
+            ))}
+          </div>
+          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2 text-xs sm:text-sm text-white/90">
+            <p>Copyright &copy; {new Date().getFullYear()} {restaurant?.name ?? 'Port Tennant Tandoori'}. All Rights Reserved.</p>
+            <p>{restaurant?.phone}</p>
+          </div>
         </div>
       </footer>
     </div>
