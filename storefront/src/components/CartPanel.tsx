@@ -1,13 +1,16 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../store/cart';
 import { useRestaurant } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
 
 export default function CartPanel() {
-  const { lines, incrementLine, decrementLine, clear, subtotal } = useCartStore();
+  const { lines, orderType, setOrderType, incrementLine, decrementLine, clear, subtotal } = useCartStore();
   const total = subtotal();
   const { data: restaurant } = useRestaurant();
   const currency = currencySymbol(restaurant?.currency);
+  const navigate = useNavigate();
+  const [confirmingCheckout, setConfirmingCheckout] = useState(false);
 
   return (
     <div className="bg-brand-cream text-brand-bg rounded-lg overflow-hidden">
@@ -53,15 +56,64 @@ export default function CartPanel() {
         >
           Clear All
         </button>
-        <Link
-          to="/checkout"
-          aria-disabled={lines.length === 0}
-          onClick={(e) => lines.length === 0 && e.preventDefault()}
-          className="flex-1 text-center bg-brand-green text-white rounded py-2 text-sm font-medium aria-disabled:opacity-40"
+        <button
+          type="button"
+          disabled={lines.length === 0}
+          onClick={() => setConfirmingCheckout(true)}
+          className="flex-1 text-center bg-brand-green text-white rounded py-2 text-sm font-medium disabled:opacity-40"
         >
           Checkout
-        </Link>
+        </button>
       </div>
+
+      {confirmingCheckout && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
+          onClick={() => setConfirmingCheckout(false)}
+        >
+          <div
+            className="bg-brand-bg text-brand-cream w-full sm:max-w-sm sm:rounded-lg overflow-hidden p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-display text-lg mb-1">Confirm your order type</h3>
+            <p className="text-sm text-brand-cream/70 mb-4">
+              You're ordering for <span className="text-brand-mint font-semibold">{orderType === 'Delivery' ? 'Home Delivery' : 'Collection'}</span>. Is that right?
+            </p>
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setOrderType('Collection')}
+                className={`flex-1 rounded py-2 text-sm font-medium ${orderType === 'Collection' ? 'bg-brand-green text-white' : 'bg-brand-mint/20 text-brand-cream'}`}
+              >
+                Collection
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderType('Delivery')}
+                className={`flex-1 rounded py-2 text-sm font-medium ${orderType === 'Delivery' ? 'bg-brand-orange text-white' : 'bg-brand-mint/20 text-brand-cream'}`}
+              >
+                Home Delivery
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmingCheckout(false)}
+                className="flex-1 rounded py-2 text-sm font-medium border border-brand-cream/30 text-brand-cream"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/checkout')}
+                className="flex-1 rounded py-2 text-sm font-semibold bg-brand-orange text-white"
+              >
+                Confirm & Checkout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
