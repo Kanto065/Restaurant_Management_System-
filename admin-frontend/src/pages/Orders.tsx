@@ -42,7 +42,7 @@ interface OrderListItem {
   paymentMethod: PaymentMethod; totalAmount: number; customerName: string | null; createdAt: string;
 }
 
-interface OrderItem { id: string; nameSnapshot: string; unitPriceSnapshot: number; quantity: number; lineTotal: number }
+interface OrderItem { id: string; nameSnapshot: string; unitPriceSnapshot: number; quantity: number; lineTotal: number; specialInstructions: string | null }
 interface StatusHistoryEntry { status: OrderStatus; note: string | null; timestamp: string }
 
 interface OrderDetail extends OrderListItem {
@@ -535,9 +535,14 @@ const Orders = () => {
                   <h4 className="font-semibold mb-3 flex items-center gap-2"><UtensilsCrossed className="w-4 h-4" />Order Items</h4>
                   <div className="space-y-2">
                     {selectedOrder.items.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border text-sm">
-                        <span className="font-medium">{item.quantity} x {item.nameSnapshot}</span>
-                        <span className="font-medium">{formatCurrency(item.lineTotal)}</span>
+                      <div key={item.id} className="p-3 rounded-lg border text-sm space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{item.quantity} x {item.nameSnapshot}</span>
+                          <span className="font-medium">{formatCurrency(item.lineTotal)}</span>
+                        </div>
+                        {item.specialInstructions && (
+                          <p className="text-amber-700 dark:text-amber-400 text-xs">Note: {item.specialInstructions}</p>
+                        )}
                       </div>
                     ))}
                   </div>

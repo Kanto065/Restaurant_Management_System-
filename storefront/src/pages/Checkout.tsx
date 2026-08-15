@@ -5,6 +5,7 @@ import { useCartStore } from '../store/cart';
 import { useCreateOrder, useRestaurant, useProfile, useLoyalty } from '../lib/queries';
 import { api, customerAuth } from '../lib/api';
 import { currencySymbol } from '../lib/currency';
+import { CreditCard, Banknote, Check } from 'lucide-react';
 import type { CreateOrderRequest, PaymentMethod } from '../types/api';
 
 interface ValidateVoucherResponse {
@@ -287,25 +288,39 @@ export default function Checkout() {
 
           <div className="bg-brand-cream text-brand-bg rounded-lg p-5">
             <h2 className="font-semibold mb-3">How do you want to pay?</h2>
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
               {(['Card', 'Cash'] as PaymentMethod[]).map((method) => (
                 <button
                   type="button"
                   key={method}
                   onClick={() => setPaymentMethod(method)}
-                  className={`w-full flex items-center justify-between border rounded-lg px-4 py-3 text-sm font-medium ${
-                    paymentMethod === method ? 'border-brand-green bg-brand-green/10' : 'border-brand-bg/20'
+                  className={`relative flex flex-col items-center gap-2.5 rounded-xl py-5 px-3 transition-colors ${
+                    paymentMethod === method ? 'bg-brand-bg/10' : 'bg-black/5 hover:bg-black/[0.07]'
                   }`}
                 >
-                  <span>{method === 'Card' ? 'Pay by Card' : 'Cash on ' + (orderType === 'Delivery' ? 'Delivery' : 'Collection')}</span>
+                  {paymentMethod === method && (
+                    <Check className="absolute bottom-2 right-2 w-4 h-4 text-brand-green" strokeWidth={3} />
+                  )}
                   <span
-                    className={`w-4 h-4 rounded-full border-2 ${
-                      paymentMethod === method ? 'border-brand-green bg-brand-green' : 'border-brand-bg/30'
+                    className={`w-14 h-14 rounded-lg flex items-center justify-center ${
+                      method === 'Card' ? 'bg-blue-500' : 'bg-green-600'
                     }`}
-                  />
+                  >
+                    {method === 'Card' ? (
+                      <CreditCard className="w-7 h-7 text-white" strokeWidth={1.75} />
+                    ) : (
+                      <Banknote className="w-7 h-7 text-white" strokeWidth={1.75} />
+                    )}
+                  </span>
+                  <span className="text-sm font-medium">{method === 'Card' ? 'Card' : 'Cash'}</span>
                 </button>
               ))}
             </div>
+            {paymentMethod === 'Cash' && (
+              <p className="text-xs text-brand-bg/60 mt-3">
+                Cash on {orderType === 'Delivery' ? 'delivery' : 'collection'}.
+              </p>
+            )}
           </div>
 
           <div className="bg-brand-cream text-brand-bg rounded-lg p-5">
