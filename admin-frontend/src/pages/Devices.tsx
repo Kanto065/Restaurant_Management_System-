@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Loader2, Smartphone, Copy, Check, Ban, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Loader2, Smartphone, Copy, Check, Ban, RefreshCw, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
@@ -119,7 +119,15 @@ const Devices = () => {
             Pair a Sunmi terminal by registering it here, then scanning the QR code on the terminal's "Pair this terminal" screen.
           </p>
         </div>
-        <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setDeviceName(''); }}>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            {/* Always serves the current build - android-release.yml re-publishes this exact
+                path to MinIO on every POS release (see deploy/caddy/Caddyfile). */}
+            <a href="/download/pos" target="_blank" rel="noreferrer">
+              <Download className="w-4 h-4 mr-2" />Download POS App
+            </a>
+          </Button>
+          <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setDeviceName(''); }}>
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" />Register Terminal</Button>
           </DialogTrigger>
@@ -144,7 +152,8 @@ const Devices = () => {
               </DialogFooter>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <Card>

@@ -70,3 +70,38 @@ jobs:
           make_latest: true
           generate_release_notes: true
           files: release/porttennanttandoori-pos.apk
+
+      # Second distribution point, alongside the GitHub release above: admin.porttennanttandoori.co.uk/download/pos
+      # is a stable link staff can hand to whoever's setting up a new terminal, always serving
+      # this exact build - the GitHub release history stays as the versioned archive.
+      - name: Copy APK to VPS
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_SSH_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          source: "release/porttennanttandoori-pos.apk"
+          target: "/tmp/pos-release"
+          strip_components: 1
+
+      # Reuses the existing public-read "uploads" MinIO bucket (same one /uploads/* already
+      # serves from) under a pos/ prefix, rather than provisioning a second bucket+policy - the
+      # Caddyfile route below just proxies /download/pos straight to this fixed key. Pulls
+      # MINIO_ROOT_USER/PASSWORD from the VPS's own deploy/.env instead of duplicating them as
+      # GitHub secrets, via a one-shot minio/mc container on the compose stack's internal network
+      # (MinIO itself has no port published to the internet - see docker-compose.prod.yml).
+      - name: Publish APK to MinIO (admin download link)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_SSH_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+            cd ${{ secrets.VPS_DEPLOY_PATH }}/deploy
+            set -a; source .env; set +a
+            docker run --rm --network platform_internal \
+              -v /tmp/pos-release:/data:ro \
+              minio/mc:latest \
+              sh -c 'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc cp /data/porttennanttandoori-pos.apk local/uploads/pos/porttennanttandoori-pos.apk'
+            rm -rf /tmp/pos-release

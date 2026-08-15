@@ -16,6 +16,13 @@
 }
 
 {$ADMIN_HOST} {
+	# Stable "download the POS app" link (see Devices.tsx) - android-release.yml re-uploads
+	# pos/porttennanttandoori-pos.apk to the same key on every build touching android/**, so this
+	# always serves the latest one without the link itself ever changing.
+	handle /download/pos {
+		rewrite * /uploads/pos/porttennanttandoori-pos.apk
+		reverse_proxy minio:9000
+	}
 	reverse_proxy admin-frontend:80
 }
 
