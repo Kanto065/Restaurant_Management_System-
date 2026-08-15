@@ -17,6 +17,14 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+
+        // CI passes -PposBuildNumber=$GITHUB_RUN_NUMBER, matching the "-<N>" suffix on the
+        // pos-v0.1.0-<N> release tag android-release.yml publishes. That run number - not
+        // versionName, which is bumped by hand and can lag - is what UpdateChecker compares
+        // against the latest GitHub release to decide whether a newer build exists. Local/dev
+        // builds get 0 so they never look "ahead" or "behind" a real release.
+        val posBuildNumber = (project.findProperty("posBuildNumber") as String?)?.toIntOrNull() ?: 0
+        buildConfigField("int", "POS_BUILD_NUMBER", posBuildNumber.toString())
     }
 
     buildTypes {

@@ -5,6 +5,7 @@ import com.porttennanttandoori.pos.data.local.TokenStore
 import com.porttennanttandoori.pos.data.network.NetworkModule
 import com.porttennanttandoori.pos.data.repository.AuthRepository
 import com.porttennanttandoori.pos.data.repository.OrdersRepository
+import com.porttennanttandoori.pos.update.UpdateChecker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +25,7 @@ class PosApplication : Application() {
     val ordersRepository: OrdersRepository by lazy {
         OrdersRepository(networkModule.apiService, networkModule.orderEventsClient)
     }
+    val updateChecker: UpdateChecker by lazy { UpdateChecker(this) }
 
     override fun onCreate() {
         super.onCreate()

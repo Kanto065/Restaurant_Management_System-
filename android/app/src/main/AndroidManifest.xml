@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Sunmi's built-in printer is driven through their system-bound AIDL service, not a
          standard Android print API - no extra runtime permission needed for it. -->
+    <!-- Lets UpdateChecker's install Intent run without going through Play/a market app -
+         required on API 26+ to sideload the APK it downloads from GitHub Releases. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".PosApplication"
@@ -39,6 +42,19 @@
             android:name=".data.network.OrderListenerService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- Hands the system package installer a content:// Uri for the APK UpdateChecker
+             downloads into cacheDir - a file:// Uri would be blocked by FileUriExposedException
+             on API 24+. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_apk_paths" />
+        </provider>
 
     </application>
 </manifest>

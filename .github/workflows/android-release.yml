@@ -46,9 +46,12 @@ jobs:
       # Debug-signed (Gradle's built-in debug keystore) so this works with zero secrets to set
       # up. Fine for sideloading onto our own Sunmi terminals; swap for a real release-signing
       # config (keystore + passwords as repo secrets) before this app goes any wider than that.
+      # POS_BUILD_NUMBER, baked into the APK via this, is what UpdateChecker compares against
+      # releases' tag suffix to decide a newer build exists - must match steps.version.outputs.tag
+      # above (both derive from GITHUB_RUN_NUMBER) or the in-app updater would never fire.
       - name: Build debug APK
         working-directory: android
-        run: gradle :app:assembleDebug --stacktrace
+        run: gradle :app:assembleDebug --stacktrace -PposBuildNumber=${{ github.run_number }}
 
       - name: Rename APK to a stable filename
         run: |
