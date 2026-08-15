@@ -236,7 +236,7 @@ export default function Layout() {
       {/* Also skip the footer on mobile for /menu - it sits in normal flow behind Menu.tsx's
           fixed bottom cart bar and gets visually overlapped. */}
       <footer className={`bg-brand-green/90 py-6 ${location.pathname.startsWith('/menu') ? 'hidden md:block' : ''}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8 text-xs sm:text-sm text-white/90">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm text-white/90">
           <p>Copyright &copy; {new Date().getFullYear()} {restaurant?.name ?? 'Port Tennant Tandoori'}. All Rights Reserved.</p>
           <div className="flex items-center gap-2">
             {PAYMENT_ICONS.map((icon) => (
