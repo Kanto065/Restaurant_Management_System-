@@ -100,10 +100,14 @@ jobs:
             set -euo pipefail
             cd ${{ secrets.VPS_DEPLOY_PATH }}/deploy
             set -a; source .env; set +a
+            # "--" before the credentials stops mc's global flag parser from grabbing the
+            # secret key as an unrecognized flag when it happens to start with "-" (it does, for
+            # the generated MINIO_ROOT_PASSWORD on this VPS) - without it, `alias set` never even
+            # gets dispatched.
             docker run --rm --network platform_internal \
               -v /tmp/pos-release:/data:ro \
               -e MINIO_ROOT_USER -e MINIO_ROOT_PASSWORD \
               --entrypoint sh \
               minio/mc:latest \
-              -c 'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc cp /data/porttennanttandoori-pos.apk local/uploads/pos/porttennanttandoori-pos.apk'
+              -c 'mc -- alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc cp /data/porttennanttandoori-pos.apk local/uploads/pos/porttennanttandoori-pos.apk'
             rm -rf /tmp/pos-release
