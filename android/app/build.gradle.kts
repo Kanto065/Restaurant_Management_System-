@@ -100,6 +100,16 @@ dependencies {
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
 
+    // QR scanning for device pairing: CameraX drives the live preview, ML Kit's on-device barcode
+    // model decodes frames - no network call and no Play Services dependency at runtime beyond
+    // what ML Kit bundles itself.
+    val cameraxVersion = "1.4.1"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")

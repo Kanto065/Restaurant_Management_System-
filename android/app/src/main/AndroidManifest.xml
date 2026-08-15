@@ -15,6 +15,9 @@
     <!-- Lets UpdateChecker's install Intent run without going through Play/a market app -
          required on API 26+ to sideload the APK it downloads from GitHub Releases. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- QR pairing scanner (PairingScreen -> QrScannerScreen). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".PosApplication"

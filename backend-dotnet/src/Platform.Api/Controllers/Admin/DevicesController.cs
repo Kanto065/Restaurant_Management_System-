@@ -13,8 +13,9 @@ namespace Platform.Api.Controllers.Admin;
 public record DeviceDto(Guid Id, string DeviceName, bool IsActive, DateTimeOffset? LastSeenAt);
 
 /// <summary>Returned once, at creation time only - the plaintext secret is never stored or
-/// retrievable again after this response, same as an API key. Pair the Sunmi terminal by
-/// entering DeviceId + Secret into the POS app's login screen.</summary>
+/// retrievable again after this response, same as an API key. The admin dashboard renders this
+/// as a QR code (JSON.stringify({ deviceId, secret })) for the POS app to scan; DeviceId + Secret
+/// can also be typed into the app's pairing screen by hand as a fallback.</summary>
 public record DevicePairedDto(Guid DeviceId, string DeviceName, string Secret);
 
 public record CreateDeviceRequest(string DeviceName);

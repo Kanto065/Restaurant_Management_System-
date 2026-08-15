@@ -11,10 +11,12 @@ import androidx.core.app.NotificationCompat
 import com.porttennanttandoori.pos.MainActivity
 import com.porttennanttandoori.pos.PosApplication
 import com.porttennanttandoori.pos.R
+import com.porttennanttandoori.pos.alert.NewOrderAlarm
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -26,6 +28,7 @@ class OrderListenerService : Service() {
 
     private val job = Job()
     private val scope = CoroutineScope(Dispatchers.IO + job)
+    private val alarm by lazy { NewOrderAlarm(this) }
 
     override fun onCreate() {
         super.onCreate()
@@ -37,7 +40,16 @@ class OrderListenerService : Service() {
         scope.launch { app.ordersRepository.refresh() }
         scope.launch { app.ordersRepository.loadStatusDefinitions() }
         scope.launch { listenWithReconnect(app) }
+        scope.launch { watchForNewOrders(app) }
         return START_STICKY
+    }
+
+    /** Rings for as long as ordersAwaitingConfirmation is non-empty - collectLatest cancels/
+     * restarts cleanly on every emission, so start()/stop() never race each other. */
+    private suspend fun watchForNewOrders(app: PosApplication) {
+        app.ordersRepository.ordersAwaitingConfirmation.collectLatest { pending ->
+            if (pending.isNotEmpty()) alarm.start() else alarm.stop()
+        }
     }
 
     private suspend fun listenWithReconnect(app: PosApplication) {
@@ -60,6 +72,7 @@ class OrderListenerService : Service() {
 
     override fun onDestroy() {
         job.cancel()
+        alarm.stop()
         super.onDestroy()
     }
 

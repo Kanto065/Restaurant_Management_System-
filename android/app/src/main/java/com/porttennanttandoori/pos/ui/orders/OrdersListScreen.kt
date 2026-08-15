@@ -11,13 +11,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,18 +39,48 @@ import java.util.Locale
 import com.porttennanttandoori.pos.data.model.OrderDetailDto
 import com.porttennanttandoori.pos.data.model.OrderListItemDto
 import com.porttennanttandoori.pos.data.model.OrderStatus
+import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
+
+@Composable
+fun NewOrdersScreen(viewModel: OrdersViewModel) {
+    val allOrders by viewModel.orders.collectAsStateWithLifecycle()
+    val definitions by viewModel.orderStatusDefinitions.collectAsStateWithLifecycle()
+    val completedNames = definitions.filter { it.countsAsCompleted }.map { it.name }.toSet()
+    OrdersListScreen(
+        viewModel = viewModel,
+        title = "New Orders",
+        orders = allOrders.filter { it.status !in completedNames },
+        emptyMessage = "No active orders.",
+    )
+}
+
+@Composable
+fun OrderHistoryScreen(viewModel: OrdersViewModel) {
+    val allOrders by viewModel.orders.collectAsStateWithLifecycle()
+    val definitions by viewModel.orderStatusDefinitions.collectAsStateWithLifecycle()
+    val completedNames = definitions.filter { it.countsAsCompleted }.map { it.name }.toSet()
+    OrdersListScreen(
+        viewModel = viewModel,
+        title = "Order History",
+        orders = allOrders.filter { it.status in completedNames },
+        emptyMessage = "No completed orders yet.",
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OrdersListScreen(viewModel: OrdersViewModel, restaurantName: String) {
-    val orders by viewModel.orders.collectAsStateWithLifecycle()
+private fun OrdersListScreen(
+    viewModel: OrdersViewModel,
+    title: String,
+    orders: List<OrderListItemDto>,
+    emptyMessage: String,
+) {
     val screenState by viewModel.screenState.collectAsStateWithLifecycle()
     val orderDetails by viewModel.orderDetails.collectAsStateWithLifecycle()
+    val definitions by viewModel.orderStatusDefinitions.collectAsStateWithLifecycle()
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text(restaurantName) })
-        },
+        topBar = { TopAppBar(title = { Text(title) }) },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             screenState.errorMessage?.let { message ->
@@ -64,7 +100,7 @@ fun OrdersListScreen(viewModel: OrdersViewModel, restaurantName: String) {
                 }
             } else if (orders.isEmpty()) {
                 Text(
-                    text = "No orders yet.",
+                    text = emptyMessage,
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyLarge,
                 )
@@ -79,9 +115,9 @@ fun OrdersListScreen(viewModel: OrdersViewModel, restaurantName: String) {
                             order = order,
                             detail = orderDetails[order.id],
                             isUpdating = screenState.updatingOrderId == order.id,
+                            statusDefinitions = definitions,
                             onExpand = { viewModel.loadDetail(order.id) },
-                            onAdvanceStatus = { newStatus -> viewModel.advanceStatus(order.id, newStatus) },
-                            nextStatusFor = { current -> viewModel.nextStatus(current) },
+                            onUpdateStatus = { newStatus, note -> viewModel.updateStatus(order.id, newStatus, note) },
                         )
                     }
                 }
@@ -90,16 +126,18 @@ fun OrdersListScreen(viewModel: OrdersViewModel, restaurantName: String) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun OrderCard(
     order: OrderListItemDto,
     detail: OrderDetailDto?,
     isUpdating: Boolean,
+    statusDefinitions: List<OrderStatusDefinitionDto>,
     onExpand: () -> Unit,
-    onAdvanceStatus: (OrderStatus) -> Unit,
-    nextStatusFor: (OrderStatus) -> OrderStatus?,
+    onUpdateStatus: (OrderStatus, String?) -> Unit,
 ) {
     var expanded by rememberSaveable(order.id) { mutableStateOf(false) }
+    var showStatusDialog by rememberSaveable(order.id) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -165,16 +203,89 @@ private fun OrderCard(
                     }
                 }
 
-                nextStatusFor(order.status)?.let { next ->
-                    Button(
-                        onClick = { onAdvanceStatus(next) },
-                        enabled = !isUpdating,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(if (isUpdating) "Updating..." else "Mark as $next")
-                    }
+                Button(
+                    onClick = { showStatusDialog = true },
+                    enabled = !isUpdating,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (isUpdating) "Updating..." else "Update Status")
                 }
             }
         }
     }
+
+    if (showStatusDialog) {
+        UpdateStatusDialog(
+            currentStatus = order.status,
+            statusDefinitions = statusDefinitions,
+            onDismiss = { showStatusDialog = false },
+            onConfirm = { newStatus, note ->
+                onUpdateStatus(newStatus, note)
+                showStatusDialog = false
+            },
+        )
+    }
+}
+
+/** Same shape as the admin dashboard's "Update Order Status" dialog (Orders.tsx) - a dropdown of
+ * every configured status plus an optional note, rather than just stepping to the next one, so
+ * staff can jump straight to e.g. Cancelled without walking the whole sequence. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UpdateStatusDialog(
+    currentStatus: OrderStatus,
+    statusDefinitions: List<OrderStatusDefinitionDto>,
+    onDismiss: () -> Unit,
+    onConfirm: (OrderStatus, String?) -> Unit,
+) {
+    var selectedStatus by rememberSaveable { mutableStateOf(currentStatus) }
+    var note by rememberSaveable { mutableStateOf("") }
+    var menuExpanded by rememberSaveable { mutableStateOf(false) }
+    val sortedDefinitions = statusDefinitions.sortedBy { it.displayOrder }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Update Order Status") },
+        text = {
+            Column {
+                ExposedDropdownMenuBox(expanded = menuExpanded, onExpandedChange = { menuExpanded = it }) {
+                    OutlinedTextField(
+                        value = selectedStatus,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("New Status") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    ExposedDropdownMenuDefaults.ExposedDropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
+                        sortedDefinitions.forEach { definition ->
+                            DropdownMenuItem(
+                                text = { Text(definition.name) },
+                                onClick = { selectedStatus = definition.name; menuExpanded = false },
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Note (optional)") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(selectedStatus, note.takeIf { it.isNotBlank() }) }) {
+                Text("Update Status")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }

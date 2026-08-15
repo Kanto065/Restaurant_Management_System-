@@ -10,9 +10,11 @@ import com.porttennanttandoori.pos.data.model.UpdateOrderStatusRequest
 import com.porttennanttandoori.pos.data.network.ApiService
 import com.porttennanttandoori.pos.data.network.OrderEventsClient
 import java.io.IOException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 
 /** Holds the terminal's working set of orders in memory, kept current by a REST refresh plus
  * whatever OrderListenerService feeds it from the SSE stream. No local Room cache yet - orders
@@ -33,6 +35,15 @@ class OrdersRepository(
     private val _paymentStatusDefinitions = MutableStateFlow<List<PaymentStatusDefinitionDto>>(emptyList())
     val paymentStatusDefinitions: StateFlow<List<PaymentStatusDefinitionDto>> = _paymentStatusDefinitions.asStateFlow()
 
+    /** Orders still sitting in the restaurant's starting status (IsDefault=true on the status
+     * definition, "Pending" out of the box) - these are the ones NewOrderAlarm keeps ringing for
+     * until staff confirms or cancels them. */
+    val ordersAwaitingConfirmation: Flow<List<OrderListItemDto>> =
+        combine(orders, orderStatusDefinitions) { currentOrders, definitions ->
+            val startingStatus = definitions.firstOrNull { it.isDefault }?.name ?: return@combine emptyList()
+            currentOrders.filter { it.status == startingStatus }
+        }
+
     fun eventStream() = eventsClient.stream()
 
     suspend fun loadStatusDefinitions() {
@@ -46,21 +57,11 @@ class OrdersRepository(
                 _paymentStatusDefinitions.value = paymentStatusesResponse.body()?.data.orEmpty()
             }
         } catch (e: IOException) {
-            // Non-fatal: the status stepper just won't offer a "next" action until this succeeds
-            // on a later refresh; the order list itself doesn't depend on these.
+            // Non-fatal: the status dropdown just stays empty until this succeeds on a later
+            // refresh; the order list itself doesn't depend on these.
         } catch (e: kotlinx.serialization.SerializationException) {
             // Same as above - a response-shape mismatch here shouldn't crash the terminal.
         }
-    }
-
-    /** Next status in DisplayOrder sequence after [current], or null if [current] is unrecognized
-     * or already last. Mirrors the admin web Configurations ordering - there's no fixed
-     * "Cancelled" concept anymore, so whatever the restaurant orders last is the terminal state. */
-    fun nextStatus(current: OrderStatus): OrderStatus? {
-        val sorted = _orderStatusDefinitions.value.sortedBy { it.displayOrder }
-        val index = sorted.indexOfFirst { it.name == current }
-        if (index == -1 || index >= sorted.size - 1) return null
-        return sorted[index + 1].name
     }
 
     suspend fun refresh(): Result<Unit> {
@@ -95,9 +96,9 @@ class OrdersRepository(
         }
     }
 
-    suspend fun updateStatus(orderId: String, status: OrderStatus): Result<OrderDetailDto> {
+    suspend fun updateStatus(orderId: String, status: OrderStatus, note: String? = null): Result<OrderDetailDto> {
         return try {
-            val response = apiService.updateOrderStatus(orderId, UpdateOrderStatusRequest(status))
+            val response = apiService.updateOrderStatus(orderId, UpdateOrderStatusRequest(status, note))
             val detail = response.body()?.data
             if (response.isSuccessful && detail != null) {
                 applyStatusLocally(orderId, status)

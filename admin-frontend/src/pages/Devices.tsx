@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Loader2, Smartphone, Copy, Check, Ban, RefreshCw } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from '@/components/ui/dialog';
@@ -115,7 +116,7 @@ const Devices = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">POS Terminals</h1>
           <p className="text-muted-foreground">
-            Pair a Sunmi terminal by registering it here, then entering the ID and secret on the terminal's "Pair this terminal" screen.
+            Pair a Sunmi terminal by registering it here, then scanning the QR code on the terminal's "Pair this terminal" screen.
           </p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setDeviceName(''); }}>
@@ -258,10 +259,17 @@ const Devices = () => {
           <DialogHeader>
             <DialogTitle>"{paired?.deviceName}" credentials</DialogTitle>
             <DialogDescription>
-              Enter these on the terminal's "Pair this terminal" screen. <strong>The secret is shown only once</strong> — copy it now,
-              it can't be retrieved again after you close this.
+              Scan this on the terminal's "Pair this terminal" screen, or enter the ID and secret by hand.
+              <strong> The secret is shown only once</strong> — pair now, it can't be retrieved again after you close this.
             </DialogDescription>
           </DialogHeader>
+          {paired && (
+            <div className="flex justify-center py-2">
+              <div className="rounded-lg bg-white p-3">
+                <QRCodeSVG value={JSON.stringify({ deviceId: paired.deviceId, secret: paired.secret })} size={200} />
+              </div>
+            </div>
+          )}
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Device ID</Label>

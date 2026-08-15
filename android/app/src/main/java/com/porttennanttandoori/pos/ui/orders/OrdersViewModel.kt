@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.porttennanttandoori.pos.data.model.OrderDetailDto
 import com.porttennanttandoori.pos.data.model.OrderStatus
+import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
 import com.porttennanttandoori.pos.data.repository.OrdersRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +24,7 @@ data class OrdersScreenState(
 class OrdersViewModel(private val repository: OrdersRepository) : ViewModel() {
 
     val orders = repository.orders
+    val orderStatusDefinitions = repository.orderStatusDefinitions
 
     private val _screenState = MutableStateFlow(OrdersScreenState())
     val screenState: StateFlow<OrdersScreenState> = _screenState.asStateFlow()
@@ -36,8 +38,6 @@ class OrdersViewModel(private val repository: OrdersRepository) : ViewModel() {
         refresh()
         viewModelScope.launch { repository.loadStatusDefinitions() }
     }
-
-    fun nextStatus(current: OrderStatus): OrderStatus? = repository.nextStatus(current)
 
     fun loadDetail(orderId: String) {
         if (_orderDetails.value.containsKey(orderId)) return
@@ -59,10 +59,10 @@ class OrdersViewModel(private val repository: OrdersRepository) : ViewModel() {
         }
     }
 
-    fun advanceStatus(orderId: String, newStatus: OrderStatus) {
+    fun updateStatus(orderId: String, newStatus: OrderStatus, note: String? = null) {
         _screenState.value = _screenState.value.copy(updatingOrderId = orderId, errorMessage = null)
         viewModelScope.launch {
-            val result = repository.updateStatus(orderId, newStatus)
+            val result = repository.updateStatus(orderId, newStatus, note)
             result.onSuccess { detail -> _orderDetails.value = _orderDetails.value + (orderId to detail) }
             _screenState.value = _screenState.value.copy(
                 updatingOrderId = null,

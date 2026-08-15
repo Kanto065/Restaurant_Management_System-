@@ -11,7 +11,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
@@ -20,16 +24,31 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.porttennanttandoori.pos.data.network.OrderListenerService
 import com.porttennanttandoori.pos.ui.login.PairingScreen
 import com.porttennanttandoori.pos.ui.login.PairingViewModel
-import com.porttennanttandoori.pos.ui.orders.OrdersListScreen
+import com.porttennanttandoori.pos.ui.orders.NewOrdersScreen
+import com.porttennanttandoori.pos.ui.orders.OrderHistoryScreen
 import com.porttennanttandoori.pos.ui.orders.OrdersViewModel
+import com.porttennanttandoori.pos.ui.settings.SettingsScreen
 import com.porttennanttandoori.pos.ui.theme.PosAppTheme
 import com.porttennanttandoori.pos.update.AvailableUpdate
 import kotlinx.coroutines.launch
+
+private sealed class Destination(val route: String, val label: String, val glyph: String) {
+    data object NewOrders : Destination("new_orders", "New Orders", "🔔")
+    data object OrderHistory : Destination("order_history", "History", "🕒")
+    data object Settings : Destination("settings", "Settings", "⚙")
+}
+
+private val BOTTOM_NAV_DESTINATIONS = listOf(Destination.NewOrders, Destination.OrderHistory, Destination.Settings)
 
 class MainActivity : ComponentActivity() {
 
@@ -62,19 +81,69 @@ class MainActivity : ComponentActivity() {
             val coroutineScope = rememberCoroutineScope()
             var availableUpdate by remember { mutableStateOf<AvailableUpdate?>(null) }
             var downloading by remember { mutableStateOf(false) }
+            var checkingForUpdate by remember { mutableStateOf(false) }
 
             // DataStore emits a new session as soon as pairAndLogin() persists it, so this
             // recomposes straight past the pairing screen without any extra navigation state.
             val session by authRepository.session.collectAsStateWithLifecycle(initialValue = null)
+
+            fun checkForUpdate() {
+                checkingForUpdate = true
+                coroutineScope.launch {
+                    availableUpdate = updateChecker.checkForUpdate()
+                    checkingForUpdate = false
+                }
+            }
 
             PosAppTheme {
                 val currentSession = session
                 if (currentSession != null) {
                     LaunchedEffect(Unit) {
                         startOrderListener()
-                        availableUpdate = updateChecker.checkForUpdate()
+                        checkForUpdate()
                     }
-                    OrdersListScreen(viewModel = ordersViewModel, restaurantName = currentSession.restaurantName)
+
+                    val navController = rememberNavController()
+                    val backStackEntry by navController.currentBackStackEntryAsState()
+                    val currentRoute = backStackEntry?.destination?.route
+
+                    Scaffold(
+                        bottomBar = {
+                            NavigationBar {
+                                BOTTOM_NAV_DESTINATIONS.forEach { destination ->
+                                    NavigationBarItem(
+                                        selected = currentRoute == destination.route,
+                                        onClick = {
+                                            navController.navigate(destination.route) {
+                                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        },
+                                        icon = { Text(destination.glyph) },
+                                        label = { Text(destination.label) },
+                                    )
+                                }
+                            }
+                        },
+                    ) { padding ->
+                        NavHost(
+                            navController = navController,
+                            startDestination = Destination.NewOrders.route,
+                            modifier = Modifier.padding(padding),
+                        ) {
+                            composable(Destination.NewOrders.route) { NewOrdersScreen(viewModel = ordersViewModel) }
+                            composable(Destination.OrderHistory.route) { OrderHistoryScreen(viewModel = ordersViewModel) }
+                            composable(Destination.Settings.route) {
+                                SettingsScreen(
+                                    restaurantName = currentSession.restaurantName,
+                                    checkingForUpdate = checkingForUpdate,
+                                    onCheckForUpdate = ::checkForUpdate,
+                                    onSignOut = { coroutineScope.launch { authRepository.signOut() } },
+                                )
+                            }
+                        }
+                    }
                 } else {
                     PairingScreen(viewModel = pairingViewModel)
                 }
