@@ -4,7 +4,7 @@ import { useMenu, useRestaurant } from '../lib/queries';
 import { useCartStore } from '../store/cart';
 import { currencySymbol } from '../lib/currency';
 import HeroCarousel from '../components/HeroCarousel';
-import mandalaCorner from '../assets/mandala-corner.svg';
+import MandalaAccent from '../components/MandalaAccent';
 import type { HeroSlide } from '../types/api';
 
 const DEFAULT_ORDER_ONLINE_TITLE = 'Order Online';
@@ -47,12 +47,7 @@ export default function Home() {
 
   return (
     <div className="relative overflow-hidden">
-      <img
-        src={mandalaCorner}
-        alt=""
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 left-0 w-[36rem] sm:w-[56rem] -translate-x-1/4 translate-y-1/4 opacity-[0.12]"
-      />
+      <MandalaAccent position="bottom-left" />
 
       <HeroCarousel slides={heroSlides} />
 
@@ -67,16 +62,16 @@ export default function Home() {
               <button
                 key={cat.id}
                 onClick={() => navigate(`/menu/category/${cat.id}`)}
-                className="flex flex-col items-center gap-2 shrink-0 w-20"
+                className="flex flex-col items-center gap-2 shrink-0 w-28"
               >
-                <div className="w-16 h-16 rounded-full overflow-hidden bg-brand-bg-light border border-brand-cream/10 flex items-center justify-center">
+                <div className="w-24 h-24 rounded-full overflow-hidden bg-brand-bg-light border border-brand-cream/10 flex items-center justify-center">
                   {cat.imageUrl || cat.items[0]?.imageUrl ? (
                     <img src={cat.imageUrl ?? cat.items[0].imageUrl!} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="font-display text-lg text-brand-mint">{cat.name.charAt(0)}</span>
+                    <span className="font-display text-2xl text-brand-mint">{cat.name.charAt(0)}</span>
                   )}
                 </div>
-                <span className="text-xs text-brand-cream/80 text-center leading-tight">{cat.name}</span>
+                <span className="text-sm text-brand-cream/80 text-center leading-tight">{cat.name}</span>
               </button>
             ))}
           </div>
@@ -94,18 +89,18 @@ export default function Home() {
               <Link
                 key={item.id}
                 to={`/menu/item/${item.id}`}
-                className="shrink-0 w-48 bg-brand-bg-light rounded-lg overflow-hidden"
+                className="shrink-0 w-64 bg-brand-bg-light rounded-lg overflow-hidden"
               >
                 <div className="relative aspect-[4/3] bg-brand-bg">
                   {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
-                  <span className="absolute top-2 left-2 bg-brand-orange text-white text-[10px] font-medium px-2 py-0.5 rounded-full">
+                  <span className="absolute top-2 left-2 bg-brand-orange text-white text-xs font-medium px-2 py-0.5 rounded-full">
                     Bestseller
                   </span>
                 </div>
-                <div className="p-3">
-                  <p className="text-sm font-medium truncate">{item.name}</p>
-                  <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-brand-mint text-sm font-semibold">{currency}{item.basePrice.toFixed(2)}</span>
+                <div className="p-4">
+                  <p className="text-base font-medium truncate">{item.name}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-brand-mint text-base font-semibold">{currency}{item.basePrice.toFixed(2)}</span>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -113,7 +108,7 @@ export default function Home() {
                         else navigate(`/menu/item/${item.id}`);
                       }}
                       aria-label={`Add ${item.name}`}
-                      className="w-7 h-7 rounded-full bg-brand-orange text-white flex items-center justify-center text-lg leading-none"
+                      className="w-9 h-9 rounded-full bg-brand-orange text-white flex items-center justify-center text-xl leading-none"
                     >
                       +
                     </button>

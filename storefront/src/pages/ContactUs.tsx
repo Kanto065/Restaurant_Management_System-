@@ -1,5 +1,6 @@
 import { useRestaurant, useDeliveryZones } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
+import MandalaAccent from '../components/MandalaAccent';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -22,7 +23,10 @@ export default function ContactUs() {
     : '';
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 grid lg:grid-cols-[1fr_320px] gap-6">
+    <div className="relative overflow-hidden">
+      <MandalaAccent position="bottom-right" />
+
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 grid lg:grid-cols-[1fr_320px] gap-6">
       <div className="space-y-6">
         <div className="rounded-lg overflow-hidden aspect-video bg-brand-cream">
           {fullAddress && (
@@ -101,6 +105,7 @@ export default function ContactUs() {
             })}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

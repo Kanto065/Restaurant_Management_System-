@@ -3,6 +3,7 @@ import { Home, Trophy, ShoppingBag, User, MapPin, LogOut, ShoppingCart } from 'l
 import { customerAuth } from '../lib/api';
 import { useProfile, useRestaurant } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
+import MandalaAccent from './MandalaAccent';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-2 px-1 py-1 text-sm ${isActive ? 'text-brand-green font-semibold' : 'text-brand-bg/80 hover:text-brand-bg'}`;
@@ -18,7 +19,10 @@ export default function MemberLayout() {
   const profile = profileQuery.data;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 grid md:grid-cols-[220px_1fr] gap-6">
+    <div className="relative overflow-hidden">
+      <MandalaAccent position="bottom-left" />
+
+      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-8 grid md:grid-cols-[220px_1fr] gap-6">
       <div className="space-y-4">
         <div className="bg-brand-cream text-brand-bg rounded-lg p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-bg/50 mb-2">Member Navigation</p>
@@ -55,6 +59,7 @@ export default function MemberLayout() {
 
       <div>
         <Outlet />
+      </div>
       </div>
     </div>
   );

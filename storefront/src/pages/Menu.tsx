@@ -8,6 +8,7 @@ import { currencySymbol } from '../lib/currency';
 import { spiceIcon } from '../lib/spice';
 import ModifierModal from '../components/ModifierModal';
 import CartPanel from '../components/CartPanel';
+import MandalaAccent from '../components/MandalaAccent';
 import type { MenuItem, OrderType } from '../types/api';
 
 type ViewMode = 'category' | 'best-sellers' | 'favourites';
@@ -137,7 +138,10 @@ export default function Menu() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-6">
+    <div className="relative overflow-hidden">
+      <MandalaAccent position="bottom-right" />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-6">
       <div className="mb-4">
         <h1 className="text-lg sm:text-xl">
           You are ordering for <span className="text-brand-mint font-semibold">{orderType === 'Delivery' ? 'Home Delivery' : 'Collection'}</span>{' '}
@@ -329,6 +333,7 @@ export default function Menu() {
         <div className="hidden lg:block sticky top-4 self-start">
           <CartPanel />
         </div>
+      </div>
       </div>
 
       {/* Mobile cart bar */}

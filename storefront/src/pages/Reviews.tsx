@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useReviews } from '../lib/queries';
+import MandalaAccent from '../components/MandalaAccent';
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -17,7 +18,10 @@ export default function Reviews() {
   const totalPages = data ? Math.max(1, Math.ceil(data.totalCount / data.pageSize)) : 1;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+    <div className="relative overflow-hidden">
+      <MandalaAccent position="bottom-center" />
+
+      <div className="relative max-w-3xl mx-auto px-4 sm:px-6 py-10">
       <h1 className="font-display text-3xl sm:text-4xl mb-1">Reviews</h1>
       {data && (
         <p className="text-brand-cream/70 mb-6">
@@ -66,6 +70,7 @@ export default function Reviews() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }
