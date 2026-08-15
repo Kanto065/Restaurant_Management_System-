@@ -316,11 +316,6 @@ export default function Checkout() {
                 </button>
               ))}
             </div>
-            {paymentMethod === 'Cash' && (
-              <p className="text-xs text-brand-bg/60 mt-3">
-                Cash on {orderType === 'Delivery' ? 'delivery' : 'collection'}.
-              </p>
-            )}
           </div>
 
           <div className="bg-brand-cream text-brand-bg rounded-lg p-5">

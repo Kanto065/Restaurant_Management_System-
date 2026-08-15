@@ -19,10 +19,10 @@ export default function MemberLayout() {
   const profile = profileQuery.data;
 
   return (
-    <div className="relative overflow-hidden">
+    <>
       <MandalaAccent position="bottom-left" />
 
-      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-8 grid md:grid-cols-[220px_1fr] gap-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 grid md:grid-cols-[220px_1fr] gap-6">
       <div className="space-y-4">
         <div className="bg-brand-cream text-brand-bg rounded-lg p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-bg/50 mb-2">Member Navigation</p>
@@ -61,6 +61,6 @@ export default function MemberLayout() {
         <Outlet />
       </div>
       </div>
-    </div>
+    </>
   );
 }

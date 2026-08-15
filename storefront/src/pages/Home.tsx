@@ -46,7 +46,7 @@ export default function Home() {
         ];
 
   return (
-    <div className="relative overflow-hidden">
+    <>
       <MandalaAccent position="bottom-left" />
 
       <HeroCarousel slides={heroSlides} />
@@ -62,13 +62,13 @@ export default function Home() {
               <button
                 key={cat.id}
                 onClick={() => navigate(`/menu/category/${cat.id}`)}
-                className="flex flex-col items-center gap-2 shrink-0 w-28"
+                className="flex flex-col items-center gap-2 shrink-0 w-20 sm:w-28"
               >
-                <div className="w-24 h-24 rounded-full overflow-hidden bg-brand-bg-light border border-brand-cream/10 flex items-center justify-center">
+                <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-brand-bg-light border border-brand-cream/10 flex items-center justify-center">
                   {cat.imageUrl || cat.items[0]?.imageUrl ? (
                     <img src={cat.imageUrl ?? cat.items[0].imageUrl!} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="font-display text-2xl text-brand-mint">{cat.name.charAt(0)}</span>
+                    <span className="font-display text-xl sm:text-2xl text-brand-mint">{cat.name.charAt(0)}</span>
                   )}
                 </div>
                 <span className="text-sm text-brand-cream/80 text-center leading-tight">{cat.name}</span>
@@ -89,7 +89,7 @@ export default function Home() {
               <Link
                 key={item.id}
                 to={`/menu/item/${item.id}`}
-                className="shrink-0 w-64 bg-brand-bg-light rounded-lg overflow-hidden"
+                className="shrink-0 w-48 sm:w-64 bg-brand-bg-light rounded-lg overflow-hidden"
               >
                 <div className="relative aspect-[4/3] bg-brand-bg">
                   {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
@@ -173,6 +173,6 @@ export default function Home() {
         </div>
         <div className="rounded-lg overflow-hidden aspect-video sm:aspect-auto bg-brand-bg-light" />
       </section>
-    </div>
+    </>
   );
 }

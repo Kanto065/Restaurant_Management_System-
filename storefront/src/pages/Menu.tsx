@@ -138,10 +138,10 @@ export default function Menu() {
   );
 
   return (
-    <div className="relative overflow-hidden">
+    <>
       <MandalaAccent position="bottom-right" />
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-6">
       <div className="mb-4">
         <h1 className="text-lg sm:text-xl">
           You are ordering for <span className="text-brand-mint font-semibold">{orderType === 'Delivery' ? 'Home Delivery' : 'Collection'}</span>{' '}
@@ -345,6 +345,6 @@ export default function Menu() {
       </div>
 
       {modalItem && <ModifierModal item={modalItem} onClose={closeItem} />}
-    </div>
+    </>
   );
 }
