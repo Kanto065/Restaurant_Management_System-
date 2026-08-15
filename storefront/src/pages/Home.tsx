@@ -4,6 +4,7 @@ import { useMenu, useRestaurant } from '../lib/queries';
 import { useCartStore } from '../store/cart';
 import { currencySymbol } from '../lib/currency';
 import HeroCarousel from '../components/HeroCarousel';
+import mandalaCorner from '../assets/mandala-corner.svg';
 import type { HeroSlide } from '../types/api';
 
 const DEFAULT_ORDER_ONLINE_TITLE = 'Order Online';
@@ -45,7 +46,14 @@ export default function Home() {
         ];
 
   return (
-    <div>
+    <div className="relative overflow-hidden">
+      <img
+        src={mandalaCorner}
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-0 right-0 w-64 sm:w-96 translate-x-1/4 translate-y-1/4 opacity-[0.06]"
+      />
+
       <HeroCarousel slides={heroSlides} />
 
       {categories.length > 0 && (
@@ -117,7 +125,7 @@ export default function Home() {
         </section>
       )}
 
-      <section className="bg-pattern-paisley">
+      <section>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 grid sm:grid-cols-3 gap-4">
           <div className="bg-brand-mint text-brand-bg rounded-lg p-6">
             <h3 className="font-display text-2xl mb-2">{content?.orderOnlineTitle || DEFAULT_ORDER_ONLINE_TITLE}</h3>
