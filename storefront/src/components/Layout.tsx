@@ -238,12 +238,12 @@ export default function Layout() {
       <footer className={`bg-brand-green/90 py-6 ${location.pathname.startsWith('/menu') ? 'hidden md:block' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs sm:text-sm text-white/90">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <p>Copyright &copy; {new Date().getFullYear()} {restaurant?.name ?? 'Port Tennant Tandoori'}. All Rights Reserved.</p>
             <div className="flex items-center gap-2">
               {PAYMENT_ICONS.map((icon) => (
                 <img key={icon.alt} src={icon.src} alt={icon.alt} className="h-6 w-auto" />
               ))}
             </div>
-            <p>Copyright &copy; {new Date().getFullYear()} {restaurant?.name ?? 'Port Tennant Tandoori'}. All Rights Reserved.</p>
           </div>
           <p>{restaurant?.phone}</p>
         </div>

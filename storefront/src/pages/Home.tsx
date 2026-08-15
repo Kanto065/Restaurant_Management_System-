@@ -62,16 +62,16 @@ export default function Home() {
               <button
                 key={cat.id}
                 onClick={() => navigate(`/menu/category/${cat.id}`)}
-                className="flex flex-col items-center gap-2 shrink-0 w-20 sm:w-28"
+                className="flex flex-col items-center gap-2 shrink-0 w-24 sm:w-32"
               >
-                <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-brand-bg-light border border-brand-cream/10 flex items-center justify-center">
+                <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-brand-bg-light border border-brand-cream/10 flex items-center justify-center">
                   {cat.imageUrl || cat.items[0]?.imageUrl ? (
                     <img src={cat.imageUrl ?? cat.items[0].imageUrl!} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="font-display text-xl sm:text-2xl text-brand-mint">{cat.name.charAt(0)}</span>
+                    <span className="font-display text-2xl sm:text-3xl text-brand-mint">{cat.name.charAt(0)}</span>
                   )}
                 </div>
-                <span className="text-sm text-brand-cream/80 text-center leading-tight">{cat.name}</span>
+                <span className="text-base text-brand-cream/80 text-center leading-tight">{cat.name}</span>
               </button>
             ))}
           </div>
@@ -89,7 +89,7 @@ export default function Home() {
               <Link
                 key={item.id}
                 to={`/menu/item/${item.id}`}
-                className="shrink-0 w-48 sm:w-64 bg-brand-bg-light rounded-lg overflow-hidden"
+                className="shrink-0 w-56 sm:w-72 bg-brand-bg-light rounded-lg overflow-hidden"
               >
                 <div className="relative aspect-[4/3] bg-brand-bg">
                   {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
@@ -98,9 +98,9 @@ export default function Home() {
                   </span>
                 </div>
                 <div className="p-4">
-                  <p className="text-base font-medium truncate">{item.name}</p>
+                  <p className="text-lg font-medium truncate">{item.name}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-brand-mint text-base font-semibold">{currency}{item.basePrice.toFixed(2)}</span>
+                    <span className="text-brand-mint text-lg font-semibold">{currency}{item.basePrice.toFixed(2)}</span>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -108,7 +108,7 @@ export default function Home() {
                         else navigate(`/menu/item/${item.id}`);
                       }}
                       aria-label={`Add ${item.name}`}
-                      className="w-9 h-9 rounded-full bg-brand-orange text-white flex items-center justify-center text-xl leading-none"
+                      className="w-10 h-10 rounded-full bg-brand-orange text-white flex items-center justify-center text-xl leading-none"
                     >
                       +
                     </button>
