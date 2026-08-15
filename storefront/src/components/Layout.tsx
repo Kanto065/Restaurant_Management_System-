@@ -236,14 +236,16 @@ export default function Layout() {
       {/* Also skip the footer on mobile for /menu - it sits in normal flow behind Menu.tsx's
           fixed bottom cart bar and gets visually overlapped. */}
       <footer className={`bg-brand-green/90 mt-12 py-6 ${location.pathname.startsWith('/menu') ? 'hidden md:block' : ''}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            {PAYMENT_ICONS.map((icon) => (
-              <img key={icon.alt} src={icon.src} alt={icon.alt} className="h-7 w-auto" />
-            ))}
-          </div>
-          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2 text-xs sm:text-sm text-white/90">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm text-white/90">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex items-center gap-2">
+              {PAYMENT_ICONS.map((icon) => (
+                <img key={icon.alt} src={icon.src} alt={icon.alt} className="h-6 w-auto" />
+              ))}
+            </div>
             <p>Copyright &copy; {new Date().getFullYear()} {restaurant?.name ?? 'Port Tennant Tandoori'}. All Rights Reserved.</p>
+          </div>
+          <div className="w-full sm:w-auto flex items-center justify-center sm:justify-end text-xs sm:text-sm text-white/90">
             <p>{restaurant?.phone}</p>
           </div>
         </div>
