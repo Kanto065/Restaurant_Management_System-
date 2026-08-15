@@ -10,25 +10,50 @@ android {
     namespace = "com.porttennanttandoori.pos"
     compileSdk = 34
 
+    // CI passes -PposBuildNumber=$GITHUB_RUN_NUMBER. GitHub run numbers only ever go up for this
+    // repo, so using it directly as versionCode (Android's own "is this newer" check, separate
+    // from versionName/UpdateChecker's comparison) guarantees every release installs as an update
+    // over the last one instead of tripping "app not installed" on a same/lower versionCode.
+    // Local/dev builds get 0 - not a valid versionCode, so bumped to 1 just for that case.
+    val posBuildNumber = (project.findProperty("posBuildNumber") as String?)?.toIntOrNull() ?: 0
+
+    signingConfigs {
+        // Committed on purpose - a debug key secures nothing (anyone can read it out of the repo
+        // or generate their own), and it exists ONLY so every CI-built APK is signed with the
+        // SAME key run to run. Without this, Gradle falls back to an auto-generated
+        // ~/.android/debug.keystore that's different on every fresh CI runner, and Android refuses
+        // to install an update signed by a different key than what's already on the device -
+        // exactly the "conflicts with an existing package" error that forced an uninstall before
+        // this existed.
+        getByName("debug") {
+            storeFile = file("keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.porttennanttandoori.pos"
         // Sunmi V2 terminals ship Android 7.1-9 depending on batch; 24 covers all of them.
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = posBuildNumber.coerceAtLeast(1)
+        // Real, monotonically-increasing version string - matches versionCode 1:1 so "version"
+        // means the same thing everywhere (Settings screen, GitHub release name/tag, Android's
+        // own version display) instead of a fixed "0.1.0" with the actual build number stuck in
+        // a trailing "(build N)". 0.1.0 stays as the base for local/dev builds only.
+        versionName = if (posBuildNumber > 0) "0.1.$posBuildNumber" else "0.1.0"
 
-        // CI passes -PposBuildNumber=$GITHUB_RUN_NUMBER, matching the "-<N>" suffix on the
-        // pos-v0.1.0-<N> release tag android-release.yml publishes. That run number - not
-        // versionName, which is bumped by hand and can lag - is what UpdateChecker compares
-        // against the latest GitHub release to decide whether a newer build exists. Local/dev
-        // builds get 0 so they never look "ahead" or "behind" a real release.
-        val posBuildNumber = (project.findProperty("posBuildNumber") as String?)?.toIntOrNull() ?: 0
+        // UpdateChecker compares this against the latest GitHub release tag's suffix to decide
+        // whether a newer build exists - kept as its own field (rather than reading versionCode)
+        // so that check stays meaningful even if versionCode's source ever changes.
         buildConfigField("int", "POS_BUILD_NUMBER", posBuildNumber.toString())
     }
 
     buildTypes {
         debug {
+            signingConfig = signingConfigs.getByName("debug")
             buildConfigField("String", "API_BASE_URL", "\"https://api.porttennanttandoori.co.uk\"")
         }
         release {

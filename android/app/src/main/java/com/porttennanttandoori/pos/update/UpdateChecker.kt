@@ -24,10 +24,11 @@ private data class GitHubRelease(val tag_name: String, val name: String, val ass
 data class AvailableUpdate(val label: String, val buildNumber: Int, val downloadUrl: String)
 
 /** Polls this repo's public GitHub Releases for a newer POS build than the one currently running,
- * downloads its APK, and hands back an install Intent. Release tags look like "pos-v0.1.0-<N>",
- * where N is the CI run number (android-release.yml) - that's what orders releases, since
- * versionName is bumped by hand and can lag behind what's actually shipped. Uses a bare OkHttp
- * client with none of NetworkModule's auth wiring, since this talks to GitHub, not our API. */
+ * downloads its APK, and hands back an install Intent. Release tags look like "pos-v0.1.<N>",
+ * where N is both the CI run number (android-release.yml) and versionName's own patch digit
+ * (build.gradle.kts) - one number, so this and Android's own "is this an update" versionCode
+ * check always agree. Uses a bare OkHttp client with none of NetworkModule's auth wiring, since
+ * this talks to GitHub, not our API. */
 class UpdateChecker(private val context: Context) {
 
     private val client = OkHttpClient.Builder()
@@ -46,7 +47,7 @@ class UpdateChecker(private val context: Context) {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@withContext null
                 val release = json.decodeFromString<GitHubRelease>(response.body?.string() ?: return@withContext null)
-                val buildNumber = release.tag_name.substringAfterLast('-').toIntOrNull() ?: return@withContext null
+                val buildNumber = release.tag_name.substringAfterLast('.').toIntOrNull() ?: return@withContext null
                 if (buildNumber <= BuildConfig.POS_BUILD_NUMBER) return@withContext null
                 val apkUrl = release.assets.firstOrNull { it.name.endsWith(".apk") }?.browser_download_url
                     ?: return@withContext null

@@ -22,7 +22,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.porttennanttandoori.pos.BuildConfig
+import com.porttennanttandoori.pos.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +49,15 @@ fun SettingsScreen(
         ) {
             Text(text = "Paired restaurant", style = MaterialTheme.typography.labelMedium)
             Text(text = restaurantName, style = MaterialTheme.typography.headlineSmall)
+
+            // App name + versionName together, e.g. "PTT POS · v0.1.8" - versionCode and
+            // versionName both derive from the same CI run number (build.gradle.kts), so this
+            // number is also exactly what a future "Check for updates" tap compares against.
+            Text(
+                text = "${stringResource(R.string.app_name)} · v${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             OutlinedButton(onClick = onCheckForUpdate, enabled = !checkingForUpdate, modifier = Modifier.fillMaxWidth()) {
                 if (checkingForUpdate) {

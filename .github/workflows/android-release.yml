@@ -35,20 +35,24 @@ jobs:
           gradle-version: wrapper
           build-scan-publish: false
 
-      - name: Read version name
+      # versionName is now computed in build.gradle.kts as "0.1.<posBuildNumber>", so the run
+      # number IS the version's patch digit - single source of truth, nothing to grep out of the
+      # Gradle file and keep in sync by hand anymore.
+      - name: Compute version
         id: version
-        working-directory: android
         run: |
-          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          VERSION_NAME="0.1.${GITHUB_RUN_NUMBER}"
           echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
-          echo "tag=pos-v${VERSION_NAME}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "tag=pos-v${VERSION_NAME}" >> "$GITHUB_OUTPUT"
 
-      # Debug-signed (Gradle's built-in debug keystore) so this works with zero secrets to set
-      # up. Fine for sideloading onto our own Sunmi terminals; swap for a real release-signing
-      # config (keystore + passwords as repo secrets) before this app goes any wider than that.
-      # POS_BUILD_NUMBER, baked into the APK via this, is what UpdateChecker compares against
-      # releases' tag suffix to decide a newer build exists - must match steps.version.outputs.tag
-      # above (both derive from GITHUB_RUN_NUMBER) or the in-app updater would never fire.
+      # Signed with the debug key committed at android/keystore/debug.keystore (see build.gradle.kts)
+      # so every build shares one signature and installs cleanly as an update over the last one -
+      # a debug key secures nothing, so committing it is fine; swap for a real release-signing
+      # config (keystore + passwords as repo secrets) before this app goes any wider than our own
+      # Sunmi terminals. POS_BUILD_NUMBER, baked into the APK via this, is what UpdateChecker
+      # compares against releases' tag suffix to decide a newer build exists - must match
+      # steps.version.outputs.tag above (both derive from GITHUB_RUN_NUMBER) or the in-app updater
+      # would never fire.
       - name: Build debug APK
         working-directory: android
         run: gradle :app:assembleDebug --stacktrace -PposBuildNumber=${{ github.run_number }}
@@ -62,7 +66,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: POS v${{ steps.version.outputs.name }} (build ${{ github.run_number }})
+          name: POS v${{ steps.version.outputs.name }}
           make_latest: true
           generate_release_notes: true
           files: release/porttennanttandoori-pos.apk
