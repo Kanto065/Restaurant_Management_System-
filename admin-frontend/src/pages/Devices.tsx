@@ -16,6 +16,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
+import { POS_APP_DOWNLOAD_URL } from '@/config/api';
 
 interface DeviceRow {
   id: string;
@@ -121,9 +122,7 @@ const Devices = () => {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild>
-            {/* Always serves the current build - android-release.yml re-publishes this exact
-                path to MinIO on every POS release (see deploy/caddy/Caddyfile). */}
-            <a href="/download/pos" target="_blank" rel="noreferrer">
+            <a href={POS_APP_DOWNLOAD_URL} target="_blank" rel="noreferrer">
               <Download className="w-4 h-4 mr-2" />Download POS App
             </a>
           </Button>

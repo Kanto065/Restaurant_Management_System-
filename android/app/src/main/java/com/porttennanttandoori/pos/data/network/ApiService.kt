@@ -20,10 +20,24 @@ interface ApiService {
     @POST("api/auth/device/login")
     suspend fun deviceLogin(@Body request: DeviceLoginRequest): Response<ApiResponse<DeviceTokenResponse>>
 
-    // Admin/OrdersController.List is paginated - the terminal asks for the max page size (100)
-    // rather than paging through, since it just needs a working set of current orders in memory.
+    // Used for the live New Orders working set - asks for the max page size (100) rather than
+    // paging through, since it just needs everything not yet completed in memory for SSE patches
+    // to update in place.
     @GET("api/admin/orders")
     suspend fun listOrders(@Query("pageSize") pageSize: Int = 100): Response<ApiResponse<OrderListPageDto>>
+
+    // Same endpoint, full query params - used by Order History's search/filter/pagination, which
+    // (unlike the live list above) genuinely pages through the admin-visible order history rather
+    // than holding it all in memory. Matches admin-frontend/src/pages/Orders.tsx's query exactly.
+    @GET("api/admin/orders")
+    suspend fun searchOrders(
+        @Query("status") status: String? = null,
+        @Query("search") search: String? = null,
+        @Query("dateFrom") dateFrom: String? = null,
+        @Query("dateTo") dateTo: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("pageSize") pageSize: Int = 25,
+    ): Response<ApiResponse<OrderListPageDto>>
 
     @GET("api/admin/orders/{id}")
     suspend fun getOrder(@Path("id") id: String): Response<ApiResponse<OrderDetailDto>>

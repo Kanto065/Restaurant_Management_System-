@@ -10,11 +10,11 @@ export const API_CONFIG = {
 
 export const API_BASE_URL = API_CONFIG.BASE_URL;
 
-// GitHub's "latest release" alias always resolves to whatever release
-// android-release.yml most recently published under this exact asset name -
-// no code change needed here when a new POS build ships.
-export const POS_APP_DOWNLOAD_URL =
-  'https://github.com/Kanto065/Restaurant_Management_System-/releases/latest/download/porttennanttandoori-pos.apk';
+// Self-hosted instead of GitHub's "latest release" alias - that stops being publicly
+// downloadable once this repo goes private, and needs no auth token this way. Same-origin
+// relative path: Caddy proxies /download/pos straight to the MinIO object android-release.yml
+// re-publishes on every POS build (see deploy/caddy/Caddyfile).
+export const POS_APP_DOWNLOAD_URL = '/download/pos';
 
 export const getImageUrl = (imagePath: string | null | undefined): string => {
   if (!imagePath) return '';

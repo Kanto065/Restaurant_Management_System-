@@ -23,6 +23,12 @@
 		rewrite * /uploads/pos/porttennanttandoori-pos.apk
 		reverse_proxy minio:9000
 	}
+	# UpdateChecker polls this instead of GitHub's Releases API - works the same whether this
+	# repo is public or private, since it never touches GitHub at runtime.
+	handle /download/pos-version {
+		rewrite * /uploads/pos/version.json
+		reverse_proxy minio:9000
+	}
 	reverse_proxy admin-frontend:80
 }
 

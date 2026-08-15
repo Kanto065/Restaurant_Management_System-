@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
@@ -47,7 +48,16 @@ fun QrScannerScreen(onResult: (String) -> Unit, onCancel: () -> Unit) {
     val currentOnResult by rememberUpdatedState(onResult)
 
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
-    DisposableEffect(Unit) { onDispose { cameraExecutor.shutdown() } }
+    // Reused across every analyzed frame - creating a new client per frame (as this did before)
+    // reloads the on-device model each time and was the main source of the scanner feeling
+    // choppy/laggy compared to the rest of the app.
+    val barcodeScanner = remember { BarcodeScanning.getClient() }
+    DisposableEffect(Unit) {
+        onDispose {
+            cameraExecutor.shutdown()
+            barcodeScanner.close()
+        }
+    }
 
     Scaffold { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -67,7 +77,7 @@ fun QrScannerScreen(onResult: (String) -> Unit, onCancel: () -> Unit) {
                                 .build()
                                 .apply {
                                     setAnalyzer(cameraExecutor) { imageProxy ->
-                                        analyzeFrame(imageProxy, onDecoded = { value ->
+                                        analyzeFrame(imageProxy, barcodeScanner, onDecoded = { value ->
                                             if (!hasResult) {
                                                 hasResult = true
                                                 currentOnResult(value)
@@ -98,15 +108,14 @@ fun QrScannerScreen(onResult: (String) -> Unit, onCancel: () -> Unit) {
     }
 }
 
-private fun analyzeFrame(imageProxy: ImageProxy, onDecoded: (String) -> Unit) {
+private fun analyzeFrame(imageProxy: ImageProxy, scanner: BarcodeScanner, onDecoded: (String) -> Unit) {
     val mediaImage = imageProxy.image
     if (mediaImage == null) {
         imageProxy.close()
         return
     }
     val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-    BarcodeScanning.getClient()
-        .process(image)
+    scanner.process(image)
         .addOnSuccessListener { barcodes ->
             barcodes.firstOrNull { it.valueType == Barcode.TYPE_TEXT || it.rawValue != null }
                 ?.rawValue?.let(onDecoded)

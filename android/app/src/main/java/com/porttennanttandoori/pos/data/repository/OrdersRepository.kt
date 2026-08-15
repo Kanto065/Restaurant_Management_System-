@@ -3,6 +3,7 @@ package com.porttennanttandoori.pos.data.repository
 import com.porttennanttandoori.pos.data.model.OrderDetailDto
 import com.porttennanttandoori.pos.data.model.OrderEvent
 import com.porttennanttandoori.pos.data.model.OrderListItemDto
+import com.porttennanttandoori.pos.data.model.OrderListPageDto
 import com.porttennanttandoori.pos.data.model.OrderStatus
 import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
 import com.porttennanttandoori.pos.data.model.PaymentStatusDefinitionDto
@@ -72,6 +73,32 @@ class OrdersRepository(
                 Result.success(Unit)
             } else {
                 Result.failure(IOException("Failed to load orders (${response.code()})."))
+            }
+        } catch (e: IOException) {
+            Result.failure(e)
+        } catch (e: kotlinx.serialization.SerializationException) {
+            Result.failure(e)
+        }
+    }
+
+    /** Order History's search/filter/pagination - a plain one-shot fetch, not folded into the
+     * live `orders` StateFlow above (that one stays SSE-driven and unpaginated by design, since
+     * the New Orders tab needs its full working set in memory, not a page of it). */
+    suspend fun searchOrders(
+        status: String?,
+        search: String?,
+        dateFrom: String?,
+        dateTo: String?,
+        page: Int,
+        pageSize: Int,
+    ): Result<OrderListPageDto> {
+        return try {
+            val response = apiService.searchOrders(status, search, dateFrom, dateTo, page, pageSize)
+            val pageResult = response.body()?.data
+            if (response.isSuccessful && pageResult != null) {
+                Result.success(pageResult)
+            } else {
+                Result.failure(IOException("Failed to search orders (${response.code()})."))
             }
         } catch (e: IOException) {
             Result.failure(e)

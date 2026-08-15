@@ -13,22 +13,19 @@ import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-// Field names match GitHub's REST API response verbatim (snake_case), not this project's usual
-// camelCase DTO convention, so kotlinx.serialization can decode it with zero extra config.
+/** Matches the version.json android-release.yml writes alongside the APK in MinIO. */
 @Serializable
-private data class GitHubReleaseAsset(val name: String, val browser_download_url: String)
-
-@Serializable
-private data class GitHubRelease(val tag_name: String, val name: String, val assets: List<GitHubReleaseAsset>)
+private data class VersionManifest(val buildNumber: Int, val versionName: String)
 
 data class AvailableUpdate(val label: String, val buildNumber: Int, val downloadUrl: String)
 
-/** Polls this repo's public GitHub Releases for a newer POS build than the one currently running,
- * downloads its APK, and hands back an install Intent. Release tags look like "pos-v0.1.<N>",
- * where N is both the CI run number (android-release.yml) and versionName's own patch digit
- * (build.gradle.kts) - one number, so this and Android's own "is this an update" versionCode
- * check always agree. Uses a bare OkHttp client with none of NetworkModule's auth wiring, since
- * this talks to GitHub, not our API. */
+/** Polls admin.porttennanttandoori.co.uk/download/pos-version for a newer POS build than the one
+ * currently running, and hands back the fixed /download/pos APK URL to install if so. Both are
+ * self-hosted (android-release.yml re-publishes them to MinIO on every build - see
+ * deploy/caddy/Caddyfile) rather than GitHub's Releases API, which this used before: GitHub
+ * releases need an auth token to read once the repo goes private, and the POS app has no way to
+ * carry one. Uses a bare OkHttp client with none of NetworkModule's auth wiring, since this
+ * doesn't go through our own API either. */
 class UpdateChecker(private val context: Context) {
 
     private val client = OkHttpClient.Builder()
@@ -39,19 +36,13 @@ class UpdateChecker(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun checkForUpdate(): AvailableUpdate? = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url("https://api.github.com/repos/$REPO/releases/latest")
-            .header("Accept", "application/vnd.github+json")
-            .build()
+        val request = Request.Builder().url("$BASE_URL/download/pos-version").build()
         runCatching {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@withContext null
-                val release = json.decodeFromString<GitHubRelease>(response.body?.string() ?: return@withContext null)
-                val buildNumber = release.tag_name.substringAfterLast('.').toIntOrNull() ?: return@withContext null
-                if (buildNumber <= BuildConfig.POS_BUILD_NUMBER) return@withContext null
-                val apkUrl = release.assets.firstOrNull { it.name.endsWith(".apk") }?.browser_download_url
-                    ?: return@withContext null
-                AvailableUpdate(release.name, buildNumber, apkUrl)
+                val manifest = json.decodeFromString<VersionManifest>(response.body?.string() ?: return@withContext null)
+                if (manifest.buildNumber <= BuildConfig.POS_BUILD_NUMBER) return@withContext null
+                AvailableUpdate("POS v${manifest.versionName}", manifest.buildNumber, "$BASE_URL/download/pos")
             }
         }.getOrNull()
     }
@@ -76,6 +67,6 @@ class UpdateChecker(private val context: Context) {
     }
 
     private companion object {
-        const val REPO = "Kanto065/Restaurant_Management_System-"
+        const val BASE_URL = "https://admin.porttennanttandoori.co.uk"
     }
 }

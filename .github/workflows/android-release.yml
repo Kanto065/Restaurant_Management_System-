@@ -57,10 +57,15 @@ jobs:
         working-directory: android
         run: gradle :app:assembleDebug --stacktrace -PposBuildNumber=${{ github.run_number }}
 
+      # version.json rides alongside the APK in MinIO so UpdateChecker can ask "is there a newer
+      # build" from our own server instead of GitHub's Releases API - the latter needs an auth
+      # token once this repo goes private, which the POS app has no way to carry.
       - name: Rename APK to a stable filename
         run: |
           mkdir -p release
           cp android/app/build/outputs/apk/debug/app-debug.apk release/porttennanttandoori-pos.apk
+          printf '{"buildNumber": %s, "versionName": "%s"}' \
+            "${{ github.run_number }}" "${{ steps.version.outputs.name }}" > release/version.json
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
@@ -80,7 +85,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_SSH_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          source: "release/porttennanttandoori-pos.apk"
+          source: "release/porttennanttandoori-pos.apk,release/version.json"
           target: "/tmp/pos-release"
           strip_components: 1
 
@@ -110,4 +115,9 @@ jobs:
               -e MC_HOST_local="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000" \
               minio/mc:latest \
               cp /data/porttennanttandoori-pos.apk local/uploads/pos/porttennanttandoori-pos.apk
+            docker run --rm --network platform_internal \
+              -v /tmp/pos-release:/data:ro \
+              -e MC_HOST_local="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000" \
+              minio/mc:latest \
+              cp /data/version.json local/uploads/pos/version.json
             rm -rf /tmp/pos-release

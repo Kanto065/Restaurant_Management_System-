@@ -12,12 +12,18 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,10 +48,12 @@ import com.porttennanttandoori.pos.ui.theme.PosAppTheme
 import com.porttennanttandoori.pos.update.AvailableUpdate
 import kotlinx.coroutines.launch
 
-private sealed class Destination(val route: String, val label: String, val glyph: String) {
-    data object NewOrders : Destination("new_orders", "New Orders", "🔔")
-    data object OrderHistory : Destination("order_history", "History", "🕒")
-    data object Settings : Destination("settings", "Settings", "⚙")
+// Outlined icons to match the admin dashboard's lucide-react sidebar (Bell for Notifications,
+// Clock3 for hours, Settings2) rather than Material's default filled style.
+private sealed class Destination(val route: String, val label: String, val icon: ImageVector) {
+    data object NewOrders : Destination("new_orders", "New Orders", Icons.Outlined.Notifications)
+    data object OrderHistory : Destination("order_history", "History", Icons.Outlined.History)
+    data object Settings : Destination("settings", "Settings", Icons.Outlined.Settings)
 }
 
 private val BOTTOM_NAV_DESTINATIONS = listOf(Destination.NewOrders, Destination.OrderHistory, Destination.Settings)
@@ -120,7 +128,7 @@ class MainActivity : ComponentActivity() {
                                                 restoreState = true
                                             }
                                         },
-                                        icon = { Text(destination.glyph) },
+                                        icon = { Icon(destination.icon, contentDescription = destination.label) },
                                         label = { Text(destination.label) },
                                     )
                                 }

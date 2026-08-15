@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.porttennanttandoori.pos.data.model.OrderDetailDto
+import com.porttennanttandoori.pos.data.model.OrderListPageDto
 import com.porttennanttandoori.pos.data.model.OrderStatus
 import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
 import com.porttennanttandoori.pos.data.repository.OrdersRepository
@@ -70,6 +71,23 @@ class OrdersViewModel(private val repository: OrdersRepository) : ViewModel() {
             )
         }
     }
+
+    /** Plain passthrough for Order History's own search/filter/pagination state, which the
+     * screen manages locally rather than through screenState above (that one's for the live
+     * New Orders list). */
+    suspend fun searchOrders(
+        status: String?,
+        search: String?,
+        dateFrom: String?,
+        dateTo: String?,
+        page: Int,
+        pageSize: Int,
+    ): Result<OrderListPageDto> = repository.searchOrders(status, search, dateFrom, dateTo, page, pageSize)
+
+    /** Awaitable status update for History rows, which need to know when the mutation finished
+     * so they can re-run the current search/page rather than relying on the live SSE-fed list. */
+    suspend fun updateStatusAwait(orderId: String, newStatus: OrderStatus, note: String? = null) =
+        repository.updateStatus(orderId, newStatus, note)
 
     class Factory(private val repository: OrdersRepository) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
