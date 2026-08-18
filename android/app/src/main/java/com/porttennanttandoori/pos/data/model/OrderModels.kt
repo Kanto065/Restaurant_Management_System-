@@ -118,3 +118,8 @@ data class UpdateOrderStatusRequest(
     val status: OrderStatus,
     val note: String? = null,
 )
+
+@Serializable
+data class UpdatePaymentStatusRequest(
+    val paymentStatus: PaymentStatus,
+)

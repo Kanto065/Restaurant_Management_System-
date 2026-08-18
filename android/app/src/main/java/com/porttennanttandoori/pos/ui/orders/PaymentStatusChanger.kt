@@ -4,10 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowForward
@@ -27,46 +25,49 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.porttennanttandoori.pos.data.model.OrderStatus
-import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
+import com.porttennanttandoori.pos.data.model.PaymentStatus
+import com.porttennanttandoori.pos.data.model.PaymentStatusDefinitionDto
 
-/** Recreates admin-frontend/src/pages/Orders.tsx's inline status control: a colored chip showing
- * the current status (tap to jump straight to any other one), an arrow button that steps to the
- * next status in DisplayOrder, a check button that jumps straight to whichever status
- * CountsAsCompleted, and a "..." overflow for the full note-taking dialog. Quick actions (chip,
- * arrow, check) send no note - only the overflow dialog does, matching quickStatusMutation vs
- * updateStatusMutation on the admin side. */
+/** Payment-status counterpart to OrderStatusChanger.kt - same chip/arrow/check/overflow shape,
+ * colored by paymentBackgroundColor/paymentForegroundColor (semantic by name, e.g. Paid=green)
+ * rather than statusBackgroundColor's plain positional cycle. "Paid" here is whichever payment
+ * status definition is flagged isDefault=false and comes right after the default one is NOT a
+ * safe assumption (payment statuses don't carry a countsAsCompleted-style flag), so the check
+ * button jumps to the definition named "Paid" if one exists - same semantic-name reliance as the
+ * color mapping above. */
 @Composable
-fun OrderStatusChanger(
-    currentStatus: OrderStatus,
-    statusDefinitions: List<OrderStatusDefinitionDto>,
+fun PaymentStatusChanger(
+    currentStatus: PaymentStatus,
+    paymentStatusDefinitions: List<PaymentStatusDefinitionDto>,
     isUpdating: Boolean,
-    onQuickChange: (OrderStatus) -> Unit,
+    onQuickChange: (PaymentStatus) -> Unit,
     onOpenNoteDialog: () -> Unit,
 ) {
-    val sorted = statusDefinitions.sortedBy { it.displayOrder }
+    val sorted = paymentStatusDefinitions.sortedBy { it.displayOrder }
     val currentIndex = sorted.indexOfFirst { it.name == currentStatus }
     val currentDisplayOrder = sorted.getOrNull(currentIndex)?.displayOrder ?: 0
     val nextStatus = sorted.getOrNull(currentIndex + 1)?.takeIf { currentIndex != -1 }?.name
-    val doneStatus = statusDefinitions.firstOrNull { it.countsAsCompleted }?.name
+    val paidStatus = paymentStatusDefinitions.firstOrNull { it.name.equals("Paid", ignoreCase = true) }?.name
 
     var chipMenuExpanded by remember { mutableStateOf(false) }
     var overflowMenuExpanded by remember { mutableStateOf(false) }
+
+    val bg = paymentBackgroundColor(currentStatus, currentDisplayOrder)
+    val fg = paymentForegroundColor(currentStatus, currentDisplayOrder)
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Row(
             modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(8.dp))
-                .background(statusBackgroundColor(currentDisplayOrder)),
+                .background(bg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box {
                 Text(
                     text = currentStatus,
-                    color = statusForegroundColor(currentDisplayOrder),
+                    color = fg,
                     style = MaterialTheme.typography.labelLarge,
                     maxLines = 1,
                     modifier = Modifier
@@ -83,7 +84,7 @@ fun OrderStatusChanger(
                 }
             }
 
-            StatusChangerDivider(statusForegroundColor(currentDisplayOrder))
+            StatusChangerDivider(fg)
             IconButton(
                 enabled = nextStatus != null && !isUpdating,
                 onClick = { nextStatus?.let(onQuickChange) },
@@ -91,21 +92,21 @@ fun OrderStatusChanger(
             ) {
                 Icon(
                     Icons.Outlined.ArrowForward,
-                    contentDescription = "Next status" + (nextStatus?.let { ": $it" } ?: ""),
-                    tint = statusForegroundColor(currentDisplayOrder),
+                    contentDescription = "Next payment status" + (nextStatus?.let { ": $it" } ?: ""),
+                    tint = fg,
                     modifier = Modifier.size(18.dp),
                 )
             }
-            StatusChangerDivider(statusForegroundColor(currentDisplayOrder))
+            StatusChangerDivider(fg)
             IconButton(
-                enabled = doneStatus != null && doneStatus != currentStatus && !isUpdating,
-                onClick = { doneStatus?.let(onQuickChange) },
+                enabled = paidStatus != null && paidStatus != currentStatus && !isUpdating,
+                onClick = { paidStatus?.let(onQuickChange) },
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
                     Icons.Outlined.Check,
-                    contentDescription = doneStatus?.let { "Mark as $it" } ?: "No completed status configured",
-                    tint = statusForegroundColor(currentDisplayOrder),
+                    contentDescription = paidStatus?.let { "Mark as $it" } ?: "No \"Paid\" status configured",
+                    tint = fg,
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -113,25 +114,14 @@ fun OrderStatusChanger(
 
         Box {
             IconButton(onClick = { overflowMenuExpanded = true }) {
-                Icon(Icons.Outlined.MoreVert, contentDescription = "More status options")
+                Icon(Icons.Outlined.MoreVert, contentDescription = "More payment options")
             }
             DropdownMenu(expanded = overflowMenuExpanded, onDismissRequest = { overflowMenuExpanded = false }) {
                 DropdownMenuItem(
-                    text = { Text("Jump to Status (with note)") },
+                    text = { Text("Jump to Payment Status") },
                     onClick = { overflowMenuExpanded = false; onOpenNoteDialog() },
                 )
             }
         }
     }
-}
-
-@Composable
-internal fun StatusChangerDivider(color: Color) {
-    Box(
-        modifier = Modifier
-            .width(1.dp)
-            .fillMaxHeight()
-            .padding(vertical = 8.dp)
-            .background(color.copy(alpha = 0.25f)),
-    )
 }

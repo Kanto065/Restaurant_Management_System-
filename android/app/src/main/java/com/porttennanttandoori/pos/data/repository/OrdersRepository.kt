@@ -6,8 +6,10 @@ import com.porttennanttandoori.pos.data.model.OrderListItemDto
 import com.porttennanttandoori.pos.data.model.OrderListPageDto
 import com.porttennanttandoori.pos.data.model.OrderStatus
 import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
+import com.porttennanttandoori.pos.data.model.PaymentStatus
 import com.porttennanttandoori.pos.data.model.PaymentStatusDefinitionDto
 import com.porttennanttandoori.pos.data.model.UpdateOrderStatusRequest
+import com.porttennanttandoori.pos.data.model.UpdatePaymentStatusRequest
 import com.porttennanttandoori.pos.data.network.ApiService
 import com.porttennanttandoori.pos.data.network.OrderEventsClient
 import java.io.IOException
@@ -86,6 +88,7 @@ class OrdersRepository(
      * the New Orders tab needs its full working set in memory, not a page of it). */
     suspend fun searchOrders(
         status: String?,
+        paymentStatus: String?,
         search: String?,
         dateFrom: String?,
         dateTo: String?,
@@ -93,7 +96,7 @@ class OrdersRepository(
         pageSize: Int,
     ): Result<OrderListPageDto> {
         return try {
-            val response = apiService.searchOrders(status, search, dateFrom, dateTo, page, pageSize)
+            val response = apiService.searchOrders(status, paymentStatus, search, dateFrom, dateTo, page, pageSize)
             val pageResult = response.body()?.data
             if (response.isSuccessful && pageResult != null) {
                 Result.success(pageResult)
@@ -140,6 +143,23 @@ class OrdersRepository(
         }
     }
 
+    suspend fun updatePaymentStatus(orderId: String, paymentStatus: PaymentStatus): Result<OrderDetailDto> {
+        return try {
+            val response = apiService.updatePaymentStatus(orderId, UpdatePaymentStatusRequest(paymentStatus))
+            val detail = response.body()?.data
+            if (response.isSuccessful && detail != null) {
+                applyPaymentStatusLocally(orderId, paymentStatus)
+                Result.success(detail)
+            } else {
+                Result.failure(IOException("Failed to update payment status (${response.code()})."))
+            }
+        } catch (e: IOException) {
+            Result.failure(e)
+        } catch (e: kotlinx.serialization.SerializationException) {
+            Result.failure(e)
+        }
+    }
+
     /** Called from OrderListenerService when an SSE event arrives, so the list updates without
      * waiting for the next full refresh(). */
     suspend fun onEvent(event: OrderEvent) {
@@ -152,5 +172,9 @@ class OrdersRepository(
 
     private fun applyStatusLocally(orderId: String, status: OrderStatus) {
         _orders.value = _orders.value.map { if (it.id == orderId) it.copy(status = status) else it }
+    }
+
+    private fun applyPaymentStatusLocally(orderId: String, paymentStatus: PaymentStatus) {
+        _orders.value = _orders.value.map { if (it.id == orderId) it.copy(paymentStatus = paymentStatus) else it }
     }
 }

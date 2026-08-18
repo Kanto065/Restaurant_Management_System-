@@ -7,6 +7,7 @@ import com.porttennanttandoori.pos.data.model.OrderDetailDto
 import com.porttennanttandoori.pos.data.model.OrderListPageDto
 import com.porttennanttandoori.pos.data.model.OrderStatus
 import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
+import com.porttennanttandoori.pos.data.model.PaymentStatus
 import com.porttennanttandoori.pos.data.repository.OrdersRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,8 @@ class OrdersViewModel(private val repository: OrdersRepository) : ViewModel() {
 
     val orders = repository.orders
     val orderStatusDefinitions = repository.orderStatusDefinitions
+    val paymentStatusDefinitions = repository.paymentStatusDefinitions
+    val ordersAwaitingConfirmation = repository.ordersAwaitingConfirmation
 
     private val _screenState = MutableStateFlow(OrdersScreenState())
     val screenState: StateFlow<OrdersScreenState> = _screenState.asStateFlow()
@@ -77,17 +80,34 @@ class OrdersViewModel(private val repository: OrdersRepository) : ViewModel() {
      * New Orders list). */
     suspend fun searchOrders(
         status: String?,
+        paymentStatus: String?,
         search: String?,
         dateFrom: String?,
         dateTo: String?,
         page: Int,
         pageSize: Int,
-    ): Result<OrderListPageDto> = repository.searchOrders(status, search, dateFrom, dateTo, page, pageSize)
+    ): Result<OrderListPageDto> = repository.searchOrders(status, paymentStatus, search, dateFrom, dateTo, page, pageSize)
 
     /** Awaitable status update for History rows, which need to know when the mutation finished
      * so they can re-run the current search/page rather than relying on the live SSE-fed list. */
     suspend fun updateStatusAwait(orderId: String, newStatus: OrderStatus, note: String? = null) =
         repository.updateStatus(orderId, newStatus, note)
+
+    fun updatePaymentStatus(orderId: String, newPaymentStatus: PaymentStatus) {
+        _screenState.value = _screenState.value.copy(updatingOrderId = orderId, errorMessage = null)
+        viewModelScope.launch {
+            val result = repository.updatePaymentStatus(orderId, newPaymentStatus)
+            result.onSuccess { detail -> _orderDetails.value = _orderDetails.value + (orderId to detail) }
+            _screenState.value = _screenState.value.copy(
+                updatingOrderId = null,
+                errorMessage = result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    /** Awaitable payment status update for History rows, same rationale as updateStatusAwait. */
+    suspend fun updatePaymentStatusAwait(orderId: String, newPaymentStatus: PaymentStatus) =
+        repository.updatePaymentStatus(orderId, newPaymentStatus)
 
     class Factory(private val repository: OrdersRepository) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")

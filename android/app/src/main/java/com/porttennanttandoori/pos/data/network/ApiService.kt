@@ -8,6 +8,7 @@ import com.porttennanttandoori.pos.data.model.OrderListPageDto
 import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
 import com.porttennanttandoori.pos.data.model.PaymentStatusDefinitionDto
 import com.porttennanttandoori.pos.data.model.UpdateOrderStatusRequest
+import com.porttennanttandoori.pos.data.model.UpdatePaymentStatusRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -32,6 +33,7 @@ interface ApiService {
     @GET("api/admin/orders")
     suspend fun searchOrders(
         @Query("status") status: String? = null,
+        @Query("paymentStatus") paymentStatus: String? = null,
         @Query("search") search: String? = null,
         @Query("dateFrom") dateFrom: String? = null,
         @Query("dateTo") dateTo: String? = null,
@@ -46,6 +48,12 @@ interface ApiService {
     suspend fun updateOrderStatus(
         @Path("id") id: String,
         @Body request: UpdateOrderStatusRequest,
+    ): Response<ApiResponse<OrderDetailDto>>
+
+    @PUT("api/admin/orders/{id}/payment-status")
+    suspend fun updatePaymentStatus(
+        @Path("id") id: String,
+        @Body request: UpdatePaymentStatusRequest,
     ): Response<ApiResponse<OrderDetailDto>>
 
     @GET("api/admin/order-statuses")

@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +58,8 @@ import com.porttennanttandoori.pos.data.model.OrderDetailDto
 import com.porttennanttandoori.pos.data.model.OrderListItemDto
 import com.porttennanttandoori.pos.data.model.OrderStatus
 import com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto
+import com.porttennanttandoori.pos.data.model.PaymentStatus
+import com.porttennanttandoori.pos.data.model.PaymentStatusDefinitionDto
 
 /** An order counts as "done" (moves out of New Orders, into History) once it reaches a status
  * flagged CountsAsCompleted, or is Cancelled - the latter has no dedicated boolean on the status
@@ -67,22 +70,34 @@ private fun isHistoryStatus(status: String, definitions: List<OrderStatusDefinit
     return status.equals("Cancelled", ignoreCase = true)
 }
 
+private fun matchesFilters(order: OrderListItemDto, filters: OrderFilters): Boolean {
+    if (filters.status != null && order.status != filters.status) return false
+    if (filters.paymentStatus != null && order.paymentStatus != filters.paymentStatus) return false
+    val date = order.createdAt.take(10) // "yyyy-MM-dd..." prefix of the ISO timestamp
+    if (filters.dateFrom != null && date < filters.dateFrom) return false
+    if (filters.dateTo != null && date > filters.dateTo) return false
+    return true
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NewOrdersScreen(viewModel: OrdersViewModel) {
+fun NewOrdersScreen(viewModel: OrdersViewModel, onReprint: (String) -> Unit = {}) {
     val allOrders by viewModel.orders.collectAsStateWithLifecycle()
     val definitions by viewModel.orderStatusDefinitions.collectAsStateWithLifecycle()
+    val paymentDefinitions by viewModel.paymentStatusDefinitions.collectAsStateWithLifecycle()
     val screenState by viewModel.screenState.collectAsStateWithLifecycle()
     val orderDetails by viewModel.orderDetails.collectAsStateWithLifecycle()
 
     var searchText by rememberSaveable { mutableStateOf("") }
-    var statusFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    var filters by rememberSaveable { mutableStateOf(OrderFilters()) }
+    var filterSheetOpen by rememberSaveable { mutableStateOf(false) }
+    val filterSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    val activeDefinitions = remember(definitions) { definitions.filterNot { it.countsAsCompleted } }
-    val visibleOrders = remember(allOrders, definitions, searchText, statusFilter) {
+    val visibleOrders = remember(allOrders, definitions, searchText, filters) {
         allOrders
             .filterNot { isHistoryStatus(it.status, definitions) }
-            .filter { statusFilter == null || it.status == statusFilter }
+            .filter { matchesFilters(it, filters) }
             .filter { order ->
                 searchText.isBlank() ||
                     order.orderNumber.contains(searchText, ignoreCase = true) ||
@@ -92,16 +107,18 @@ fun NewOrdersScreen(viewModel: OrdersViewModel) {
 
     Scaffold(
         topBar = {
-            OrdersTopBar(
-                title = "New Orders",
-                searchText = searchText,
-                onSearchTextChange = { searchText = it },
-                searchExpanded = searchExpanded,
-                onSearchExpandedChange = { searchExpanded = it },
-                statusFilter = statusFilter,
-                onStatusFilterChange = { statusFilter = it },
-                filterableStatuses = activeDefinitions.sortedBy { it.displayOrder }.map { it.name },
-            )
+            Column {
+                OrdersTopBar(
+                    title = "New Orders",
+                    searchText = searchText,
+                    onSearchTextChange = { searchText = it },
+                    searchExpanded = searchExpanded,
+                    onSearchExpandedChange = { searchExpanded = it },
+                    hasActiveFilters = !filters.isEmpty,
+                    onOpenFilters = { filterSheetOpen = true },
+                )
+                ActiveFilterRow(filters = filters, onClear = { filters = OrderFilters() })
+            }
         },
     ) { padding ->
         OrdersListBody(
@@ -109,25 +126,46 @@ fun NewOrdersScreen(viewModel: OrdersViewModel) {
             isLoading = screenState.isRefreshing && allOrders.isEmpty(),
             errorMessage = screenState.errorMessage,
             orders = visibleOrders,
-            emptyMessage = if (searchText.isBlank() && statusFilter == null) "No active orders." else "No orders match this search.",
+            emptyMessage = if (searchText.isBlank() && filters.isEmpty) "No active orders." else "No orders match this search.",
             orderDetails = orderDetails,
             statusDefinitions = definitions,
+            paymentStatusDefinitions = paymentDefinitions,
             updatingOrderId = screenState.updatingOrderId,
             onExpand = { viewModel.loadDetail(it) },
             onUpdateStatus = { orderId, status, note -> viewModel.updateStatus(orderId, status, note) },
+            onUpdatePaymentStatus = { orderId, status -> viewModel.updatePaymentStatus(orderId, status) },
+            onReprint = onReprint,
+        )
+    }
+
+    if (filterSheetOpen) {
+        FilterBottomSheet(
+            sheetState = filterSheetState,
+            orderStatusDefinitions = definitions.filterNot { it.countsAsCompleted },
+            paymentStatusDefinitions = paymentDefinitions,
+            filters = filters,
+            resultCount = allOrders
+                .filterNot { isHistoryStatus(it.status, definitions) }
+                .count { matchesFilters(it, filters) },
+            onApply = { filters = it },
+            onDismiss = { filterSheetOpen = false },
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OrderHistoryScreen(viewModel: OrdersViewModel) {
+fun OrderHistoryScreen(viewModel: OrdersViewModel, onReprint: (String) -> Unit = {}) {
     val definitions by viewModel.orderStatusDefinitions.collectAsStateWithLifecycle()
+    val paymentDefinitions by viewModel.paymentStatusDefinitions.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
 
     var searchText by rememberSaveable { mutableStateOf("") }
     var debouncedSearch by rememberSaveable { mutableStateOf("") }
-    var statusFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    var filters by rememberSaveable { mutableStateOf(OrderFilters()) }
+    var filterSheetOpen by rememberSaveable { mutableStateOf(false) }
+    val filterSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var page by rememberSaveable { mutableStateOf(1) }
 
     val orderDetails by viewModel.orderDetails.collectAsStateWithLifecycle()
@@ -144,16 +182,17 @@ fun OrderHistoryScreen(viewModel: OrdersViewModel) {
         delay(350)
         debouncedSearch = searchText.trim()
     }
-    LaunchedEffect(debouncedSearch, statusFilter) { page = 1 }
+    LaunchedEffect(debouncedSearch, filters) { page = 1 }
 
     suspend fun load() {
         isLoading = true
         errorMessage = null
         viewModel.searchOrders(
-            status = statusFilter,
+            status = filters.status,
+            paymentStatus = filters.paymentStatus,
             search = debouncedSearch.ifBlank { null },
-            dateFrom = null,
-            dateTo = null,
+            dateFrom = filters.dateFrom,
+            dateTo = filters.dateTo,
             page = page,
             pageSize = pageSize,
         ).fold(
@@ -163,20 +202,22 @@ fun OrderHistoryScreen(viewModel: OrdersViewModel) {
         isLoading = false
     }
 
-    LaunchedEffect(debouncedSearch, statusFilter, page) { load() }
+    LaunchedEffect(debouncedSearch, filters, page) { load() }
 
     Scaffold(
         topBar = {
-            OrdersTopBar(
-                title = "Order History",
-                searchText = searchText,
-                onSearchTextChange = { searchText = it },
-                searchExpanded = searchExpanded,
-                onSearchExpandedChange = { searchExpanded = it },
-                statusFilter = statusFilter,
-                onStatusFilterChange = { statusFilter = it },
-                filterableStatuses = definitions.sortedBy { it.displayOrder }.map { it.name },
-            )
+            Column {
+                OrdersTopBar(
+                    title = "Order History",
+                    searchText = searchText,
+                    onSearchTextChange = { searchText = it },
+                    searchExpanded = searchExpanded,
+                    onSearchExpandedChange = { searchExpanded = it },
+                    hasActiveFilters = !filters.isEmpty,
+                    onOpenFilters = { filterSheetOpen = true },
+                )
+                ActiveFilterRow(filters = filters, onClear = { filters = OrderFilters() })
+            }
         },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
@@ -189,6 +230,7 @@ fun OrderHistoryScreen(viewModel: OrdersViewModel) {
                     emptyMessage = "No orders found.",
                     orderDetails = orderDetails,
                     statusDefinitions = definitions,
+                    paymentStatusDefinitions = paymentDefinitions,
                     updatingOrderId = updatingOrderId,
                     onExpand = { orderId -> viewModel.loadDetail(orderId) },
                     onUpdateStatus = { orderId, status, note ->
@@ -199,6 +241,15 @@ fun OrderHistoryScreen(viewModel: OrdersViewModel) {
                             load()
                         }
                     },
+                    onUpdatePaymentStatus = { orderId, status ->
+                        coroutineScope.launch {
+                            updatingOrderId = orderId
+                            viewModel.updatePaymentStatusAwait(orderId, status)
+                            updatingOrderId = null
+                            load()
+                        }
+                    },
+                    onReprint = onReprint,
                 )
             }
             if (totalCount > pageSize) {
@@ -224,6 +275,18 @@ fun OrderHistoryScreen(viewModel: OrdersViewModel) {
             }
         }
     }
+
+    if (filterSheetOpen) {
+        FilterBottomSheet(
+            sheetState = filterSheetState,
+            orderStatusDefinitions = definitions,
+            paymentStatusDefinitions = paymentDefinitions,
+            filters = filters,
+            resultCount = totalCount,
+            onApply = { filters = it },
+            onDismiss = { filterSheetOpen = false },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -234,12 +297,9 @@ private fun OrdersTopBar(
     onSearchTextChange: (String) -> Unit,
     searchExpanded: Boolean,
     onSearchExpandedChange: (Boolean) -> Unit,
-    statusFilter: String?,
-    onStatusFilterChange: (String?) -> Unit,
-    filterableStatuses: List<String>,
+    hasActiveFilters: Boolean,
+    onOpenFilters: () -> Unit,
 ) {
-    var filterMenuExpanded by rememberSaveable { mutableStateOf(false) }
-
     TopAppBar(
         title = {
             if (searchExpanded) {
@@ -264,26 +324,12 @@ private fun OrdersTopBar(
                     Icon(Icons.Outlined.Search, contentDescription = "Search")
                 }
             }
-            Box {
-                IconButton(onClick = { filterMenuExpanded = true }) {
-                    Icon(
-                        Icons.Outlined.FilterList,
-                        contentDescription = "Filter by status",
-                        tint = if (statusFilter != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                DropdownMenu(expanded = filterMenuExpanded, onDismissRequest = { filterMenuExpanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text("All statuses") },
-                        onClick = { filterMenuExpanded = false; onStatusFilterChange(null) },
-                    )
-                    filterableStatuses.forEach { status ->
-                        DropdownMenuItem(
-                            text = { Text(status) },
-                            onClick = { filterMenuExpanded = false; onStatusFilterChange(status) },
-                        )
-                    }
-                }
+            IconButton(onClick = onOpenFilters) {
+                Icon(
+                    Icons.Outlined.FilterList,
+                    contentDescription = "Filter orders",
+                    tint = if (hasActiveFilters) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                )
             }
         },
     )
@@ -298,9 +344,12 @@ private fun OrdersListBody(
     emptyMessage: String,
     orderDetails: Map<String, OrderDetailDto>,
     statusDefinitions: List<OrderStatusDefinitionDto>,
+    paymentStatusDefinitions: List<PaymentStatusDefinitionDto>,
     updatingOrderId: String?,
     onExpand: (String) -> Unit,
     onUpdateStatus: (String, OrderStatus, String?) -> Unit,
+    onUpdatePaymentStatus: (String, PaymentStatus) -> Unit,
+    onReprint: (String) -> Unit,
 ) {
     Column(modifier = Modifier.padding(padding)) {
         errorMessage?.let { message ->
@@ -333,8 +382,11 @@ private fun OrdersListBody(
                         detail = orderDetails[order.id],
                         isUpdating = updatingOrderId == order.id,
                         statusDefinitions = statusDefinitions,
+                        paymentStatusDefinitions = paymentStatusDefinitions,
                         onExpand = { onExpand(order.id) },
                         onUpdateStatus = { newStatus, note -> onUpdateStatus(order.id, newStatus, note) },
+                        onUpdatePaymentStatus = { newStatus -> onUpdatePaymentStatus(order.id, newStatus) },
+                        onReprint = { onReprint(order.id) },
                     )
                 }
             }
@@ -348,11 +400,15 @@ private fun OrderCard(
     detail: OrderDetailDto?,
     isUpdating: Boolean,
     statusDefinitions: List<OrderStatusDefinitionDto>,
+    paymentStatusDefinitions: List<PaymentStatusDefinitionDto>,
     onExpand: () -> Unit,
     onUpdateStatus: (OrderStatus, String?) -> Unit,
+    onUpdatePaymentStatus: (PaymentStatus) -> Unit,
+    onReprint: () -> Unit,
 ) {
     var expanded by rememberSaveable(order.id) { mutableStateOf(false) }
     var showStatusDialog by rememberSaveable(order.id) { mutableStateOf(false) }
+    var showPaymentDialog by rememberSaveable(order.id) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -382,6 +438,15 @@ private fun OrderCard(
                 isUpdating = isUpdating,
                 onQuickChange = { newStatus -> onUpdateStatus(newStatus, null) },
                 onOpenNoteDialog = { showStatusDialog = true },
+            )
+
+            Spacer(modifier = Modifier.padding(top = 8.dp))
+            PaymentStatusChanger(
+                currentStatus = order.paymentStatus,
+                paymentStatusDefinitions = paymentStatusDefinitions,
+                isUpdating = isUpdating,
+                onQuickChange = onUpdatePaymentStatus,
+                onOpenNoteDialog = { showPaymentDialog = true },
             )
 
             if (expanded) {
@@ -419,6 +484,10 @@ private fun OrderCard(
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
                     }
+
+                    TextButton(onClick = onReprint, modifier = Modifier.fillMaxWidth()) {
+                        Text("Reprint receipt")
+                    }
                 }
             }
         }
@@ -432,6 +501,18 @@ private fun OrderCard(
             onConfirm = { newStatus, note ->
                 onUpdateStatus(newStatus, note)
                 showStatusDialog = false
+            },
+        )
+    }
+
+    if (showPaymentDialog) {
+        UpdatePaymentStatusDialog(
+            currentStatus = order.paymentStatus,
+            paymentStatusDefinitions = paymentStatusDefinitions,
+            onDismiss = { showPaymentDialog = false },
+            onConfirm = { newStatus ->
+                onUpdatePaymentStatus(newStatus)
+                showPaymentDialog = false
             },
         )
     }
@@ -496,6 +577,58 @@ private fun UpdateStatusDialog(
             Button(onClick = { onConfirm(selectedStatus, note.takeIf { it.isNotBlank() }) }) {
                 Text("Update Status")
             }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+/** Payment-status counterpart to UpdateStatusDialog - no note field, since
+ * Admin/OrdersController.UpdatePaymentStatusRequest doesn't carry one. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UpdatePaymentStatusDialog(
+    currentStatus: PaymentStatus,
+    paymentStatusDefinitions: List<PaymentStatusDefinitionDto>,
+    onDismiss: () -> Unit,
+    onConfirm: (PaymentStatus) -> Unit,
+) {
+    var selectedStatus by rememberSaveable { mutableStateOf(currentStatus) }
+    var menuExpanded by rememberSaveable { mutableStateOf(false) }
+    val sortedDefinitions = paymentStatusDefinitions.sortedBy { it.displayOrder }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Update Payment Status") },
+        text = {
+            ExposedDropdownMenuBox(expanded = menuExpanded, onExpandedChange = { menuExpanded = it }) {
+                OutlinedTextField(
+                    value = selectedStatus,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("New Payment Status") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                )
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                    modifier = Modifier.exposedDropdownSize(),
+                ) {
+                    sortedDefinitions.forEach { definition ->
+                        DropdownMenuItem(
+                            text = { Text(definition.name) },
+                            onClick = { selectedStatus = definition.name; menuExpanded = false },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(selectedStatus) }) { Text("Update Payment Status") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
