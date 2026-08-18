@@ -2,7 +2,10 @@ name: Android POS release
 
 on:
   push:
-    branches: [main]
+    # Matches the rest of the pipeline: main is integration, deploy is "this is now released".
+    # A POS build only gets published (GitHub release + VPS + MinIO) once android/** changes
+    # actually land on deploy, not on every main push.
+    branches: [deploy]
     paths: ["android/**"]
   workflow_dispatch: {}
 
