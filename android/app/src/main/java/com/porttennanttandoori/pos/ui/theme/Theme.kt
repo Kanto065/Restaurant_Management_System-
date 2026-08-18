@@ -1,10 +1,13 @@
 package com.porttennanttandoori.pos.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 // Same tokens as the admin dashboard's own light/dark theme (hsl(210 90% 56%) primary in light,
 // hsl(24 88% 50%) in dark - see the POS Terminal design canvas) so the terminal reads as the same
@@ -41,9 +44,21 @@ private val LightColors = lightColorScheme(
     onError = Color(0xFFB91C1C),
 )
 
+// Matches the design canvas's consistent radius:12px on cards/sheets/dialogs and radius:10px on
+// inputs/buttons - Material3's own defaults (extraSmall=4dp, small=8dp) read visibly "stock
+// Android" next to that, which is a big part of why the app didn't read as the same design system
+// even with matching colors.
+private val PosShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(18.dp),
+)
+
 /** [darkTheme] is persisted via SettingsStore (Settings > Appearance) - defaults to dark, since a
  * Sunmi terminal sits under kitchen/counter lighting most of the day. */
 @Composable
 fun PosAppTheme(darkTheme: Boolean = true, content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (darkTheme) DarkColors else LightColors, content = content)
+    MaterialTheme(colorScheme = if (darkTheme) DarkColors else LightColors, shapes = PosShapes, content = content)
 }

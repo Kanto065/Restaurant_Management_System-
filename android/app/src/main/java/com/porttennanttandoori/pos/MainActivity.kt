@@ -17,9 +17,13 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -49,6 +53,7 @@ import com.porttennanttandoori.pos.ui.orders.NewOrdersScreen
 import com.porttennanttandoori.pos.ui.orders.OrderHistoryScreen
 import com.porttennanttandoori.pos.ui.orders.OrdersViewModel
 import com.porttennanttandoori.pos.ui.orders.cancelledStatusName
+import com.porttennanttandoori.pos.ui.orders.isHistoryStatus
 import com.porttennanttandoori.pos.ui.orders.nextStatusAfter
 import com.porttennanttandoori.pos.ui.settings.SettingsScreen
 import com.porttennanttandoori.pos.ui.theme.PosAppTheme
@@ -130,12 +135,14 @@ class MainActivity : ComponentActivity() {
                     val backStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = backStackEntry?.destination?.route
 
+                    val allOrders by ordersViewModel.orders.collectAsStateWithLifecycle()
                     val orderStatusDefinitions by ordersViewModel.orderStatusDefinitions.collectAsStateWithLifecycle()
                     val orderDetails by ordersViewModel.orderDetails.collectAsStateWithLifecycle()
                     val awaitingConfirmation by ordersViewModel.ordersAwaitingConfirmation.collectAsStateWithLifecycle(initialValue = emptyList())
                     val paymentStatusDefinitions by ordersViewModel.paymentStatusDefinitions.collectAsStateWithLifecycle()
                     var processingOrderId by remember { mutableStateOf<String?>(null) }
                     val incomingOrder = awaitingConfirmation.firstOrNull { it.id != processingOrderId }
+                    val newOrdersBadgeCount = allOrders.count { !isHistoryStatus(it.status, orderStatusDefinitions) }
 
                     fun reprintOrder(orderId: String) {
                         val detail = orderDetails[orderId]
@@ -152,8 +159,12 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         snackbarHost = { SnackbarHost(snackbarHostState) },
                         bottomBar = {
-                            NavigationBar {
+                            // No selection-indicator pill and no per-item container color - the
+                            // design's tab bar is just icon+label colored by selection state, not
+                            // stock Material's capsule-behind-the-icon look.
+                            NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
                                 BOTTOM_NAV_DESTINATIONS.forEach { destination ->
+                                    val badgeCount = if (destination == Destination.NewOrders) newOrdersBadgeCount else 0
                                     NavigationBarItem(
                                         selected = currentRoute == destination.route,
                                         onClick = {
@@ -163,8 +174,19 @@ class MainActivity : ComponentActivity() {
                                                 restoreState = true
                                             }
                                         },
-                                        icon = { Icon(destination.icon, contentDescription = destination.label) },
+                                        icon = {
+                                            BadgedBox(badge = { if (badgeCount > 0) Badge { Text(badgeCount.toString()) } }) {
+                                                Icon(destination.icon, contentDescription = destination.label)
+                                            }
+                                        },
                                         label = { Text(destination.label) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        ),
                                     )
                                 }
                             }

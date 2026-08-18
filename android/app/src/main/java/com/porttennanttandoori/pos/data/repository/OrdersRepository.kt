@@ -68,6 +68,16 @@ class OrdersRepository(
     }
 
     suspend fun refresh(): Result<Unit> {
+        // loadStatusDefinitions() only otherwise runs once, at OrderListenerService startup - if
+        // that single attempt loses a race with the device token being ready (or any other
+        // transient failure), orderStatusDefinitions stays empty forever and ordersAwaitingConfirmation
+        // silently never matches anything again, permanently killing the new-order alarm and
+        // takeover screen for the rest of the session. Piggyback a retry on every refresh (which
+        // happens on every OrderCreated/PaymentReceived SSE event, not just cold start) until it
+        // actually succeeds.
+        if (_orderStatusDefinitions.value.isEmpty() || _paymentStatusDefinitions.value.isEmpty()) {
+            loadStatusDefinitions()
+        }
         return try {
             val response = apiService.listOrders()
             if (response.isSuccessful) {

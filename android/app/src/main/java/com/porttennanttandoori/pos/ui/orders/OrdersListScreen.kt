@@ -65,7 +65,7 @@ import com.porttennanttandoori.pos.data.model.PaymentStatusDefinitionDto
  * flagged CountsAsCompleted, or is Cancelled - the latter has no dedicated boolean on the status
  * definition (see StatusDefinitionSeeder.cs), so it's matched by name like the rest of the admin
  * dashboard does for this one specific status. */
-private fun isHistoryStatus(status: String, definitions: List<OrderStatusDefinitionDto>): Boolean {
+fun isHistoryStatus(status: String, definitions: List<OrderStatusDefinitionDto>): Boolean {
     if (definitions.any { it.name == status && it.countsAsCompleted }) return true
     return status.equals("Cancelled", ignoreCase = true)
 }
