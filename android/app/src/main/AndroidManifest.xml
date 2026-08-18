@@ -19,6 +19,14 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- Lets bindService() actually see the Sunmi Printer Service package under API 30+ package
+         visibility restrictions (SunmiPrinterService.kt) - without this, an explicit-package
+         Intent to another app's service silently fails to resolve on a real terminal even though
+         the service is genuinely installed and running. -->
+    <queries>
+        <package android:name="woyou.aidlservice.jiuiv5" />
+    </queries>
+
     <application
         android:name=".PosApplication"
         android:allowBackup="false"

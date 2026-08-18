@@ -21,6 +21,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,12 +39,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.porttennanttandoori.pos.alert.toReceipt
+import com.porttennanttandoori.pos.data.local.TerminalSettings
 import com.porttennanttandoori.pos.data.network.OrderListenerService
 import com.porttennanttandoori.pos.ui.login.PairingScreen
 import com.porttennanttandoori.pos.ui.login.PairingViewModel
+import com.porttennanttandoori.pos.ui.orders.IncomingOrderScreen
 import com.porttennanttandoori.pos.ui.orders.NewOrdersScreen
 import com.porttennanttandoori.pos.ui.orders.OrderHistoryScreen
 import com.porttennanttandoori.pos.ui.orders.OrdersViewModel
+import com.porttennanttandoori.pos.ui.orders.cancelledStatusName
+import com.porttennanttandoori.pos.ui.orders.nextStatusAfter
 import com.porttennanttandoori.pos.ui.settings.SettingsScreen
 import com.porttennanttandoori.pos.ui.theme.PosAppTheme
 import com.porttennanttandoori.pos.update.AvailableUpdate
@@ -84,16 +91,24 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val authRepository = (application as PosApplication).authRepository
-            val updateChecker = (application as PosApplication).updateChecker
+            val app = application as PosApplication
+            val authRepository = app.authRepository
+            val updateChecker = app.updateChecker
             val coroutineScope = rememberCoroutineScope()
             var availableUpdate by remember { mutableStateOf<AvailableUpdate?>(null) }
             var downloading by remember { mutableStateOf(false) }
             var checkingForUpdate by remember { mutableStateOf(false) }
+            var testingPrint by remember { mutableStateOf(false) }
+            val snackbarHostState = remember { SnackbarHostState() }
+
+            fun toast(message: String) {
+                coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+            }
 
             // DataStore emits a new session as soon as pairAndLogin() persists it, so this
             // recomposes straight past the pairing screen without any extra navigation state.
             val session by authRepository.session.collectAsStateWithLifecycle(initialValue = null)
+            val settings by app.settingsStore.settings.collectAsStateWithLifecycle(initialValue = TerminalSettings())
 
             fun checkForUpdate() {
                 checkingForUpdate = true
@@ -103,7 +118,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            PosAppTheme {
+            PosAppTheme(darkTheme = settings.darkTheme) {
                 val currentSession = session
                 if (currentSession != null) {
                     LaunchedEffect(Unit) {
@@ -115,7 +130,27 @@ class MainActivity : ComponentActivity() {
                     val backStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = backStackEntry?.destination?.route
 
+                    val orderStatusDefinitions by ordersViewModel.orderStatusDefinitions.collectAsStateWithLifecycle()
+                    val orderDetails by ordersViewModel.orderDetails.collectAsStateWithLifecycle()
+                    val awaitingConfirmation by ordersViewModel.ordersAwaitingConfirmation.collectAsStateWithLifecycle(initialValue = emptyList())
+                    val paymentStatusDefinitions by ordersViewModel.paymentStatusDefinitions.collectAsStateWithLifecycle()
+                    var processingOrderId by remember { mutableStateOf<String?>(null) }
+                    val incomingOrder = awaitingConfirmation.firstOrNull { it.id != processingOrderId }
+
+                    fun reprintOrder(orderId: String) {
+                        val detail = orderDetails[orderId]
+                        if (detail == null) {
+                            toast("Order details still loading - try again in a moment.")
+                            return
+                        }
+                        coroutineScope.launch {
+                            val result = runCatching { app.printerManager.printReceipt(detail.toReceipt(), settings.copiesPerOrder) }
+                            toast(if (result.isSuccess) "Receipt reprinted" else "Printer unavailable on this device")
+                        }
+                    }
+
                     Scaffold(
+                        snackbarHost = { SnackbarHost(snackbarHostState) },
                         bottomBar = {
                             NavigationBar {
                                 BOTTOM_NAV_DESTINATIONS.forEach { destination ->
@@ -140,17 +175,80 @@ class MainActivity : ComponentActivity() {
                             startDestination = Destination.NewOrders.route,
                             modifier = Modifier.padding(padding),
                         ) {
-                            composable(Destination.NewOrders.route) { NewOrdersScreen(viewModel = ordersViewModel) }
-                            composable(Destination.OrderHistory.route) { OrderHistoryScreen(viewModel = ordersViewModel) }
+                            composable(Destination.NewOrders.route) {
+                                NewOrdersScreen(viewModel = ordersViewModel, onReprint = ::reprintOrder)
+                            }
+                            composable(Destination.OrderHistory.route) {
+                                OrderHistoryScreen(viewModel = ordersViewModel, onReprint = ::reprintOrder)
+                            }
                             composable(Destination.Settings.route) {
                                 SettingsScreen(
                                     restaurantName = currentSession.restaurantName,
+                                    settings = settings,
                                     checkingForUpdate = checkingForUpdate,
+                                    testingPrint = testingPrint,
+                                    onSetDarkTheme = { dark -> coroutineScope.launch { app.settingsStore.setDarkTheme(dark) } },
+                                    onSetPrinter = { id -> coroutineScope.launch { app.settingsStore.setPrinterId(id) } },
+                                    onSetCopies = { copies -> coroutineScope.launch { app.settingsStore.setCopiesPerOrder(copies) } },
+                                    onSetVolume = { volume -> coroutineScope.launch { app.settingsStore.setAlarmVolume(volume) } },
+                                    onSetAlarmMode = { mode -> coroutineScope.launch { app.settingsStore.setAlarmMode(mode) } },
+                                    onTestPrint = {
+                                        testingPrint = true
+                                        coroutineScope.launch {
+                                            val receipt = com.porttennanttandoori.pos.alert.Receipt(
+                                                title = "Port Tennant Tandoori",
+                                                subtitle = "Test print",
+                                                lines = listOf("This is a test receipt.", "If you can read this, printing works."),
+                                            )
+                                            val result = runCatching { app.printerManager.printReceipt(receipt, 1) }
+                                            testingPrint = false
+                                            toast(if (result.isSuccess) "Test receipt printed" else "Printer unavailable on this device")
+                                        }
+                                    },
                                     onCheckForUpdate = ::checkForUpdate,
                                     onSignOut = { coroutineScope.launch { authRepository.signOut() } },
                                 )
                             }
                         }
+                    }
+
+                    if (incomingOrder != null) {
+                        LaunchedEffect(incomingOrder.id) { ordersViewModel.loadDetail(incomingOrder.id) }
+                        val detail = orderDetails[incomingOrder.id]
+                        IncomingOrderScreen(
+                            order = incomingOrder,
+                            detail = detail,
+                            paymentStatusDefinitions = paymentStatusDefinitions,
+                            isProcessing = processingOrderId == incomingOrder.id,
+                            onConfirm = {
+                                val orderDetail = detail ?: return@IncomingOrderScreen
+                                processingOrderId = incomingOrder.id
+                                coroutineScope.launch {
+                                    val printResult = runCatching {
+                                        app.printerManager.printReceipt(orderDetail.toReceipt(), settings.copiesPerOrder)
+                                    }
+                                    val next = nextStatusAfter(incomingOrder.status, orderStatusDefinitions)
+                                    ordersViewModel.updateStatusAwait(incomingOrder.id, next)
+                                    processingOrderId = null
+                                    toast(
+                                        if (printResult.isSuccess) {
+                                            "#${incomingOrder.orderNumber} confirmed · receipt printed"
+                                        } else {
+                                            "#${incomingOrder.orderNumber} confirmed · printer unavailable"
+                                        },
+                                    )
+                                }
+                            },
+                            onCancel = {
+                                processingOrderId = incomingOrder.id
+                                coroutineScope.launch {
+                                    val cancelled = cancelledStatusName(orderStatusDefinitions)
+                                    ordersViewModel.updateStatusAwait(incomingOrder.id, cancelled)
+                                    processingOrderId = null
+                                    toast("#${incomingOrder.orderNumber} cancelled · nothing printed")
+                                }
+                            },
+                        )
                     }
                 } else {
                     PairingScreen(viewModel = pairingViewModel)

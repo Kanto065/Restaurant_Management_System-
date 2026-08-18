@@ -1,6 +1,8 @@
 package com.porttennanttandoori.pos
 
 import android.app.Application
+import com.porttennanttandoori.pos.alert.PrinterManager
+import com.porttennanttandoori.pos.data.local.SettingsStore
 import com.porttennanttandoori.pos.data.local.TokenStore
 import com.porttennanttandoori.pos.data.network.NetworkModule
 import com.porttennanttandoori.pos.data.repository.AuthRepository
@@ -26,6 +28,8 @@ class PosApplication : Application() {
         OrdersRepository(networkModule.apiService, networkModule.orderEventsClient)
     }
     val updateChecker: UpdateChecker by lazy { UpdateChecker(this) }
+    val settingsStore: SettingsStore by lazy { SettingsStore(this) }
+    val printerManager: PrinterManager by lazy { PrinterManager(this) }
 
     override fun onCreate() {
         super.onCreate()
