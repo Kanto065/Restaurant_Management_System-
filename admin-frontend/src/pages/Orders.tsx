@@ -23,7 +23,7 @@ import { statusBadgeColor, paymentStatusBadgeColor } from '@/pages/Configuration
 import {
   Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Timer,
   RefreshCw, UtensilsCrossed, User, Phone, Mail, Search, MoreVertical, ArrowRight, Check, Pencil, Trash2,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Printer,
 } from 'lucide-react';
 
 const CURRENCY_ICONS: Record<string, typeof DollarSign> = {
@@ -60,6 +60,64 @@ const PAGE_SIZE = 25;
 
 const formatTime = (date: string) =>
   new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+
+/** Opens a receipt-shaped print window for one order and immediately triggers the browser's
+ * print dialog - no PDF/print library needed, this is exactly what a manual Ctrl+P of a
+ * print-only page would do, just without navigating the admin dashboard away from itself. */
+function openReceiptPrintWindow(order: OrderDetail, formatCurrency: (amount: number) => string) {
+  const win = window.open('', '_blank', 'width=380,height=600');
+  if (!win) return;
+
+  const itemsHtml = order.items.map((item) => `
+    <tr><td>${item.quantity}&times; ${escapeHtml(item.nameSnapshot)}</td><td style="text-align:right">${formatCurrency(item.lineTotal)}</td></tr>
+    ${item.specialInstructions ? `<tr><td colspan="2" style="padding-left:14px;font-size:11px;color:#666">Note: ${escapeHtml(item.specialInstructions)}</td></tr>` : ''}
+  `).join('');
+
+  const feeRow = (label: string, amount: number) =>
+    amount > 0 ? `<tr><td>${label}</td><td style="text-align:right">${formatCurrency(amount)}</td></tr>` : '';
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Order #${escapeHtml(order.orderNumber)}</title>
+<style>
+  body { font-family: ui-monospace, Menlo, monospace; font-size: 13px; width: 280px; margin: 16px auto; color: #111; }
+  h1 { font-size: 16px; margin: 0 0 2px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  td { padding: 3px 0; vertical-align: top; }
+  .muted { color: #666; font-size: 11px; }
+  .totals td { border-top: 1px solid #ccc; padding-top: 6px; }
+  .grand td { font-weight: 700; font-size: 15px; border-top: 1px solid #111; padding-top: 8px; }
+  @media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+  <h1>Port Tennant Tandoori</h1>
+  <div class="muted">Order #${escapeHtml(order.orderNumber)} &middot; ${escapeHtml(order.orderType)}</div>
+  <div class="muted">${new Date(order.createdAt).toLocaleString('en-GB')}</div>
+  <div class="muted">${escapeHtml(order.customerName ?? 'Walk-in')}${order.customerPhone ? ` &middot; ${escapeHtml(order.customerPhone)}` : ''}</div>
+  <table>${itemsHtml}</table>
+  <table class="totals">
+    <tr><td>Subtotal</td><td style="text-align:right">${formatCurrency(order.subtotal)}</td></tr>
+    ${feeRow('Delivery fee', order.deliveryFee)}
+    ${feeRow('Processing fee', order.processingFee)}
+    ${order.discountAmount > 0 ? `<tr><td>Discount</td><td style="text-align:right">&minus;${formatCurrency(order.discountAmount)}</td></tr>` : ''}
+    <tr class="grand"><td>Total</td><td style="text-align:right">${formatCurrency(order.totalAmount)}</td></tr>
+  </table>
+  <div class="muted" style="margin-top:8px">${escapeHtml(order.paymentMethod)} &middot; ${escapeHtml(order.paymentStatus)}</div>
+  ${order.specialRequests ? `<div class="muted" style="margin-top:8px">Note: ${escapeHtml(order.specialRequests)}</div>` : ''}
+</body>
+</html>`;
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => { win.focus(); win.print(); };
+}
 
 const Orders = () => {
   const { toast } = useToast();
@@ -204,6 +262,24 @@ const Orders = () => {
     }
   };
 
+  const [printLoading, setPrintLoading] = useState<string | null>(null);
+  const printOrder = async (order: OrderListItem, detail?: OrderDetail | null) => {
+    let full = detail;
+    if (!full) {
+      setPrintLoading(order.id);
+      try {
+        const res = await api.get<OrderDetail>(`/api/admin/orders/${order.id}`);
+        full = res.data ?? undefined;
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
+        return;
+      } finally {
+        setPrintLoading(null);
+      }
+    }
+    if (full) openReceiptPrintWindow(full, formatCurrency);
+  };
+
   const quickStatusMutation = useMutation({
     mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>
       api.put(`/api/admin/orders/${orderId}/status`, { status, note: null }),
@@ -342,7 +418,7 @@ const Orders = () => {
             </div>
           ) : (
             <div className="divide-y">
-              <div className="hidden lg:grid grid-cols-[70px_1fr_100px_90px_100px_220px_190px_36px_36px] gap-3 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <div className="hidden lg:grid grid-cols-[70px_1fr_100px_90px_100px_220px_190px_36px_36px_36px] gap-3 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 <span>Order</span>
                 <span>Customer</span>
                 <span />
@@ -350,6 +426,7 @@ const Orders = () => {
                 <span>Time</span>
                 <span>Status</span>
                 <span>Payment</span>
+                <span />
                 <span />
                 <span />
               </div>
@@ -362,7 +439,7 @@ const Orders = () => {
                   <div
                     key={order.id}
                     onClick={() => openOrder(order.id)}
-                    className="grid grid-cols-1 lg:grid-cols-[70px_1fr_100px_90px_100px_220px_190px_36px_36px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center cursor-pointer"
+                    className="grid grid-cols-1 lg:grid-cols-[70px_1fr_100px_90px_100px_220px_190px_36px_36px_36px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center cursor-pointer"
                   >
                     <div>
                       <span className="font-mono font-semibold text-sm">#{order.orderNumber}</span>
@@ -471,6 +548,11 @@ const Orders = () => {
                       </div>
                     </div>
 
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Print receipt" disabled={printLoading === order.id} onClick={() => printOrder(order)}>
+                        {printLoading === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                      </Button>
+                    </div>
                     <div onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Edit order" disabled={editLoading} onClick={() => openEditDialog(order)}>
                         {editLoading && selectedOrderId === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
@@ -588,6 +670,9 @@ const Orders = () => {
             </ScrollArea>
           )}
           <DialogFooter>
+            <Button variant="outline" onClick={() => { if (selectedOrder) printOrder(selectedOrder, selectedOrder); }}>
+              <Printer className="w-4 h-4 mr-2" />Print
+            </Button>
             <Button
               variant="outline"
               onClick={() => { if (selectedOrder) { const o = orders.find((x) => x.id === selectedOrder.id) ?? selectedOrder; openEditDialog(o, selectedOrder); setIsDetailsOpen(false); } }}
