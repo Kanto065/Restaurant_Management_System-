@@ -77,6 +77,7 @@ fun SettingsScreen(
     onTestPrint: () -> Unit,
     onCheckForUpdate: () -> Unit,
     onSignOut: () -> Unit,
+    onSimulateIncomingOrder: () -> Unit,
 ) {
     var showSignOutConfirm by remember { mutableStateOf(false) }
 
@@ -170,6 +171,14 @@ fun SettingsScreen(
                     valueRange = 0f..100f,
                 )
                 AlarmModeSelector(current = settings.alarmMode, onSelect = onSetAlarmMode)
+            }
+
+            // Fires the exact same full-screen takeover / alarm / print flow a real order would,
+            // against a made-up order that never touches the backend - lets staff (and whoever's
+            // debugging a "the alarm never rings" report) verify the whole flow works on this
+            // specific terminal without needing a real customer order to come through.
+            OutlinedButton(onClick = onSimulateIncomingOrder, modifier = Modifier.fillMaxWidth()) {
+                Text("Simulate incoming order")
             }
 
             OutlinedButton(onClick = onCheckForUpdate, enabled = !checkingForUpdate, modifier = Modifier.fillMaxWidth()) {

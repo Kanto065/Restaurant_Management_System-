@@ -45,6 +45,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.porttennanttandoori.pos.alert.toReceipt
 import com.porttennanttandoori.pos.data.local.TerminalSettings
+import com.porttennanttandoori.pos.data.model.OrderDetailDto
+import com.porttennanttandoori.pos.data.model.OrderItemDto
+import com.porttennanttandoori.pos.data.model.OrderListItemDto
+import com.porttennanttandoori.pos.data.model.OrderType
+import com.porttennanttandoori.pos.data.model.PaymentMethod
 import com.porttennanttandoori.pos.data.network.OrderListenerService
 import com.porttennanttandoori.pos.ui.login.PairingScreen
 import com.porttennanttandoori.pos.ui.login.PairingViewModel
@@ -69,6 +74,50 @@ private sealed class Destination(val route: String, val label: String, val icon:
 }
 
 private val BOTTOM_NAV_DESTINATIONS = listOf(Destination.NewOrders, Destination.OrderHistory, Destination.Settings)
+
+/** Built from whatever status the restaurant actually has configured (its IsDefault order status
+ * and payment status), not hardcoded names, so the simulated takeover looks/behaves exactly like
+ * a real one on this specific restaurant's setup. */
+private fun buildSimulatedIncomingOrder(
+    orderStatusDefinitions: List<com.porttennanttandoori.pos.data.model.OrderStatusDefinitionDto>,
+    paymentStatusDefinitions: List<com.porttennanttandoori.pos.data.model.PaymentStatusDefinitionDto>,
+): Pair<OrderListItemDto, OrderDetailDto> {
+    val id = "sim-" + java.util.UUID.randomUUID()
+    val orderNumber = "SIM" + (100..999).random()
+    val status = orderStatusDefinitions.firstOrNull { it.isDefault }?.name ?: "Pending"
+    val paymentStatus = paymentStatusDefinitions.firstOrNull { it.isDefault }?.name ?: "Pending"
+    val createdAt = java.time.OffsetDateTime.now().toString()
+    val items = listOf(
+        com.porttennanttandoori.pos.data.model.OrderItemDto(
+            id = "sim-item-1", nameSnapshot = "Chicken Tikka Masala", unitPriceSnapshot = 11.90, quantity = 2,
+            specialInstructions = "Medium spice", lineTotal = 23.80,
+            modifiers = listOf(com.porttennanttandoori.pos.data.model.OrderItemModifierDto("sim-mod-1", "Extra sauce", 0.0)),
+        ),
+        com.porttennanttandoori.pos.data.model.OrderItemDto(
+            id = "sim-item-2", nameSnapshot = "Peshwari Naan", unitPriceSnapshot = 4.10, quantity = 1,
+            specialInstructions = null, lineTotal = 4.10, modifiers = emptyList(),
+        ),
+    )
+    val subtotal = 27.90
+    val deliveryFee = 2.50
+    val processingFee = 0.45
+    val discountAmount = 0.0
+    val total = subtotal + deliveryFee + processingFee - discountAmount
+    val listItem = OrderListItemDto(
+        id = id, orderNumber = orderNumber, orderType = OrderType.Delivery, status = status,
+        paymentStatus = paymentStatus, paymentMethod = PaymentMethod.Card, totalAmount = total,
+        customerName = "Test Customer", createdAt = createdAt,
+    )
+    val detail = OrderDetailDto(
+        id = id, orderNumber = orderNumber, orderType = OrderType.Delivery, status = status,
+        paymentStatus = paymentStatus, paymentMethod = PaymentMethod.Card, subtotal = subtotal,
+        deliveryFee = deliveryFee, processingFee = processingFee, discountAmount = discountAmount,
+        totalAmount = total, customerName = "Test Customer", customerPhone = "07700 900000",
+        customerEmail = null, specialRequests = "This is a simulated order - ring the bell twice.",
+        estimatedReadyAt = null, createdAt = createdAt, items = items, statusHistory = emptyList(),
+    )
+    return listItem to detail
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -141,7 +190,11 @@ class MainActivity : ComponentActivity() {
                     val awaitingConfirmation by ordersViewModel.ordersAwaitingConfirmation.collectAsStateWithLifecycle(initialValue = emptyList())
                     val paymentStatusDefinitions by ordersViewModel.paymentStatusDefinitions.collectAsStateWithLifecycle()
                     var processingOrderId by remember { mutableStateOf<String?>(null) }
-                    val incomingOrder = awaitingConfirmation.firstOrNull { it.id != processingOrderId }
+                    // Settings > "Simulate incoming order" - a made-up order/detail pair that never
+                    // touches the backend, so the full alarm/takeover/print flow can be exercised on
+                    // a specific terminal without waiting for (or faking) a real customer order.
+                    var simulatedOrder by remember { mutableStateOf<Pair<OrderListItemDto, OrderDetailDto>?>(null) }
+                    val incomingOrder = simulatedOrder?.first ?: awaitingConfirmation.firstOrNull { it.id != processingOrderId }
                     val newOrdersBadgeCount = allOrders.count { !isHistoryStatus(it.status, orderStatusDefinitions) }
 
                     fun reprintOrder(orderId: String) {
@@ -229,14 +282,18 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onCheckForUpdate = ::checkForUpdate,
                                     onSignOut = { coroutineScope.launch { authRepository.signOut() } },
+                                    onSimulateIncomingOrder = { simulatedOrder = buildSimulatedIncomingOrder(orderStatusDefinitions, paymentStatusDefinitions) },
                                 )
                             }
                         }
                     }
 
                     if (incomingOrder != null) {
-                        LaunchedEffect(incomingOrder.id) { ordersViewModel.loadDetail(incomingOrder.id) }
-                        val detail = orderDetails[incomingOrder.id]
+                        val isSimulated = simulatedOrder?.first?.id == incomingOrder.id
+                        if (!isSimulated) {
+                            LaunchedEffect(incomingOrder.id) { ordersViewModel.loadDetail(incomingOrder.id) }
+                        }
+                        val detail = if (isSimulated) simulatedOrder?.second else orderDetails[incomingOrder.id]
                         IncomingOrderScreen(
                             order = incomingOrder,
                             detail = detail,
@@ -249,8 +306,12 @@ class MainActivity : ComponentActivity() {
                                     val printResult = runCatching {
                                         app.printerManager.printReceipt(orderDetail.toReceipt(), settings.copiesPerOrder)
                                     }
-                                    val next = nextStatusAfter(incomingOrder.status, orderStatusDefinitions)
-                                    ordersViewModel.updateStatusAwait(incomingOrder.id, next)
+                                    if (isSimulated) {
+                                        simulatedOrder = null
+                                    } else {
+                                        val next = nextStatusAfter(incomingOrder.status, orderStatusDefinitions)
+                                        ordersViewModel.updateStatusAwait(incomingOrder.id, next)
+                                    }
                                     processingOrderId = null
                                     toast(
                                         if (printResult.isSuccess) {
@@ -262,6 +323,11 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onCancel = {
+                                if (isSimulated) {
+                                    simulatedOrder = null
+                                    toast("#${incomingOrder.orderNumber} cancelled · nothing printed")
+                                    return@IncomingOrderScreen
+                                }
                                 processingOrderId = incomingOrder.id
                                 coroutineScope.launch {
                                     val cancelled = cancelledStatusName(orderStatusDefinitions)
