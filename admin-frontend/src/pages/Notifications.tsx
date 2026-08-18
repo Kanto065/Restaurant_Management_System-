@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Loader2, ShoppingCart, DollarSign, CheckCheck, Trash2, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -107,39 +106,37 @@ const Notifications = () => {
               <p className="text-muted-foreground">No notifications yet</p>
             </div>
           ) : (
-            <ScrollArea className="max-h-[70vh]">
-              <div className="divide-y">
-                {notifications.map((n) => {
-                  const Icon = typeIcons[n.type] ?? Bell;
-                  const { status } = parsePayload(n.payloadJson);
-                  return (
-                    <div
-                      key={n.id}
-                      className={`p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-muted/30 ${!n.isRead ? 'bg-primary/5' : ''}`}
-                      onClick={() => handleClick(n)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                          <Icon className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{typeLabels[n.type] ?? n.type}</p>
-                            {!n.isRead && <Badge variant="default" className="text-xs">New</Badge>}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {status ? `Status: ${status}` : ''} · {new Date(n.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
+            <div className="divide-y">
+              {notifications.map((n) => {
+                const Icon = typeIcons[n.type] ?? Bell;
+                const { status } = parsePayload(n.payloadJson);
+                return (
+                  <div
+                    key={n.id}
+                    className={`p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-muted/30 ${!n.isRead ? 'bg-primary/5' : ''}`}
+                    onClick={() => handleClick(n)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Icon className="h-5 w-5 text-primary" />
                       </div>
-                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(n.id); }}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{typeLabels[n.type] ?? n.type}</p>
+                          {!n.isRead && <Badge variant="default" className="text-xs">New</Badge>}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {status ? `Status: ${status}` : ''} · {new Date(n.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
+                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(n.id); }}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
