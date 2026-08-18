@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -48,7 +49,12 @@ class OrderListenerService : Service() {
      * restarts cleanly on every emission, so start()/stop() never race each other. */
     private suspend fun watchForNewOrders(app: PosApplication) {
         app.ordersRepository.ordersAwaitingConfirmation.collectLatest { pending ->
-            if (pending.isNotEmpty()) alarm.start() else alarm.stop()
+            if (pending.isEmpty()) {
+                alarm.stop()
+            } else {
+                val settings = app.settingsStore.settings.first()
+                alarm.start(settings.alarmVolume, settings.alarmMode)
+            }
         }
     }
 
