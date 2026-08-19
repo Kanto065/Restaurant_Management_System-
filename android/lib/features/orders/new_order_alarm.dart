@@ -22,11 +22,11 @@ class NewOrderAlarmController {
   Timer? _autoStopTimer;
   bool _running = false;
 
-  void start({required int volume, required AlarmMode mode}) {
+  void start({required int volume, required AlarmMode mode, required AlarmTone tone}) {
     if (mode == AlarmMode.off) return;
     if (_running) return;
     _running = true;
-    unawaited(_channel.invokeMethod('start', {'volume': volume}).catchError((_) => null));
+    unawaited(_channel.invokeMethod('start', {'volume': volume, 'tone': tone.name}).catchError((_) => null));
     final autoStopSeconds = switch (mode) {
       AlarmMode.tenSeconds => 10,
       AlarmMode.thirtySeconds => 30,
@@ -44,6 +44,12 @@ class NewOrderAlarmController {
     _running = false;
     unawaited(_channel.invokeMethod('stop').catchError((_) => null));
   }
+
+  /// One-shot playback for Settings' "Preview alarm" button - a separate
+  /// native call so it never touches the looping start/stop state above
+  /// (previewing shouldn't require - or interfere with - an active alarm).
+  static Future<void> preview({required int volume, required AlarmTone tone}) =>
+      _channel.invokeMethod('preview', {'volume': volume, 'tone': tone.name}).catchError((_) => null);
 }
 
 final newOrderAlarmProvider = Provider<NewOrderAlarmController>((ref) {
@@ -55,7 +61,7 @@ final newOrderAlarmProvider = Provider<NewOrderAlarmController>((ref) {
     if (next.isEmpty) {
       controller.stop();
     } else if (settings != null) {
-      controller.start(volume: settings.alarmVolume, mode: settings.alarmMode);
+      controller.start(volume: settings.alarmVolume, mode: settings.alarmMode, tone: settings.alarmTone);
     }
   }, fireImmediately: true);
 

@@ -67,6 +67,11 @@ class SettingsNotifier extends AsyncNotifier<TerminalSettings> {
     await ref.read(settingsStoreProvider).setAlarmMode(mode);
     state = AsyncValue.data(state.requireValue.copyWith(alarmMode: mode));
   }
+
+  Future<void> setAlarmTone(AlarmTone tone) async {
+    await ref.read(settingsStoreProvider).setAlarmTone(tone);
+    state = AsyncValue.data(state.requireValue.copyWith(alarmTone: tone));
+  }
 }
 
 final settingsProvider = AsyncNotifierProvider<SettingsNotifier, TerminalSettings>(SettingsNotifier.new);

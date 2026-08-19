@@ -5,12 +5,13 @@ import '../../api/settings_store.dart';
 import '../../providers.dart';
 import '../../theme.dart';
 import '../../widgets/pos_card.dart';
+import '../orders/new_order_alarm.dart';
 import '../printing/printer_service.dart';
 
 const _alarmModeLabels = {
-  AlarmMode.untilConfirmed: 'Until confirmed or cancelled',
-  AlarmMode.tenSeconds: 'Sound for 10 seconds',
-  AlarmMode.thirtySeconds: 'Sound for 30 seconds',
+  AlarmMode.untilConfirmed: 'Until answered',
+  AlarmMode.tenSeconds: '10 seconds',
+  AlarmMode.thirtySeconds: '30 seconds',
   AlarmMode.off: 'No sound',
 };
 
@@ -78,6 +79,38 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
     if (mode != null) await ref.read(settingsProvider.notifier).setAlarmMode(mode);
   }
 
+  Future<void> _openToneSheet() async {
+    final tone = await showModalBottomSheet<AlarmTone>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 6),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(18, 8, 18, 8),
+              child: Align(alignment: Alignment.centerLeft, child: Text('Alert tone', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15))),
+            ),
+            for (final t in AlarmTone.values)
+              ListTile(
+                title: Text(alarmToneInfo[t]!.name),
+                subtitle: Text(alarmToneInfo[t]!.detail),
+                trailing: ref.read(settingsProvider).valueOrNull?.alarmTone == t ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.of(context).pop(t),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (tone != null) await ref.read(settingsProvider.notifier).setAlarmTone(tone);
+  }
+
+  Future<void> _previewAlarm() async {
+    final settings = ref.read(settingsProvider).valueOrNull;
+    if (settings == null) return;
+    await NewOrderAlarmController.preview(volume: settings.alarmVolume, tone: settings.alarmTone);
+  }
+
   Future<void> _testPrint() async {
     setState(() => _testPrinting = true);
     await Future.delayed(const Duration(milliseconds: 700));
@@ -135,7 +168,9 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
                 const SizedBox(height: 6),
                 Text(session?.restaurantName ?? '—', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 19)),
                 const SizedBox(height: 4),
-                Text('PTT POS · v0.1.0 · Terminal ${session?.deviceId ?? '—'}', style: TextStyle(color: tokens.mutedFg, fontSize: 13)),
+                // No device ID or version string here, per FLUTTER_PROMPT.md - "Check for
+                // updates" lower on this tab is where the version number belongs.
+                Text('Paired', style: TextStyle(color: tokens.mutedFg, fontSize: 13)),
               ],
             ),
           ),
@@ -216,7 +251,50 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('New-order alarm', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: _openToneSheet,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Alert tone', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5)),
+                              const SizedBox(height: 2),
+                              Text(alarmToneInfo[settings.alarmTone]!.detail, style: TextStyle(color: tokens.mutedFg, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        Text(alarmToneInfo[settings.alarmTone]!.name, style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w600, fontSize: 13)),
+                        Icon(Icons.chevron_right_rounded, color: tokens.mutedFg, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: Theme.of(context).colorScheme.outline),
+                InkWell(
+                  onTap: _openAlarmModeSheet,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('How long it sounds', style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w500, fontSize: 13.5)),
+                        Row(
+                          children: [
+                            Text(_alarmModeLabels[settings.alarmMode]!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            Icon(Icons.chevron_right_rounded, color: tokens.mutedFg, size: 18),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: Theme.of(context).colorScheme.outline),
+                const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -231,13 +309,11 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
                   onChanged: (v) => ref.read(settingsProvider.notifier).setAlarmVolume(v.round()),
                 ),
                 Divider(height: 1, color: Theme.of(context).colorScheme.outline),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('How long it sounds', style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w500, fontSize: 13.5)),
-                    Text(_alarmModeLabels[settings.alarmMode]!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  ],
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _previewAlarm,
+                  icon: const Icon(Icons.volume_up_rounded, size: 18),
+                  label: const Text('Preview alarm'),
                 ),
               ],
             ),
