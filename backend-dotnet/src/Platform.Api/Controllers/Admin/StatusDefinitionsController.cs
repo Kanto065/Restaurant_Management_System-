@@ -23,7 +23,10 @@ public record ReorderStatusDefinitionsRequest(List<Guid> OrderedIds);
 /// </summary>
 [ApiController]
 [Route("api/admin")]
-[Authorize(Policy = "StaffOnly")]
+// No class-level policy: stacking [Authorize] at class and method level ANDs the policies
+// together rather than letting the method override the class, so the two list endpoints
+// below (which paired POS devices call directly) carry their own StaffOrDevice policy and
+// every mutating endpoint carries StaffOnly explicitly instead.
 public class StatusDefinitionsController(AppDbContext db) : ControllerBase
 {
     [HttpGet("order-statuses")]
@@ -37,6 +40,7 @@ public class StatusDefinitionsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost("order-statuses")]
+    [Authorize(Policy = "StaffOnly")]
     public async Task<ActionResult<ApiResponse<OrderStatusDefinitionDto>>> CreateOrderStatus(UpsertOrderStatusDefinitionRequest request)
     {
         if (await db.OrderStatusDefinitions.AnyAsync(d => d.Name == request.Name))
@@ -60,6 +64,7 @@ public class StatusDefinitionsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPut("order-statuses/{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
     public async Task<ActionResult<ApiResponse<OrderStatusDefinitionDto>>> UpdateOrderStatus(Guid id, UpsertOrderStatusDefinitionRequest request)
     {
         var entity = await db.OrderStatusDefinitions.FirstOrDefaultAsync(d => d.Id == id);
@@ -91,6 +96,7 @@ public class StatusDefinitionsController(AppDbContext db) : ControllerBase
     }
 
     [HttpDelete("order-statuses/{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteOrderStatus(Guid id)
     {
         var entity = await db.OrderStatusDefinitions.FirstOrDefaultAsync(d => d.Id == id);
@@ -106,6 +112,7 @@ public class StatusDefinitionsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPut("order-statuses/reorder")]
+    [Authorize(Policy = "StaffOnly")]
     public async Task<ActionResult<ApiResponse<List<OrderStatusDefinitionDto>>>> ReorderOrderStatuses(ReorderStatusDefinitionsRequest request)
     {
         var items = await db.OrderStatusDefinitions.ToListAsync();
@@ -129,6 +136,7 @@ public class StatusDefinitionsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost("payment-statuses")]
+    [Authorize(Policy = "StaffOnly")]
     public async Task<ActionResult<ApiResponse<PaymentStatusDefinitionDto>>> CreatePaymentStatus(UpsertPaymentStatusDefinitionRequest request)
     {
         if (await db.PaymentStatusDefinitions.AnyAsync(d => d.Name == request.Name))
@@ -147,6 +155,7 @@ public class StatusDefinitionsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPut("payment-statuses/{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
     public async Task<ActionResult<ApiResponse<PaymentStatusDefinitionDto>>> UpdatePaymentStatus(Guid id, UpsertPaymentStatusDefinitionRequest request)
     {
         var entity = await db.PaymentStatusDefinitions.FirstOrDefaultAsync(d => d.Id == id);
@@ -170,6 +179,7 @@ public class StatusDefinitionsController(AppDbContext db) : ControllerBase
     }
 
     [HttpDelete("payment-statuses/{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
     public async Task<ActionResult<ApiResponse<object>>> DeletePaymentStatus(Guid id)
     {
         var entity = await db.PaymentStatusDefinitions.FirstOrDefaultAsync(d => d.Id == id);
@@ -185,6 +195,7 @@ public class StatusDefinitionsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPut("payment-statuses/reorder")]
+    [Authorize(Policy = "StaffOnly")]
     public async Task<ActionResult<ApiResponse<List<PaymentStatusDefinitionDto>>>> ReorderPaymentStatuses(ReorderStatusDefinitionsRequest request)
     {
         var items = await db.PaymentStatusDefinitions.ToListAsync();
