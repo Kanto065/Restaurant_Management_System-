@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../api/models.dart';
 import '../../providers.dart';
 import '../../theme.dart';
+import '../../widgets/pos_card.dart';
 import '../../widgets/status_chip_control.dart';
 
 final _timeFormat = DateFormat('HH:mm');
@@ -67,14 +68,13 @@ class _OrderCardState extends ConsumerState<OrderCard> {
     final completedStatus = statusDefs.where((d) => d.countsAsCompleted).firstOrNull?.name ?? order.status;
     final paidStatus = paymentDefs.where((d) => d.name.toLowerCase() == 'paid').firstOrNull?.name ?? order.paymentStatus;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
+    return PosCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          InkWell(
+          GestureDetector(
             onTap: _toggleExpand,
+            behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 13, 14, 11),
               child: Column(

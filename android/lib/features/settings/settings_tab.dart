@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/settings_store.dart';
 import '../../providers.dart';
 import '../../theme.dart';
+import '../../widgets/pos_card.dart';
 import '../printing/printer_service.dart';
 
 const _alarmModeLabels = {
@@ -124,7 +125,7 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 26),
       children: [
-        Card(
+        PosCard(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -140,7 +141,7 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
           ),
         ),
         const SizedBox(height: 14),
-        Card(
+        PosCard(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -163,7 +164,7 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
           ),
         ),
         const SizedBox(height: 14),
-        Card(
+        PosCard(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -208,7 +209,7 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
           ),
         ),
         const SizedBox(height: 14),
-        Card(
+        PosCard(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(

@@ -415,7 +415,7 @@ class _FeedingReceiptState extends State<_FeedingReceipt> with SingleTickerProvi
     return Container(
       width: 88,
       height: 56,
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(color: scheme.surfaceContainer, borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outline)),
       child: AnimatedBuilder(
         animation: _controller,

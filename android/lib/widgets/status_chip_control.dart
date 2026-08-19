@@ -49,7 +49,14 @@ class StatusChipControl extends StatelessWidget {
     final palette = paletteFor(value, displayOrder, brightness);
     final atTerminal = value == terminalValue;
 
-    return Row(
+    // IntrinsicHeight: this Row uses CrossAxisAlignment.stretch, which needs
+    // a bounded height to stretch its children to. Without it, when this
+    // widget sits directly in a Column (no Expanded) inside a ListView item
+    // slot, the incoming height constraint is unbounded and the stretch
+    // fails silently at paint time instead of asserting - the whole card
+    // renders as nothing, with no exception logged.
+    return IntrinsicHeight(
+      child: Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
@@ -59,12 +66,12 @@ class StatusChipControl extends StatelessWidget {
               border: Border.all(color: palette.border),
               borderRadius: BorderRadius.circular(10),
             ),
-            clipBehavior: Clip.antiAlias,
             child: Row(
               children: [
                 Expanded(
-                  child: InkWell(
+                  child: GestureDetector(
                     onTap: busy ? null : onTapValue,
+                    behavior: HitTestBehavior.opaque,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
                       child: Text(
@@ -97,18 +104,25 @@ class StatusChipControl extends StatelessWidget {
           const SizedBox(width: 6),
           SizedBox(
             width: 38,
-            child: OutlinedButton(
-              onPressed: busy ? null : onOverflow,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(38, double.infinity),
-                padding: EdgeInsets.zero,
-                foregroundColor: Theme.of(context).extension<PosTokens>()!.mutedFg,
+            child: GestureDetector(
+              onTap: busy ? null : onOverflow,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Theme.of(context).colorScheme.outline),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '⋮',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Theme.of(context).extension<PosTokens>()!.mutedFg),
+                ),
               ),
-              child: const Text('⋮', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             ),
           ),
         ],
       ],
+      ),
     );
   }
 }
@@ -124,21 +138,17 @@ class _MiniButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: opacity,
-      child: SizedBox(
+    return SizedBox(
         width: 42,
-        child: Material(
-          color: Colors.black.withValues(alpha: 0.04),
-          child: InkWell(
-            onTap: onTap,
-            child: Tooltip(
-              message: tooltip,
-              child: Icon(icon, size: 15, color: color),
-            ),
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            color: Colors.black.withValues(alpha: 0.04),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 15, color: color.withValues(alpha: opacity)),
           ),
         ),
-      ),
     );
   }
 }
