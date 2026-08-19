@@ -14,6 +14,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Disabled by default on current AGP - needed to compile the Sunmi printer service's
+    // AIDL interface under app/src/main/aidl (SunmiPrinterPlugin.kt).
+    buildFeatures {
+        aidl = true
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.porttennanttandoori.pos_terminal"

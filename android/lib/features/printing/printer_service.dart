@@ -55,12 +55,12 @@ class PrinterException implements Exception {
 /// Printer abstraction, decoupled from the specific transport - mirrors
 /// PrinterManager.kt's Receipt shape. The Sunmi built-in printer is driven
 /// through a platform channel to the Sunmi Printer Service AIDL binder (see
-/// android/android/app/src/main/kotlin/.../SunmiPrinterPlugin.kt - TODO,
-/// native side not implemented in this pass, needs a physical Sunmi terminal
-/// to verify against). External printers use raw ESC/POS bytes: LAN over a
-/// TCP socket to port 9100 (works today, no hardware needed to compile), USB
-/// stubbed - Android USB host access needs a native plugin this pass didn't
-/// have hardware to build/verify against.
+/// android/android/app/src/main/kotlin/.../SunmiPrinterPlugin.kt, ported from
+/// the archived native Kotlin app's PrinterManager - not yet verified against
+/// a physical Sunmi terminal). External printers use raw ESC/POS bytes: LAN
+/// over a TCP socket to port 9100 (works today, no hardware needed to
+/// compile), USB stubbed - Android USB host access needs a native plugin this
+/// pass didn't have hardware to build/verify against.
 class PrinterService {
   static const _channel = MethodChannel('com.porttennanttandoori.pos/sunmi_printer');
 

@@ -44,5 +44,10 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Lets bindService() actually see the Sunmi Printer Service package under API 30+
+             package visibility restrictions (SunmiPrinterPlugin.kt) - without this, an
+             explicit-package Intent to another app's service silently fails to resolve on a real
+             terminal even though the service is genuinely installed and running. -->
+        <package android:name="woyou.aidlservice.jiuiv5"/>
     </queries>
 </manifest>
