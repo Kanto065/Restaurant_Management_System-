@@ -10,14 +10,15 @@ import 'incoming_queue.dart';
 /// Loops an alert tone while at least one order is unconfirmed, mirroring
 /// NewOrderAlarm.kt's start()/stop() driven by ordersAwaitingConfirmation.
 ///
-/// TODO: this uses SystemSound.play as a placeholder "beep" - the Kotlin app
-/// looped the device's actual default notification ringtone via MediaPlayer,
-/// which Flutter has no built-in equivalent for. Swap in a proper looping
-/// audio package (e.g. audioplayers) once one's approved for this project;
-/// wiring (start/stop timing, volume setting, alarm-mode auto-stop) is
-/// already correct, only the actual sound playback is a stand-in.
+/// The actual sound is played natively (AlarmPlugin.kt, ported from the
+/// archived native Kotlin app's NewOrderAlarm) by looping the device's
+/// default notification ringtone via MediaPlayer - Flutter has no built-in
+/// equivalent, and this needs zero bundled audio assets while still
+/// respecting the terminal's notification volume/sound. Start/stop timing
+/// (auto-stop after N seconds, re-arming per unconfirmed order) stays here.
 class NewOrderAlarmController {
-  Timer? _loopTimer;
+  static const _channel = MethodChannel('com.porttennanttandoori.pos/alarm');
+
   Timer? _autoStopTimer;
   bool _running = false;
 
@@ -25,9 +26,7 @@ class NewOrderAlarmController {
     if (mode == AlarmMode.off) return;
     if (_running) return;
     _running = true;
-    _loopTimer = Timer.periodic(const Duration(milliseconds: 1600), (_) {
-      SystemSound.play(SystemSoundType.alert);
-    });
+    unawaited(_channel.invokeMethod('start', {'volume': volume}).catchError((_) => null));
     final autoStopSeconds = switch (mode) {
       AlarmMode.tenSeconds => 10,
       AlarmMode.thirtySeconds => 30,
@@ -39,11 +38,11 @@ class NewOrderAlarmController {
   }
 
   void stop() {
-    _loopTimer?.cancel();
     _autoStopTimer?.cancel();
-    _loopTimer = null;
     _autoStopTimer = null;
+    if (!_running) return;
     _running = false;
+    unawaited(_channel.invokeMethod('stop').catchError((_) => null));
   }
 }
 
