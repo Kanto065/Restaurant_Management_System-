@@ -78,6 +78,11 @@ class _IncomingOrderScreenState extends ConsumerState<_IncomingOrderScreen> {
       ),
     );
     if (confirmed != true) return;
+    // Another actor (admin dashboard, a different terminal) could resolve
+    // this same order while the confirmation dialog is open, which - like
+    // updateStatus below - can dispose this State before the dialog's await
+    // resumes if this was the last order in the queue.
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       final definitions = ref.read(orderStatusDefinitionsProvider);
@@ -97,15 +102,28 @@ class _IncomingOrderScreenState extends ConsumerState<_IncomingOrderScreen> {
       final sorted = [...definitions]..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
       final index = sorted.indexWhere((d) => d.name == detail.status);
       final next = (index != -1 && index + 1 < sorted.length) ? sorted[index + 1].name : detail.status;
-      await ref.read(ordersProvider.notifier).updateStatus(widget.orderId, next);
 
-      setState(() => _printing = true);
+      // Everything below is read from `ref` now and kept as locals, not
+      // re-read after the update - updateStatus's REST round-trip can
+      // outlast this screen (confirming moves the order out of
+      // ordersAwaitingConfirmation, which can pop the overlay entirely or
+      // swap in the next queued order before this await resumes, disposing
+      // this State), and unlike a bare setState, Riverpod's `ref.read`
+      // throws immediately once that happens rather than just warning.
+      // Printing should still happen either way; only UI feedback
+      // (setState/context) needs a mounted check.
+      final ordersNotifier = ref.read(ordersProvider.notifier);
       final settings = ref.read(settingsProvider).valueOrNull;
       final printer = defaultPrinters.where((p) => p.id == settings?.printerId).firstOrNull ?? defaultPrinters.first;
       final currency = ref.read(currencySymbolProvider).valueOrNull ?? '£';
       final receipt = buildReceipt(detail, currencySymbol: currency);
+      final printerService = ref.read(printerServiceProvider);
+
+      await ordersNotifier.updateStatus(widget.orderId, next);
+
+      if (mounted) setState(() => _printing = true);
       try {
-        await ref.read(printerServiceProvider).printReceipt(printer, receipt, copies: settings?.copiesPerOrder ?? 1);
+        await printerService.printReceipt(printer, receipt, copies: settings?.copiesPerOrder ?? 1);
         await Future.delayed(const Duration(milliseconds: 1100));
         if (mounted) {
           setState(() => _printing = false);
@@ -123,7 +141,7 @@ class _IncomingOrderScreenState extends ConsumerState<_IncomingOrderScreen> {
                 label: 'Reprint',
                 onPressed: () async {
                   try {
-                    await ref.read(printerServiceProvider).printReceipt(printer, receipt, copies: settings?.copiesPerOrder ?? 1);
+                    await printerService.printReceipt(printer, receipt, copies: settings?.copiesPerOrder ?? 1);
                   } catch (_) {}
                 },
               ),
