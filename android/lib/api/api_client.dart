@@ -115,6 +115,21 @@ class ApiClient {
     }
   }
 
+  /// For long-lived connections that supply their own bearer token up front
+  /// (the SSE stream - see OrderListener) rather than going through
+  /// _request()'s reactive on-401 retry: proactively re-logs in if the
+  /// stored access token is already expired (or about to be), so callers
+  /// never open a connection with a token that's guaranteed to be rejected.
+  /// Falls back to whatever token is on disk if re-login itself fails
+  /// (e.g. transiently offline) so a retry loop can still keep trying.
+  Future<String?> ensureFreshAccessToken() async {
+    final session = await _tokenStore.currentSession();
+    if (session == null) return null;
+    if (!session.isAccessTokenExpired) return session.accessToken;
+    final relogged = await _reLogin();
+    return relogged ? _cachedToken : session.accessToken;
+  }
+
   Future<OrderListPage> listOrders({int pageSize = 100}) => _request(
         'GET',
         '/api/admin/orders',

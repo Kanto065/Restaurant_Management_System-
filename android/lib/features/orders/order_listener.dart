@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers.dart';
@@ -21,16 +22,24 @@ final orderListenerProvider = Provider<void>((ref) {
     var backoff = _initialBackoff;
     while (!cancelled) {
       try {
-        final session = ref.read(sessionProvider).valueOrNull;
-        await for (final event in repo.eventStream(bearerToken: session?.accessToken)) {
+        // Reads (and if needed, refreshes) the token fresh on every connect
+        // attempt - the device token is short-lived, and ApiClient's normal
+        // on-401 retry only covers _request() calls, not this hand-rolled
+        // SSE connection, so without this an expired token here would 401
+        // forever instead of self-healing on the next reconnect.
+        final token = await ref.read(apiClientProvider).ensureFreshAccessToken();
+        await for (final event in repo.eventStream(bearerToken: token)) {
           if (cancelled) return;
           backoff = _initialBackoff;
+          debugPrint('[SSE] handling event: ${event.runtimeType}');
           await repo.onEvent(event);
         }
-      } catch (_) {
-        // Connection dropped or failed - back off and retry.
+        debugPrint('[SSE] event loop ended without error (stream closed)');
+      } catch (e) {
+        debugPrint('[SSE] listenWithReconnect caught: $e');
       }
       if (cancelled) return;
+      debugPrint('[SSE] reconnecting in ${backoff.inSeconds}s');
       await Future.delayed(backoff);
       backoff = Duration(milliseconds: (backoff.inMilliseconds * 2).clamp(0, _maxBackoff.inMilliseconds));
     }
