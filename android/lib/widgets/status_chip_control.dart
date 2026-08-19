@@ -29,6 +29,7 @@ class StatusChipControl extends StatelessWidget {
     required this.onJumpToTerminal,
     this.onOverflow,
     this.busy = false,
+    this.showAdvance = true,
   });
 
   final String value;
@@ -40,6 +41,9 @@ class StatusChipControl extends StatelessWidget {
   final VoidCallback onJumpToTerminal;
   final VoidCallback? onOverflow;
   final bool busy;
+  /// False for payment-status usage, which per FLUTTER_PROMPT.md's chip spec
+  /// never shows the "advance one step" arrow - only status chips do.
+  final bool showAdvance;
 
   @override
   Widget build(BuildContext context) {
@@ -83,12 +87,13 @@ class StatusChipControl extends StatelessWidget {
                     ),
                   ),
                 ),
-                _MiniButton(
-                  tooltip: 'Next status',
-                  color: palette.fg,
-                  onTap: busy ? null : onAdvance,
-                  icon: Icons.arrow_forward_rounded,
-                ),
+                if (showAdvance)
+                  _MiniButton(
+                    tooltip: 'Next status',
+                    color: palette.fg,
+                    onTap: busy ? null : onAdvance,
+                    icon: Icons.arrow_forward_rounded,
+                  ),
                 _MiniButton(
                   tooltip: 'Jump to $terminalValue',
                   color: palette.fg,

@@ -140,6 +140,7 @@ class _OrderCardState extends ConsumerState<OrderCard> {
                     terminalValue: paidStatus,
                     paletteFor: (name, displayOrder, brightness) => paymentChipColor(name, displayOrder, brightness),
                     busy: _busy,
+                    showAdvance: false,
                     onTapValue: () async {
                       final picked = await showChipValueSheet(
                         context,
