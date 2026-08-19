@@ -38,11 +38,14 @@ class _AppShellState extends ConsumerState<AppShell> {
     ];
 
     return Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(index: _index, children: tabs),
-          const IncomingOrderOverlay(),
-        ],
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            IndexedStack(index: _index, children: tabs),
+            const IncomingOrderOverlay(),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,

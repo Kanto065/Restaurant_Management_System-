@@ -136,7 +136,7 @@ ThemeData buildPosTheme(Brightness brightness) {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: scheme.surface,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 13),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(_controlRadius),
         borderSide: BorderSide(color: scheme.outline),
