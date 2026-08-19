@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'api_client.dart';
@@ -23,6 +24,7 @@ class SseClient {
     http.StreamedResponse? response;
 
     Future<void> start() async {
+      debugPrint('[SSE] connecting, bearerToken=${bearerToken == null ? 'null' : 'present (${bearerToken.length} chars)'}');
       final request = http.Request('GET', Uri.parse('$apiBaseUrl/api/events/orders'));
       request.headers['Accept'] = 'text/event-stream';
       if (bearerToken != null) request.headers['Authorization'] = 'Bearer $bearerToken';
@@ -30,9 +32,11 @@ class SseClient {
       try {
         response = await _http.send(request);
       } catch (e) {
+        debugPrint('[SSE] send() failed: $e');
         controller.addError(e);
         return;
       }
+      debugPrint('[SSE] connected, status=${response!.statusCode}');
       if (response!.statusCode != 200) {
         controller.addError(Exception('SSE connection failed: ${response!.statusCode}'));
         return;
@@ -41,6 +45,7 @@ class SseClient {
       final buffer = StringBuffer();
       sub = response!.stream.transform(utf8.decoder).listen(
         (chunk) {
+          debugPrint('[SSE] chunk received (${chunk.length} chars): ${chunk.replaceAll('\n', '\\n')}');
           buffer.write(chunk);
           while (true) {
             final text = buffer.toString();
@@ -54,12 +59,19 @@ class SseClient {
               final payload = line.substring(5).trim();
               if (payload.isEmpty) continue;
               final event = _parseEvent(payload);
+              debugPrint('[SSE] parsed event: ${event?.runtimeType ?? 'null (unparseable: $payload)'}');
               if (event != null) controller.add(event);
             }
           }
         },
-        onError: controller.addError,
-        onDone: controller.close,
+        onError: (e) {
+          debugPrint('[SSE] stream error: $e');
+          controller.addError(e);
+        },
+        onDone: () {
+          debugPrint('[SSE] stream closed (onDone)');
+          controller.close();
+        },
       );
     }
 

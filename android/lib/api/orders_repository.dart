@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'api_client.dart';
 import 'models.dart';
 import 'sse_client.dart';
@@ -43,14 +45,15 @@ class OrdersRepository {
     try {
       _orderStatusDefs = await apiClient.listOrderStatusDefinitions();
       _orderStatusDefsController.add(_orderStatusDefs);
-    } catch (_) {
-      // Non-fatal: stays empty until a later refresh succeeds.
+      debugPrint('[Orders] status defs loaded: ${_orderStatusDefs.map((d) => '${d.name}(default=${d.isDefault})').join(', ')}');
+    } catch (e) {
+      debugPrint('[Orders] loadStatusDefinitions (order) failed: $e');
     }
     try {
       _paymentStatusDefs = await apiClient.listPaymentStatusDefinitions();
       _paymentStatusDefsController.add(_paymentStatusDefs);
-    } catch (_) {
-      // Same as above.
+    } catch (e) {
+      debugPrint('[Orders] loadStatusDefinitions (payment) failed: $e');
     }
   }
 
@@ -65,6 +68,8 @@ class OrdersRepository {
     final page = await apiClient.listOrders();
     _orders = page.items;
     _ordersController.add(_orders);
+    debugPrint('[Orders] refreshed: ${_orders.map((o) => '#${o.orderNumber}:${o.status}').join(', ')}');
+    debugPrint('[Orders] awaiting confirmation: ${ordersAwaitingConfirmation.length}');
   }
 
   Future<OrderListPage> searchOrders({
