@@ -7,6 +7,16 @@ import 'package:http/http.dart' as http;
 import 'api_client.dart';
 import 'models.dart';
 
+/// A 401 specifically, distinguished from other non-200s so the caller
+/// (OrderListener) can force a real re-login on the next attempt instead of
+/// trusting the client-side expiry check, which can't predict every reason a
+/// token gets rejected (revoked device, backend restart invalidating
+/// sessions, clock drift).
+class SseUnauthorizedException implements Exception {
+  @override
+  String toString() => 'SSE connection failed: 401';
+}
+
 /// Reads api/events/orders. The server sends every message as a bare `data:`
 /// line (no `event:` line), so the event name is parsed out of the JSON body
 /// - same as OrderEventsClient.kt. `package:http` has no built-in
@@ -37,6 +47,10 @@ class SseClient {
         return;
       }
       debugPrint('[SSE] connected, status=${response!.statusCode}');
+      if (response!.statusCode == 401) {
+        controller.addError(SseUnauthorizedException());
+        return;
+      }
       if (response!.statusCode != 200) {
         controller.addError(Exception('SSE connection failed: ${response!.statusCode}'));
         return;

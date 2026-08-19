@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../api/sse_client.dart';
 import '../../providers.dart';
 
 const _initialBackoff = Duration(seconds: 2);
@@ -16,6 +17,7 @@ const _maxBackoff = Duration(seconds: 30);
 final orderListenerProvider = Provider<void>((ref) {
   final repo = ref.watch(ordersRepositoryProvider);
   var cancelled = false;
+  var forceRelogin = false;
   ref.onDispose(() => cancelled = true);
 
   Future<void> listenWithReconnect() async {
@@ -26,8 +28,13 @@ final orderListenerProvider = Provider<void>((ref) {
         // attempt - the device token is short-lived, and ApiClient's normal
         // on-401 retry only covers _request() calls, not this hand-rolled
         // SSE connection, so without this an expired token here would 401
-        // forever instead of self-healing on the next reconnect.
-        final token = await ref.read(apiClientProvider).ensureFreshAccessToken();
+        // forever instead of self-healing on the next reconnect. A definite
+        // 401 from the previous attempt forces a real re-login regardless of
+        // what the client-side expiry check thinks, since the server can
+        // reject a token for reasons the client can't predict.
+        final apiClient = ref.read(apiClientProvider);
+        final token = forceRelogin ? await apiClient.forceReLogin() : await apiClient.ensureFreshAccessToken();
+        forceRelogin = false;
         await for (final event in repo.eventStream(bearerToken: token)) {
           if (cancelled) return;
           backoff = _initialBackoff;
@@ -37,6 +44,7 @@ final orderListenerProvider = Provider<void>((ref) {
         debugPrint('[SSE] event loop ended without error (stream closed)');
       } catch (e) {
         debugPrint('[SSE] listenWithReconnect caught: $e');
+        if (e is SseUnauthorizedException) forceRelogin = true;
       }
       if (cancelled) return;
       debugPrint('[SSE] reconnecting in ${backoff.inSeconds}s');

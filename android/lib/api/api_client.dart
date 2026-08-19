@@ -130,6 +130,18 @@ class ApiClient {
     return relogged ? _cachedToken : session.accessToken;
   }
 
+  /// Unconditionally re-logs in, ignoring the stored token's expiry -
+  /// for a caller that got a definitive 401 straight from the server (see
+  /// SseUnauthorizedException) rather than inferring staleness from the
+  /// client-side clock, since a token can be rejected for reasons the
+  /// client can't predict (revoked device, backend restart, clock drift).
+  Future<String?> forceReLogin() async {
+    final relogged = await _reLogin();
+    if (relogged) return _cachedToken;
+    final session = await _tokenStore.currentSession();
+    return session?.accessToken;
+  }
+
   Future<OrderListPage> listOrders({int pageSize = 100}) => _request(
         'GET',
         '/api/admin/orders',
