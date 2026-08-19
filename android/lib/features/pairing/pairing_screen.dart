@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -52,13 +54,17 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
       MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
     );
     if (result == null) return;
-    // Expect the paired QR payload as "deviceId:secret".
-    final parts = result.split(':');
-    if (parts.length != 2) {
+    // Admin's Devices page encodes the pairing QR as
+    // JSON.stringify({ deviceId, secret }) — see admin-frontend/src/pages/Devices.tsx.
+    try {
+      final payload = jsonDecode(result) as Map<String, dynamic>;
+      final deviceId = payload['deviceId'] as String?;
+      final secret = payload['secret'] as String?;
+      if (deviceId == null || secret == null) throw const FormatException();
+      await _pair(deviceId, secret);
+    } catch (_) {
       setState(() => _error = 'Unrecognised QR code.');
-      return;
     }
-    await _pair(parts[0], parts[1]);
   }
 
   @override
@@ -146,20 +152,41 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
   }
 }
 
-class _QrScannerScreen extends StatelessWidget {
+class _QrScannerScreen extends StatefulWidget {
   const _QrScannerScreen();
+
+  @override
+  State<_QrScannerScreen> createState() => _QrScannerScreenState();
+}
+
+class _QrScannerScreenState extends State<_QrScannerScreen> {
+  final _controller = MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates);
+  bool _handled = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  // Stopping the camera stream before popping avoids a black-screen bug on
+  // some devices (e.g. Mali GPUs): popping while CameraX is still bound to
+  // its preview surface races the FlutterView recompositing and can leave
+  // the whole app painted solid black.
+  Future<void> _onDetect(BarcodeCapture capture) async {
+    if (_handled) return;
+    final raw = capture.barcodes.firstOrNull?.rawValue;
+    if (raw == null) return;
+    _handled = true;
+    await _controller.stop();
+    if (mounted) Navigator.of(context).pop(raw);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Scan pairing QR')),
-      body: MobileScanner(
-        onDetect: (capture) {
-          final barcode = capture.barcodes.firstOrNull;
-          final raw = barcode?.rawValue;
-          if (raw != null) Navigator.of(context).pop(raw);
-        },
-      ),
+      body: MobileScanner(controller: _controller, onDetect: _onDetect),
     );
   }
 }
