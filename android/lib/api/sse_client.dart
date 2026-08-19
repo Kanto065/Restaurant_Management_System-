@@ -1,0 +1,83 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+import 'api_client.dart';
+import 'models.dart';
+
+/// Reads api/events/orders. The server sends every message as a bare `data:`
+/// line (no `event:` line), so the event name is parsed out of the JSON body
+/// - same as OrderEventsClient.kt. `package:http` has no built-in
+/// reconnecting EventSource, so this is a hand-rolled line-buffered SSE
+/// parser over a streamed GET; reconnection with backoff is the caller's job
+/// (see OrdersRepository.listenWithReconnect).
+class SseClient {
+  SseClient({http.Client? httpClient}) : _http = httpClient ?? http.Client();
+
+  final http.Client _http;
+
+  Stream<OrderEvent> stream({String? bearerToken}) {
+    late StreamController<OrderEvent> controller;
+    StreamSubscription<String>? sub;
+    http.StreamedResponse? response;
+
+    Future<void> start() async {
+      final request = http.Request('GET', Uri.parse('$apiBaseUrl/api/events/orders'));
+      request.headers['Accept'] = 'text/event-stream';
+      if (bearerToken != null) request.headers['Authorization'] = 'Bearer $bearerToken';
+
+      try {
+        response = await _http.send(request);
+      } catch (e) {
+        controller.addError(e);
+        return;
+      }
+      if (response!.statusCode != 200) {
+        controller.addError(Exception('SSE connection failed: ${response!.statusCode}'));
+        return;
+      }
+
+      final buffer = StringBuffer();
+      sub = response!.stream.transform(utf8.decoder).listen(
+        (chunk) {
+          buffer.write(chunk);
+          while (true) {
+            final text = buffer.toString();
+            final newlineIndex = text.indexOf('\n');
+            if (newlineIndex == -1) break;
+            final line = text.substring(0, newlineIndex).trim();
+            buffer
+              ..clear()
+              ..write(text.substring(newlineIndex + 1));
+            if (line.startsWith('data:')) {
+              final payload = line.substring(5).trim();
+              if (payload.isEmpty) continue;
+              final event = _parseEvent(payload);
+              if (event != null) controller.add(event);
+            }
+          }
+        },
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+    }
+
+    controller = StreamController<OrderEvent>(
+      onListen: start,
+      onCancel: () async {
+        await sub?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  OrderEvent? _parseEvent(String data) {
+    try {
+      final envelope = jsonDecode(data) as Map<String, dynamic>;
+      return parseOrderEvent(envelope);
+    } catch (_) {
+      return null;
+    }
+  }
+}

@@ -1,0 +1,202 @@
+import 'package:flutter/material.dart';
+
+import '../theme.dart';
+
+/// One entry in the "jump to a value" bottom sheet / the chip control's
+/// own value list.
+class ChipOption {
+  final String name;
+  final int displayOrder;
+  const ChipOption(this.name, this.displayOrder);
+}
+
+/// The shared status/payment chip control - the single most important shared
+/// widget in the app (per FLUTTER_PROMPT.md), used identically for order
+/// status and payment status:
+///
+/// [value] label | -> advance one step | tick jump straight to [terminalValue]
+/// plus an optional trailing overflow button (status row only, for
+/// "jump with note" / reprint).
+class StatusChipControl extends StatelessWidget {
+  const StatusChipControl({
+    super.key,
+    required this.value,
+    required this.options,
+    required this.terminalValue,
+    required this.paletteFor,
+    required this.onTapValue,
+    required this.onAdvance,
+    required this.onJumpToTerminal,
+    this.onOverflow,
+    this.busy = false,
+  });
+
+  final String value;
+  final List<ChipOption> options;
+  final String terminalValue;
+  final ChipPalette Function(String name, int displayOrder, Brightness brightness) paletteFor;
+  final VoidCallback onTapValue;
+  final VoidCallback onAdvance;
+  final VoidCallback onJumpToTerminal;
+  final VoidCallback? onOverflow;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final option = options.where((o) => o.name == value).toList();
+    final displayOrder = option.isEmpty ? 0 : option.first.displayOrder;
+    final palette = paletteFor(value, displayOrder, brightness);
+    final atTerminal = value == terminalValue;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: palette.bg,
+              border: Border.all(color: palette.border),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: busy ? null : onTapValue,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, color: palette.fg),
+                      ),
+                    ),
+                  ),
+                ),
+                _MiniButton(
+                  tooltip: 'Next status',
+                  color: palette.fg,
+                  onTap: busy ? null : onAdvance,
+                  icon: Icons.arrow_forward_rounded,
+                ),
+                _MiniButton(
+                  tooltip: 'Jump to $terminalValue',
+                  color: palette.fg,
+                  onTap: busy || atTerminal ? null : onJumpToTerminal,
+                  icon: Icons.check_rounded,
+                  opacity: atTerminal ? 0.3 : 1,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (onOverflow != null) ...[
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 38,
+            child: OutlinedButton(
+              onPressed: busy ? null : onOverflow,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(38, double.infinity),
+                padding: EdgeInsets.zero,
+                foregroundColor: Theme.of(context).extension<PosTokens>()!.mutedFg,
+              ),
+              child: const Text('⋮', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MiniButton extends StatelessWidget {
+  const _MiniButton({required this.icon, required this.color, required this.onTap, required this.tooltip, this.opacity = 1});
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+  final String tooltip;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: opacity,
+      child: SizedBox(
+        width: 42,
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.04),
+          child: InkWell(
+            onTap: onTap,
+            child: Tooltip(
+              message: tooltip,
+              child: Icon(icon, size: 15, color: color),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the "pick a value" bottom sheet shared by status and payment chips:
+/// current value ticked, a colour swatch trailing each row.
+Future<String?> showChipValueSheet(
+  BuildContext context, {
+  required String title,
+  required List<ChipOption> options,
+  required String current,
+  required ChipPalette Function(String name, int displayOrder, Brightness brightness) paletteFor,
+}) {
+  final brightness = Theme.of(context).brightness;
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) {
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 6),
+            Container(width: 38, height: 4, decoration: BoxDecoration(color: Theme.of(context).colorScheme.outline, borderRadius: BorderRadius.circular(2))),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              ),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: options.map((option) {
+                  final palette = paletteFor(option.name, option.displayOrder, brightness);
+                  final selected = option.name == current;
+                  return ListTile(
+                    onTap: () => Navigator.of(context).pop(option.name),
+                    leading: SizedBox(
+                      width: 16,
+                      child: selected
+                          ? Icon(Icons.check, size: 14, color: Theme.of(context).colorScheme.primary)
+                          : null,
+                    ),
+                    title: Text(
+                      option.name,
+                      style: TextStyle(fontWeight: selected ? FontWeight.w700 : FontWeight.w400, fontSize: 14),
+                    ),
+                    trailing: Container(width: 9, height: 9, decoration: BoxDecoration(color: palette.fg, borderRadius: BorderRadius.circular(3))),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      );
+    },
+  );
+}
