@@ -251,6 +251,7 @@ public class AccountController(AppDbContext db, UserManager<AppUser> userManager
         var order = await db.Orders
             .Include(o => o.Items).ThenInclude(i => i.Modifiers)
             .Include(o => o.StatusHistory)
+            .Include(o => o.DeliveryAddress)
             .Where(o => o.CustomerId == customerId)
             .OrderByDescending(o => o.CreatedAt)
             .FirstOrDefaultAsync();
@@ -262,6 +263,7 @@ public class AccountController(AppDbContext db, UserManager<AppUser> userManager
             order.Id, order.OrderNumber, order.OrderType, order.Status, order.PaymentStatus, order.PaymentMethod,
             order.Subtotal, order.DeliveryFee, order.ProcessingFee, order.DiscountAmount, order.TotalAmount,
             order.CustomerName, order.CustomerPhone, order.CustomerEmail, order.SpecialRequests,
+            order.DeliveryAddress is null ? null : new Admin.OrderDeliveryAddressDto(order.DeliveryAddress.Line1, order.DeliveryAddress.Line2, order.DeliveryAddress.City, order.DeliveryAddress.Postcode),
             order.EstimatedReadyAt, order.CreatedAt,
             order.Items.Select(i => new Admin.OrderItemDto(
                 i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.SpecialInstructions, i.LineTotal,

@@ -27,10 +27,16 @@ public record UpdateRestaurantSettingsRequest(
 
 [ApiController]
 [Route("api/admin/restaurant")]
-[Authorize(Policy = "StaffOnly")]
 public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant) : ControllerBase
 {
+    // StaffOrDevice, not StaffOnly - paired POS terminals need this for the printed receipt
+    // header (name/address/phone) and currency symbol. This was StaffOnly at the class level
+    // until now, which meant every device-token call silently 403'd and callers (e.g.
+    // ApiClient.getRestaurantCurrency) fell back to a hardcoded default instead of erroring
+    // loudly - never noticed because that default (GBP) happened to match this tenant's real
+    // currency.
     [HttpGet]
+    [Authorize(Policy = "StaffOrDevice")]
     public async Task<ActionResult<ApiResponse<RestaurantSettingsDto>>> Get()
     {
         var restaurant = await db.Restaurants.FirstOrDefaultAsync(r => r.Id == currentTenant.RestaurantId);
