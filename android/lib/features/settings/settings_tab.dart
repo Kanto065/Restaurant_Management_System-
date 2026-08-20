@@ -129,17 +129,19 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
     setState(() => _testPrinting = true);
     try {
       final now = DateTime.now();
+      final restaurant = ref.read(restaurantInfoProvider).valueOrNull;
       final receipt = Receipt(
-        title: 'Test Print',
-        subtitle: 'Port Tennant Tandoori POS',
-        lines: [
+        header: [restaurant?.name ?? 'Test Print'],
+        meta: [
           'Printer connection test',
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
               '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-          '',
-          'If you can read this clearly,',
-          'the printer is set up correctly.',
         ],
+        customer: const [],
+        items: const [],
+        totals: const [],
+        paymentLine: '',
+        footer: const ['If you can read this clearly,', 'the printer is set up correctly.'],
       );
       // Always 1 copy, regardless of the configured copies-per-order - this is a connectivity
       // check, not a real order, no reason to burn extra paper testing it.

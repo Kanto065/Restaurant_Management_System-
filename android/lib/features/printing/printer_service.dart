@@ -1,3 +1,4 @@
+import 'package:sunmi_printer_plus/column_maker.dart';
 import 'package:sunmi_printer_plus/enums.dart';
 import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 import 'package:sunmi_printer_plus/sunmi_style.dart';
@@ -10,6 +11,11 @@ class PrinterException implements Exception {
   @override
   String toString() => message;
 }
+
+// 80mm paper at the default font fits ~32 characters per line - split between
+// the item/label column and the right-aligned price column.
+const _labelWidth = 22;
+const _priceWidth = 10;
 
 /// Drives the Sunmi terminal's built-in 80mm printer via the sunmi_printer_plus
 /// package - swapped in after a hand-rolled binding straight to the same
@@ -39,15 +45,57 @@ class PrinterService {
       for (var i = 0; i < n; i++) {
         await SunmiPrinter.bindingPrinter();
         await SunmiPrinter.initPrinter();
-        await SunmiPrinter.printText(
-          receipt.title,
-          style: SunmiStyle(bold: true, fontSize: SunmiFontSize.MD, align: SunmiPrintAlign.CENTER),
-        );
-        await SunmiPrinter.printText(receipt.subtitle, style: SunmiStyle(align: SunmiPrintAlign.LEFT));
-        await SunmiPrinter.lineWrap(1);
-        for (final line in receipt.lines) {
+
+        await SunmiPrinter.setAlignment(SunmiPrintAlign.CENTER);
+        for (var j = 0; j < receipt.header.length; j++) {
+          await SunmiPrinter.printText(
+            receipt.header[j],
+            style: SunmiStyle(
+              bold: j == 0,
+              fontSize: j == 0 ? SunmiFontSize.MD : SunmiFontSize.SM,
+              align: SunmiPrintAlign.CENTER,
+            ),
+          );
+        }
+
+        await SunmiPrinter.setAlignment(SunmiPrintAlign.LEFT);
+        await SunmiPrinter.line();
+        for (final line in receipt.meta) {
           await SunmiPrinter.printText(line);
         }
+
+        if (receipt.customer.isNotEmpty) {
+          await SunmiPrinter.line();
+          for (final line in receipt.customer) {
+            await SunmiPrinter.printText(line);
+          }
+        }
+
+        if (receipt.items.isNotEmpty) {
+          await SunmiPrinter.line();
+          await _printRow('ITEMS', 'PRICE');
+          await SunmiPrinter.lineWrap(1);
+          for (final row in receipt.items) {
+            await _printRow(row.left, row.right, bold: row.bold);
+          }
+        }
+
+        if (receipt.totals.isNotEmpty) {
+          await SunmiPrinter.line();
+          for (final row in receipt.totals) {
+            await _printRow(row.left, row.right, bold: row.bold);
+          }
+        }
+        if (receipt.paymentLine.isNotEmpty) {
+          await SunmiPrinter.printText(receipt.paymentLine);
+        }
+
+        await SunmiPrinter.lineWrap(1);
+        await SunmiPrinter.setAlignment(SunmiPrintAlign.CENTER);
+        for (final line in receipt.footer) {
+          await SunmiPrinter.printText(line);
+        }
+
         await SunmiPrinter.lineWrap(4);
         await SunmiPrinter.cut();
         await SunmiPrinter.unbindingPrinter();
@@ -55,5 +103,14 @@ class PrinterService {
     } catch (e) {
       throw PrinterException('Sunmi printer failed: $e');
     }
+  }
+
+  Future<void> _printRow(String label, String value, {bool bold = false}) async {
+    if (bold) await SunmiPrinter.bold();
+    await SunmiPrinter.printRow(cols: [
+      ColumnMaker(text: label, width: _labelWidth, align: SunmiPrintAlign.LEFT),
+      ColumnMaker(text: value, width: _priceWidth, align: SunmiPrintAlign.RIGHT),
+    ]);
+    if (bold) await SunmiPrinter.resetBold();
   }
 }

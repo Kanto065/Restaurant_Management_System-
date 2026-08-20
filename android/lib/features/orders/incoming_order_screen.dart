@@ -114,7 +114,8 @@ class _IncomingOrderScreenState extends ConsumerState<_IncomingOrderScreen> {
       final ordersNotifier = ref.read(ordersProvider.notifier);
       final settings = ref.read(settingsProvider).valueOrNull;
       final currency = ref.read(currencySymbolProvider).valueOrNull ?? '£';
-      final receipt = buildReceipt(detail, currencySymbol: currency);
+      final restaurant = ref.read(restaurantInfoProvider).valueOrNull;
+      final receipt = buildReceipt(detail, currencySymbol: currency, restaurant: restaurant);
       final printerService = ref.read(printerServiceProvider);
 
       await ordersNotifier.updateStatus(widget.orderId, next);

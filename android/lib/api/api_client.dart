@@ -210,10 +210,10 @@ class ApiClient {
         parseData: (d) => (d as List).map((e) => PaymentStatusDefinition.fromJson(e as Map<String, dynamic>)).toList(),
       );
 
-  Future<String> getRestaurantCurrency() => _request(
+  Future<RestaurantInfo> getRestaurantInfo() => _request(
         'GET',
         '/api/admin/restaurant',
-        parseData: (d) => (d as Map<String, dynamic>)['currency'] as String? ?? 'GBP',
+        parseData: (d) => RestaurantInfo.fromJson(d as Map<String, dynamic>),
       );
 
   String? _extractErrorMessage(String body) {
