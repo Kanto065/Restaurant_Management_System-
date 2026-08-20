@@ -105,9 +105,16 @@ public class PaymentsController(
     [HttpPost("stripe/webhook")]
     public async Task<IActionResult> Webhook()
     {
-        var signature = Request.Headers["Stripe-Signature"].ToString();
+        var signatureHeaderValues = Request.Headers["Stripe-Signature"];
+        var signature = signatureHeaderValues.ToString();
         if (string.IsNullOrEmpty(signature))
             return BadRequest();
+
+        // Temporary diagnostics for a live signature-format failure - the header value itself
+        // is an HMAC output, safe to log (unlike the webhook secret it's verified against).
+        logger.LogInformation(
+            "Stripe webhook: {Count} Stripe-Signature header instance(s), joined value ({Length} chars): {Value}",
+            signatureHeaderValues.Count, signature.Length, signature);
 
         var json = await new StreamReader(Request.Body).ReadToEndAsync();
 

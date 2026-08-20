@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 
 import '../../providers.dart';
 
@@ -186,7 +187,66 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Scan pairing QR')),
-      body: MobileScanner(controller: _controller, onDetect: _onDetect),
+      body: MobileScanner(
+        controller: _controller,
+        onDetect: _onDetect,
+        errorBuilder: (context, error, child) => _ScannerError(error: error, onRetry: () => _controller.start()),
+      ),
+    );
+  }
+}
+
+/// mobile_scanner's own auto-resume (on returning from the background) skips restarting the
+/// camera once permission has been denied once - it checks the controller's cached
+/// hasCameraPermission flag and bails, so even granting the permission in system Settings and
+/// coming straight back to this screen won't self-heal. This screen needs its own explicit
+/// "try again" after that round trip.
+class _ScannerError extends StatelessWidget {
+  const _ScannerError({required this.error, required this.onRetry});
+
+  final MobileScannerException error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final permissionDenied = error.errorCode == MobileScannerErrorCode.permissionDenied;
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.no_photography_rounded, color: Colors.white70, size: 42),
+              const SizedBox(height: 16),
+              Text(
+                permissionDenied
+                    ? 'Camera permission is needed to scan the pairing QR code.'
+                    : 'Could not start the camera: ${error.errorCode.message}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 14.5),
+              ),
+              const SizedBox(height: 20),
+              if (permissionDenied)
+                FilledButton(
+                  onPressed: () => ph.openAppSettings(),
+                  child: const Text('Open app settings'),
+                )
+              else
+                FilledButton(onPressed: onRetry, child: const Text('Try again')),
+              if (permissionDenied) ...[
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: onRetry,
+                  style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                  child: const Text('Try again'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
