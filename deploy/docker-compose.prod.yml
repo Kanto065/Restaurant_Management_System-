@@ -39,6 +39,8 @@ services:
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      Stripe__SecretKey: ${STRIPE_SECRET_KEY}
+      Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
       Seed__Enabled: ${SEED_ENABLED:-true}
       Seed__Host: ${SEED_HOST:-www.porttennanttandoori.co.uk}
       Seed__OwnerEmail: ${SEED_OWNER_EMAIL}

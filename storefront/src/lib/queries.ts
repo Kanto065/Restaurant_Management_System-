@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, customerAuth } from './api';
 import type {
   RestaurantPublic, MenuResponse, DeliveryZone, CreateOrderRequest, CreatedOrder, TrackOrder, ReviewPage, AccountOrderSummary,
-  CustomerProfile, UpdateProfileRequest, CustomerAddress, UpsertCustomerAddressRequest, Loyalty,
+  CustomerProfile, UpdateProfileRequest, CustomerAddress, UpsertCustomerAddressRequest, Loyalty, CreateCheckoutSessionResponse,
 } from '../types/api';
 
 export function useRestaurant() {
@@ -36,6 +36,12 @@ export function useOrderStatuses() {
 export function useCreateOrder() {
   return useMutation({
     mutationFn: (req: CreateOrderRequest) => api.post<CreatedOrder>('/api/public/orders', req),
+  });
+}
+
+export function useCreateCheckoutSession() {
+  return useMutation({
+    mutationFn: (orderId: string) => api.post<CreateCheckoutSessionResponse>(`/api/public/orders/${orderId}/checkout-session`),
   });
 }
 

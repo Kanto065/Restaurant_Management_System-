@@ -1,5 +1,6 @@
-import { useParams, Link } from 'react-router-dom';
-import { useTrackOrder, useRestaurant, useOrderStatuses } from '../lib/queries';
+import { useState } from 'react';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useTrackOrder, useRestaurant, useOrderStatuses, useCreateCheckoutSession } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
 
 // Nicer wording for the built-in status names; anything else (a custom admin-added status)
@@ -15,21 +16,80 @@ const STEP_LABELS: Record<string, string> = {
 
 export default function OrderTracking() {
   const { orderId } = useParams<{ orderId: string }>();
+  const [searchParams] = useSearchParams();
   const { data: order, isLoading } = useTrackOrder(orderId);
   const { data: restaurant } = useRestaurant();
   const { data: allStatuses } = useOrderStatuses();
+  const createCheckoutSession = useCreateCheckoutSession();
+  const [payError, setPayError] = useState<string | null>(null);
   const currency = currencySymbol(restaurant?.currency);
+  const paymentOutcome = searchParams.get('payment');
 
   if (isLoading) return <div className="max-w-2xl mx-auto px-4 py-16 text-center">Loading order...</div>;
   if (!order) return <div className="max-w-2xl mx-auto px-4 py-16 text-center">Order not found.</div>;
 
   const steps = (allStatuses ?? []).filter((s) => s !== 'Cancelled');
   const currentIndex = steps.indexOf(order.status);
+  const needsPayment = order.paymentMethod === 'Card' && order.paymentStatus !== 'Paid';
+
+  async function payNow() {
+    if (!order) return;
+    setPayError(null);
+    try {
+      const { checkoutUrl } = await createCheckoutSession.mutateAsync(order.id);
+      window.location.href = checkoutUrl;
+    } catch {
+      setPayError('Could not start card payment. Please try again.');
+    }
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
       <h1 className="font-display text-2xl sm:text-3xl mb-1">Order #{order.orderNumber}</h1>
       <p className="text-brand-cream/70 text-sm mb-6">Placed {new Date(order.createdAt).toLocaleString('en-GB')}</p>
+
+      {paymentOutcome === 'success' && (
+        <div className="mb-6 rounded-lg bg-brand-green/15 border border-brand-green/40 text-brand-green px-4 py-3 text-sm font-medium">
+          Payment successful - thank you!
+        </div>
+      )}
+      {paymentOutcome === 'cancelled' && needsPayment && (
+        <div className="mb-6 rounded-lg bg-yellow-500/15 border border-yellow-500/40 text-yellow-200 px-4 py-3 text-sm">
+          <p className="font-medium mb-2">Payment was cancelled. Your order is still on hold.</p>
+          <button
+            onClick={payNow}
+            disabled={createCheckoutSession.isPending}
+            className="bg-brand-green text-white rounded px-4 py-1.5 text-sm font-semibold disabled:opacity-60"
+          >
+            {createCheckoutSession.isPending ? 'Redirecting...' : 'Try payment again'}
+          </button>
+        </div>
+      )}
+      {paymentOutcome === 'error' && needsPayment && (
+        <div className="mb-6 rounded-lg bg-red-500/15 border border-red-500/40 text-red-300 px-4 py-3 text-sm">
+          <p className="font-medium mb-2">We couldn't start the card payment for this order.</p>
+          <button
+            onClick={payNow}
+            disabled={createCheckoutSession.isPending}
+            className="bg-brand-green text-white rounded px-4 py-1.5 text-sm font-semibold disabled:opacity-60"
+          >
+            {createCheckoutSession.isPending ? 'Redirecting...' : 'Pay now'}
+          </button>
+        </div>
+      )}
+      {!paymentOutcome && needsPayment && (
+        <div className="mb-6 rounded-lg bg-brand-cream/10 border border-brand-cream/20 px-4 py-3 text-sm flex items-center justify-between gap-3 flex-wrap">
+          <span>This order is still awaiting card payment.</span>
+          <button
+            onClick={payNow}
+            disabled={createCheckoutSession.isPending}
+            className="bg-brand-green text-white rounded px-4 py-1.5 text-sm font-semibold disabled:opacity-60"
+          >
+            {createCheckoutSession.isPending ? 'Redirecting...' : 'Pay now'}
+          </button>
+        </div>
+      )}
+      {payError && <p className="mb-6 text-sm text-red-400">{payError}</p>}
 
       {order.status === 'Cancelled' ? (
         <p className="text-red-400 font-medium mb-6">This order has been cancelled.</p>
