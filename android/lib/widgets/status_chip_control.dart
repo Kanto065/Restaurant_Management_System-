@@ -28,6 +28,7 @@ class StatusChipControl extends StatelessWidget {
     required this.onAdvance,
     required this.onJumpToTerminal,
     this.onOverflow,
+    this.onLongPressValue,
     this.busy = false,
     this.showAdvance = true,
   });
@@ -40,6 +41,9 @@ class StatusChipControl extends StatelessWidget {
   final VoidCallback onAdvance;
   final VoidCallback onJumpToTerminal;
   final VoidCallback? onOverflow;
+  /// Optional long-press on the value label - used for actions that don't
+  /// warrant a permanently visible button (e.g. "change status with a note").
+  final VoidCallback? onLongPressValue;
   final bool busy;
   /// False for payment-status usage, which per FLUTTER_PROMPT.md's chip spec
   /// never shows the "advance one step" arrow - only status chips do.
@@ -75,6 +79,7 @@ class StatusChipControl extends StatelessWidget {
                 Expanded(
                   child: GestureDetector(
                     onTap: busy ? null : onTapValue,
+                    onLongPress: busy ? null : onLongPressValue,
                     behavior: HitTestBehavior.opaque,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
