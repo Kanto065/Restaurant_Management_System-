@@ -32,7 +32,7 @@ class TerminalSettings {
     this.copiesPerOrder = 1,
     this.alarmVolume = 80,
     this.alarmMode = AlarmMode.untilConfirmed,
-    this.alarmTone = AlarmTone.siren,
+    this.alarmTone = AlarmTone.bell,
   });
 
   TerminalSettings copyWith({
@@ -72,7 +72,7 @@ class SettingsStore {
       copiesPerOrder: prefs.getInt(_kCopiesPerOrder) ?? 1,
       alarmVolume: prefs.getInt(_kAlarmVolume) ?? 80,
       alarmMode: AlarmMode.values.where((m) => m.name == modeName).firstOrNull ?? AlarmMode.untilConfirmed,
-      alarmTone: AlarmTone.values.where((t) => t.name == toneName).firstOrNull ?? AlarmTone.siren,
+      alarmTone: AlarmTone.values.where((t) => t.name == toneName).firstOrNull ?? AlarmTone.bell,
     );
   }
 
