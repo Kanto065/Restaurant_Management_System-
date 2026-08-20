@@ -142,10 +142,13 @@ class ApiClient {
     return session?.accessToken;
   }
 
-  Future<OrderListPage> listOrders({int pageSize = 100}) => _request(
+  Future<OrderListPage> listOrders({int pageSize = 100, bool? historyOnly}) => _request(
         'GET',
         '/api/admin/orders',
-        query: {'pageSize': '$pageSize'},
+        query: {
+          'pageSize': '$pageSize',
+          if (historyOnly != null) 'historyOnly': '$historyOnly',
+        },
         parseData: (d) => OrderListPage.fromJson(d as Map<String, dynamic>),
       );
 
@@ -155,6 +158,7 @@ class ApiClient {
     String? search,
     String? dateFrom,
     String? dateTo,
+    bool? historyOnly,
     int page = 1,
     int pageSize = 25,
   }) =>
@@ -167,6 +171,7 @@ class ApiClient {
           if (search != null && search.isNotEmpty) 'search': search,
           if (dateFrom != null) 'dateFrom': dateFrom,
           if (dateTo != null) 'dateTo': dateTo,
+          if (historyOnly != null) 'historyOnly': '$historyOnly',
           'page': '$page',
           'pageSize': '$pageSize',
         },

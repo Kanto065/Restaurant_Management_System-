@@ -65,7 +65,7 @@ class OrdersRepository {
     if (_orderStatusDefs.isEmpty || _paymentStatusDefs.isEmpty) {
       await loadStatusDefinitions();
     }
-    final page = await apiClient.listOrders();
+    final page = await apiClient.listOrders(historyOnly: false);
     _orders = page.items;
     _ordersController.add(_orders);
     debugPrint('[Orders] refreshed: ${_orders.map((o) => '#${o.orderNumber}:${o.status}').join(', ')}');
@@ -78,6 +78,7 @@ class OrdersRepository {
     String? search,
     String? dateFrom,
     String? dateTo,
+    bool? historyOnly,
     required int page,
     required int pageSize,
   }) =>
@@ -87,6 +88,7 @@ class OrdersRepository {
         search: search,
         dateFrom: dateFrom,
         dateTo: dateTo,
+        historyOnly: historyOnly,
         page: page,
         pageSize: pageSize,
       );
@@ -118,9 +120,22 @@ class OrdersRepository {
     }
   }
 
+  // The cached `_orders` list backs the New Orders tab only (history is always
+  // fetched fresh via searchOrders) - once a status change lands an order on
+  // a terminal status (Completed/Cancelled) it belongs in History now, so
+  // drop it here rather than waiting for the next full refresh().
   void _applyStatusLocally(String orderId, String status) {
-    _orders = _orders.map((o) => o.id == orderId ? o.copyWith(status: status) : o).toList();
+    if (_isTerminalStatus(status)) {
+      _orders = _orders.where((o) => o.id != orderId).toList();
+    } else {
+      _orders = _orders.map((o) => o.id == orderId ? o.copyWith(status: status) : o).toList();
+    }
     _ordersController.add(_orders);
+  }
+
+  bool _isTerminalStatus(String status) {
+    final countsAsCompleted = _orderStatusDefs.where((d) => d.name == status).firstOrNull?.countsAsCompleted ?? false;
+    return countsAsCompleted || status == cancelledStatusName(_orderStatusDefs);
   }
 
   void _applyPaymentStatusLocally(String orderId, String paymentStatus) {

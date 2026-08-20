@@ -68,6 +68,7 @@ class HistoryTabState extends ConsumerState<HistoryTab> {
             search: _search.isEmpty ? null : _search,
             dateFrom: _filter.dateFrom == null ? null : _apiDateFormat.format(_filter.dateFrom!),
             dateTo: _filter.dateTo == null ? null : _apiDateFormat.format(_filter.dateTo!),
+            historyOnly: true,
             page: _page,
             pageSize: _pageSize,
           );
@@ -177,7 +178,7 @@ class HistoryTabState extends ConsumerState<HistoryTab> {
                           padding: const EdgeInsets.all(14),
                           itemCount: _items.length,
                           separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, i) => OrderCard(order: _items[i], currencySymbol: currency),
+                          itemBuilder: (context, i) => OrderCard(order: _items[i], currencySymbol: currency, alwaysShowStatus: false),
                         ),
         ),
         if (_pageCount > 1)

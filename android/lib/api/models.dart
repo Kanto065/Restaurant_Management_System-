@@ -93,6 +93,7 @@ class OrderListItem {
   final double totalAmount;
   final String? customerName;
   final DateTime createdAt;
+  final int itemCount;
 
   OrderListItem({
     required this.id,
@@ -104,6 +105,7 @@ class OrderListItem {
     required this.totalAmount,
     required this.customerName,
     required this.createdAt,
+    required this.itemCount,
   });
 
   OrderListItem copyWith({String? status, String? paymentStatus}) => OrderListItem(
@@ -116,6 +118,7 @@ class OrderListItem {
         totalAmount: totalAmount,
         customerName: customerName,
         createdAt: createdAt,
+        itemCount: itemCount,
       );
 
   factory OrderListItem.fromJson(Map<String, dynamic> json) => OrderListItem(
@@ -128,6 +131,7 @@ class OrderListItem {
         totalAmount: (json['totalAmount'] as num).toDouble(),
         customerName: json['customerName'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
+        itemCount: json['itemCount'] as int? ?? 0,
       );
 }
 
