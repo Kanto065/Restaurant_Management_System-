@@ -11,7 +11,7 @@ namespace Platform.Api.Controllers.Admin;
 
 public record OrderListItemDto(
     Guid Id, string OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
-    PaymentMethod PaymentMethod, decimal TotalAmount, string? CustomerName, DateTimeOffset CreatedAt);
+    PaymentMethod PaymentMethod, decimal TotalAmount, string? CustomerName, DateTimeOffset CreatedAt, int ItemCount);
 
 public record OrderStatusHistoryDto(string Status, string? Note, DateTimeOffset Timestamp);
 
@@ -47,6 +47,7 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
     public async Task<ActionResult<ApiResponse<OrderListPageDto>>> List(
         [FromQuery] string? status, [FromQuery] string? paymentStatus, [FromQuery] PaymentMethod? paymentMethod,
         [FromQuery] string? search, [FromQuery] DateOnly? dateFrom, [FromQuery] DateOnly? dateTo,
+        [FromQuery] bool? historyOnly,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
     {
         page = Math.Max(page, 1);
@@ -64,13 +65,22 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
         if (dateFrom.HasValue) query = query.Where(o => o.CreatedAt >= new DateTimeOffset(dateFrom.Value.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
         if (dateTo.HasValue) query = query.Where(o => o.CreatedAt < new DateTimeOffset(dateTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
 
+        // historyOnly splits orders between the "New Orders" (active/in-progress) and "Order
+        // History" (Cancelled or CountsAsCompleted) POS tabs - see OrderStatusDefinition.
+        if (historyOnly.HasValue)
+        {
+            var terminalNames = await db.OrderStatusDefinitions.Where(d => d.CountsAsCompleted).Select(d => d.Name).ToListAsync();
+            if (!terminalNames.Contains("Cancelled")) terminalNames.Add("Cancelled");
+            query = historyOnly.Value ? query.Where(o => terminalNames.Contains(o.Status)) : query.Where(o => !terminalNames.Contains(o.Status));
+        }
+
         var totalCount = await query.CountAsync();
         var orders = await query
             .OrderByDescending(o => o.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(o => new OrderListItemDto(
-                o.Id, o.OrderNumber, o.OrderType, o.Status, o.PaymentStatus, o.PaymentMethod, o.TotalAmount, o.CustomerName, o.CreatedAt))
+                o.Id, o.OrderNumber, o.OrderType, o.Status, o.PaymentStatus, o.PaymentMethod, o.TotalAmount, o.CustomerName, o.CreatedAt, o.Items.Count))
             .ToListAsync();
 
         return Ok(ApiResponse<OrderListPageDto>.Ok(new OrderListPageDto(orders, totalCount)));
