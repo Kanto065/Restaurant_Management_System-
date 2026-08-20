@@ -179,6 +179,10 @@ export interface CreateOrderRequest {
   redeemLoyaltyPoints?: boolean;
 }
 
+export interface CreateCheckoutSessionResponse {
+  checkoutUrl: string;
+}
+
 export interface CreatedOrder {
   id: string;
   orderNumber: string;
@@ -198,6 +202,7 @@ export interface TrackOrder {
   orderType: OrderType;
   status: OrderStatus;
   paymentStatus: string;
+  paymentMethod: PaymentMethod;
   totalAmount: number;
   estimatedReadyAt: string | null;
   createdAt: string;

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useCartStore } from '../store/cart';
-import { useCreateOrder, useRestaurant, useProfile, useLoyalty } from '../lib/queries';
+import { useCreateOrder, useCreateCheckoutSession, useRestaurant, useProfile, useLoyalty } from '../lib/queries';
 import { api, customerAuth } from '../lib/api';
 import { currencySymbol } from '../lib/currency';
 import { CreditCard, Banknote, Check } from 'lucide-react';
@@ -18,6 +18,7 @@ export default function Checkout() {
   const navigate = useNavigate();
   const { orderType, lines, subtotal, clear, incrementLine, decrementLine } = useCartStore();
   const createOrder = useCreateOrder();
+  const createCheckoutSession = useCreateCheckoutSession();
   const { data: restaurant } = useRestaurant();
   const isMember = customerAuth.isLoggedIn();
   const { data: profile } = useProfile();
@@ -112,6 +113,20 @@ export default function Checkout() {
     try {
       const order = await createOrder.mutateAsync(request);
       clear();
+
+      if (paymentMethod === 'Card') {
+        try {
+          const { checkoutUrl } = await createCheckoutSession.mutateAsync(order.id);
+          window.location.href = checkoutUrl;
+          return;
+        } catch {
+          // Order already exists - land on tracking with a way to retry payment
+          // rather than losing the order because Stripe didn't respond.
+          navigate(`/order/${order.id}/track?payment=error`);
+          return;
+        }
+      }
+
       navigate(`/order/${order.id}/track`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong placing your order. Please check your details and try again.');
