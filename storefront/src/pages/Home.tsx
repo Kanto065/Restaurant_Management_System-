@@ -89,18 +89,18 @@ export default function Home() {
               <Link
                 key={item.id}
                 to={`/menu/item/${item.id}`}
-                className="shrink-0 w-36 sm:w-48 bg-brand-bg-light rounded-lg overflow-hidden"
+                className="shrink-0 w-44 sm:w-60 bg-brand-bg-light rounded-lg overflow-hidden"
               >
                 <div className="relative aspect-[4/3] bg-brand-bg">
                   {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
-                  <span className="absolute top-1.5 left-1.5 bg-brand-orange text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+                  <span className="absolute top-2 left-2 bg-brand-orange text-white text-xs font-medium px-1.5 py-0.5 rounded-full">
                     Bestseller
                   </span>
                 </div>
-                <div className="p-2.5">
-                  <p className="text-sm font-medium truncate">{item.name}</p>
+                <div className="p-3">
+                  <p className="text-base font-medium truncate">{item.name}</p>
                   <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-brand-mint text-sm font-semibold">{currency}{item.basePrice.toFixed(2)}</span>
+                    <span className="text-brand-mint text-base font-semibold">{currency}{item.basePrice.toFixed(2)}</span>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -108,7 +108,7 @@ export default function Home() {
                         else navigate(`/menu/item/${item.id}`);
                       }}
                       aria-label={`Add ${item.name}`}
-                      className="w-7 h-7 rounded-full bg-brand-orange text-white flex items-center justify-center text-base leading-none"
+                      className="w-8 h-8 rounded-full bg-brand-orange text-white flex items-center justify-center text-lg leading-none"
                     >
                       +
                     </button>
