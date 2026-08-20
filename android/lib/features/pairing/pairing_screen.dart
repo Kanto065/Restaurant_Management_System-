@@ -210,6 +210,13 @@ class _ScannerError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final permissionDenied = error.errorCode == MobileScannerErrorCode.permissionDenied;
+    // The errorCode message is a generic canned string ("An unexpected error occurred" for
+    // genericError) - errorDetails carries the actual native/platform exception, which is what
+    // actually explains a genericError (permissionDenied is already self-explanatory). Falls
+    // back to the exception's own toString() (errorCode name + raw platform code/message) so
+    // there's always *something* diagnostic on screen, even if the native side sent no message.
+    final detail = error.errorDetails?.message?.trim();
+    final diagnostic = (detail != null && detail.isNotEmpty) ? detail : error.toString();
     return ColoredBox(
       color: Colors.black,
       child: Center(
@@ -227,6 +234,14 @@ class _ScannerError extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white, fontSize: 14.5),
               ),
+              if (!permissionDenied) ...[
+                const SizedBox(height: 8),
+                Text(
+                  diagnostic,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
               const SizedBox(height: 20),
               if (permissionDenied)
                 FilledButton(
@@ -235,6 +250,12 @@ class _ScannerError extends StatelessWidget {
                 )
               else
                 FilledButton(onPressed: onRetry, child: const Text('Try again')),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                child: const Text('Enter device ID and secret instead'),
+              ),
               if (permissionDenied) ...[
                 const SizedBox(height: 10),
                 TextButton(
