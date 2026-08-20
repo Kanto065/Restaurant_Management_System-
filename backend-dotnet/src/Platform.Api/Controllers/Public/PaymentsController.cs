@@ -105,15 +105,23 @@ public class PaymentsController(
     [HttpPost("stripe/webhook")]
     public async Task<IActionResult> Webhook()
     {
+        var signature = Request.Headers["Stripe-Signature"].ToString();
+        if (string.IsNullOrEmpty(signature))
+            return BadRequest();
+
         var json = await new StreamReader(Request.Body).ReadToEndAsync();
 
         Event stripeEvent;
         try
         {
-            stripeEvent = EventUtility.ConstructEvent(json, Request.Headers["Stripe-Signature"], stripeOptions.Value.WebhookSecret);
+            stripeEvent = EventUtility.ConstructEvent(json, signature, stripeOptions.Value.WebhookSecret);
         }
-        catch (StripeException ex)
+        catch (Exception ex)
         {
+            // Deliberately catches everything, not just StripeException - Stripe.net throws a
+            // raw NullReferenceException (not StripeException) for some malformed signature
+            // headers, and this endpoint is open to the internet with no other safety net.
+            // Anything that isn't a validly-signed Stripe event should 400, never 500.
             logger.LogWarning(ex, "Stripe webhook signature verification failed");
             return BadRequest();
         }
