@@ -1,4 +1,5 @@
-import 'package:sunmi_printer_plus/column_maker.dart';
+import 'dart:convert';
+
 import 'package:sunmi_printer_plus/enums.dart';
 import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 import 'package:sunmi_printer_plus/sunmi_style.dart';
@@ -14,8 +15,7 @@ class PrinterException implements Exception {
 
 // 80mm paper at the default font fits ~32 characters per line - split between
 // the item/label column and the right-aligned price column.
-const _labelWidth = 22;
-const _priceWidth = 10;
+const _rowWidth = 32;
 
 /// Drives the Sunmi terminal's built-in 80mm printer via the sunmi_printer_plus
 /// package - swapped in after a hand-rolled binding straight to the same
@@ -74,7 +74,6 @@ class PrinterService {
         if (receipt.items.isNotEmpty) {
           await SunmiPrinter.line();
           await _printRow('ITEMS', 'PRICE');
-          await SunmiPrinter.lineWrap(1);
           for (final row in receipt.items) {
             await _printRow(row.left, row.right, bold: row.bold);
           }
@@ -93,7 +92,7 @@ class PrinterService {
         await SunmiPrinter.lineWrap(1);
         await SunmiPrinter.setAlignment(SunmiPrintAlign.CENTER);
         for (final line in receipt.footer) {
-          await SunmiPrinter.printText(line);
+          await SunmiPrinter.printText(line, style: SunmiStyle(align: SunmiPrintAlign.CENTER));
         }
 
         await SunmiPrinter.lineWrap(4);
@@ -105,12 +104,22 @@ class PrinterService {
     }
   }
 
+  // printRow's ColumnMaker occasionally corrupts a row's tail into a wrapped
+  // fragment on this hardware/firmware (e.g. "PRICE" splitting into "PRIC" +
+  // a stray "E" on the next line) - manually padding to a fixed width and
+  // sending it through printText (the same call meta/customer lines already
+  // use without issue) is deterministic and avoids that plugin-internal quirk.
+  //
+  // The printer's line-wrap counts UTF-8 *bytes*, not Dart String.length
+  // (UTF-16 code units) - "£" is 1 code unit but 2 bytes, so any row with a
+  // price was silently 1 byte over the real limit and wrapped its last
+  // character (e.g. "£1.30" printing "£1.3" then a stray "0" below). Padding
+  // must be sized off the UTF-8 byte length, not the character count.
   Future<void> _printRow(String label, String value, {bool bold = false}) async {
+    final gap = _rowWidth - utf8.encode(label).length - utf8.encode(value).length;
+    final line = gap > 0 ? '$label${' ' * gap}$value' : '$label $value';
     if (bold) await SunmiPrinter.bold();
-    await SunmiPrinter.printRow(cols: [
-      ColumnMaker(text: label, width: _labelWidth, align: SunmiPrintAlign.LEFT),
-      ColumnMaker(text: value, width: _priceWidth, align: SunmiPrintAlign.RIGHT),
-    ]);
+    await SunmiPrinter.printText(line);
     if (bold) await SunmiPrinter.resetBold();
   }
 }

@@ -311,6 +311,8 @@ class _OrderCardState extends ConsumerState<OrderCard> {
                       Text('${item.quantity}× ${item.nameSnapshot}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
                       if (item.modifiers.isNotEmpty)
                         Text(item.modifiers.map((m) => m.nameSnapshot).join(', '), style: TextStyle(color: tokens.mutedFg, fontSize: 12)),
+                      if ((item.specialInstructions ?? '').isNotEmpty)
+                        Text(item.specialInstructions!, style: TextStyle(color: tokens.warning, fontWeight: FontWeight.w600, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -318,6 +320,21 @@ class _OrderCardState extends ConsumerState<OrderCard> {
               ],
             ),
           ),
+        if ((detail.specialRequests ?? '').isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: tokens.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('SPECIAL REQUESTS', style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w600, fontSize: 10.5, letterSpacing: 0.06)),
+                const SizedBox(height: 4),
+                Text(detail.specialRequests!, style: const TextStyle(fontSize: 12.5, height: 1.5)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
         divider,
         _totalRow(tokens, 'Subtotal', detail.subtotal),
         if (detail.deliveryFee > 0) _totalRow(tokens, 'Delivery fee', detail.deliveryFee),

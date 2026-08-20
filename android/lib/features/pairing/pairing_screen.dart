@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
+import 'package:sunmi_scanner/sunmi_scanner.dart';
 
 import '../../providers.dart';
 
@@ -153,6 +155,14 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
   }
 }
 
+/// Sunmi V2/V2 Pro/P2 terminals have a dedicated hardware barcode/QR scan
+/// engine (bound via the com.sunmi.scanner AIDL service - see sunmi_scanner)
+/// separate from the general-purpose camera; mobile_scanner's CameraX-based
+/// approach proved unreliable on this hardware (worked in a debug build,
+/// silently failed in release). This screen checks for that hardware first
+/// and uses it when present, falling back to the generic camera (mobile_scanner)
+/// for any device without it - a dev phone, an emulator, or a Sunmi model
+/// this scanner package doesn't recognise.
 class _QrScannerScreen extends StatefulWidget {
   const _QrScannerScreen();
 
@@ -160,37 +170,197 @@ class _QrScannerScreen extends StatefulWidget {
   State<_QrScannerScreen> createState() => _QrScannerScreenState();
 }
 
+enum _ScannerBackend { checking, sunmiHardware, genericCamera }
+
 class _QrScannerScreenState extends State<_QrScannerScreen> {
-  final _controller = MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates);
+  _ScannerBackend _backend = _ScannerBackend.checking;
   bool _handled = false;
 
+  // Generic-camera path
+  MobileScannerController? _cameraController;
+
+  // Sunmi hardware-scanner path
+  StreamSubscription<String>? _sunmiBarcodeSub;
+  StreamSubscription<ScannerConnectionStatus>? _sunmiStatusSub;
+  String? _sunmiError;
+
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  // isScannerAvailable() calls GET_MODEL, which only works once the AIDL
+  // service connection has actually completed - bindService() itself just
+  // *starts* that (async) connection. Checking availability before binding
+  // always hit "service not bound" here, regardless of whether the hardware
+  // scanner actually exists, so this binds first and waits for the real
+  // CONNECTED/FAILED_TO_CONNECT event (with a timeout as a backstop) before
+  // deciding which backend to use.
+  Future<void> _init() async {
+    final connected = Completer<bool>();
+    _sunmiStatusSub = SunmiScanner.onScannerStatusChanged().listen((status) {
+      if (!connected.isCompleted) {
+        connected.complete(status == ScannerConnectionStatus.connected);
+        return;
+      }
+      if (mounted && status == ScannerConnectionStatus.failedToConnect) {
+        setState(() => _sunmiError = 'Could not connect to the hardware scanner.');
+      }
+    });
+
+    var sunmiReady = false;
+    try {
+      await SunmiScanner.bindService(showToast: false);
+      sunmiReady = await connected.future.timeout(const Duration(seconds: 3), onTimeout: () => false);
+      if (sunmiReady) {
+        final model = await SunmiScanner.getScannerModel();
+        sunmiReady = model > 100;
+      }
+    } catch (_) {
+      sunmiReady = false;
+    }
+
+    if (!mounted) return;
+
+    if (sunmiReady) {
+      setState(() {
+        _backend = _ScannerBackend.sunmiHardware;
+        // The AIDL scan engine has no video feed of its own (see class doc) - this
+        // controller only drives a cosmetic camera preview behind the Sunmi status
+        // panel, and doubles as a backup decode path if the camera manages to read
+        // the code before the hardware trigger does. If it fails to start (the
+        // release-build CameraX issue on this legacy-HAL hardware), errorBuilder
+        // below just falls back to a black background - the Sunmi path still works.
+        _cameraController = MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates);
+      });
+      _sunmiBarcodeSub = SunmiScanner.onBarcodeScanned().listen(_onDetected);
+      SunmiScanner.scan();
+    } else {
+      await _sunmiStatusSub?.cancel();
+      _sunmiStatusSub = null;
+      await SunmiScanner.unbindService();
+      setState(() {
+        _backend = _ScannerBackend.genericCamera;
+        _cameraController = MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates);
+      });
+    }
   }
 
   // Stopping the camera stream before popping avoids a black-screen bug on
   // some devices (e.g. Mali GPUs): popping while CameraX is still bound to
   // its preview surface races the FlutterView recompositing and can leave
-  // the whole app painted solid black.
-  Future<void> _onDetect(BarcodeCapture capture) async {
-    if (_handled) return;
-    final raw = capture.barcodes.firstOrNull?.rawValue;
-    if (raw == null) return;
+  // the whole app painted solid black. Single entry point for both the Sunmi
+  // hardware decode and the (optional, cosmetic-or-backup) camera decode.
+  Future<void> _onDetected(String raw) async {
+    if (_handled || raw.isEmpty) return;
     _handled = true;
-    await _controller.stop();
+    if (_backend == _ScannerBackend.sunmiHardware) SunmiScanner.stop();
+    await _cameraController?.stop();
     if (mounted) Navigator.of(context).pop(raw);
+  }
+
+  void _onCameraDetect(BarcodeCapture capture) {
+    final raw = capture.barcodes.firstOrNull?.rawValue;
+    if (raw != null) _onDetected(raw);
+  }
+
+  @override
+  void dispose() {
+    _sunmiBarcodeSub?.cancel();
+    _sunmiStatusSub?.cancel();
+    if (_backend == _ScannerBackend.sunmiHardware) {
+      SunmiScanner.stop();
+      SunmiScanner.unbindService();
+    }
+    _cameraController?.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Scan pairing QR')),
-      body: MobileScanner(
-        controller: _controller,
-        onDetect: _onDetect,
-        errorBuilder: (context, error, child) => _ScannerError(error: error, onRetry: () => _controller.start()),
+      body: switch (_backend) {
+        _ScannerBackend.checking => const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator())),
+        _ScannerBackend.sunmiHardware => Stack(
+            fit: StackFit.expand,
+            children: [
+              MobileScanner(
+                controller: _cameraController,
+                onDetect: _onCameraDetect,
+                errorBuilder: (context, error, child) => const ColoredBox(color: Colors.black),
+              ),
+              _SunmiScannerBody(error: _sunmiError, onScan: SunmiScanner.scan, overlay: true),
+            ],
+          ),
+        _ScannerBackend.genericCamera => MobileScanner(
+            controller: _cameraController,
+            onDetect: _onCameraDetect,
+            errorBuilder: (context, error, child) => _ScannerError(error: error, onRetry: () => _cameraController?.start()),
+          ),
+      },
+    );
+  }
+}
+
+/// The hardware scanner has no camera preview of its own - it's a dedicated
+/// scan engine, not a viewfinder - so this is status text plus a manual
+/// "Scan" button for re-triggering (the trigger key on the terminal itself
+/// also starts a scan, this just covers the on-screen path). When [overlay]
+/// is set, this renders as a translucent bottom panel over a cosmetic camera
+/// preview instead of filling the whole screen (see the sunmiHardware case
+/// in _QrScannerScreenState.build).
+class _SunmiScannerBody extends StatelessWidget {
+  const _SunmiScannerBody({required this.error, required this.onScan, this.overlay = false});
+
+  final String? error;
+  final VoidCallback onScan;
+  final bool overlay;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: EdgeInsets.fromLTRB(28, overlay ? 20 : 0, 28, overlay ? 16 : 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            error != null ? Icons.error_outline_rounded : Icons.qr_code_scanner_rounded,
+            color: Colors.white70,
+            size: overlay ? 36 : 56,
+          ),
+          SizedBox(height: overlay ? 10 : 16),
+          Text(
+            error ?? 'Point the terminal at the QR code and tap Scan.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+          ),
+          SizedBox(height: overlay ? 16 : 24),
+          FilledButton(onPressed: onScan, child: const Text('Scan')),
+          const SizedBox(height: 10),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(foregroundColor: Colors.white70),
+            child: const Text('Enter device ID and secret instead'),
+          ),
+        ],
+      ),
+    );
+
+    if (!overlay) {
+      return ColoredBox(color: Colors.black, child: Center(child: content));
+    }
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: Color(0xCC000000),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(top: false, child: content),
       ),
     );
   }

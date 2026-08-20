@@ -112,12 +112,28 @@ export default function OrderTracking() {
         <h2 className="font-semibold mb-3">Order Summary</h2>
         <div className="divide-y divide-brand-bg/10 text-sm">
           {order.items.map((item, i) => (
-            <div key={i} className="py-2 flex justify-between">
-              <span>{item.quantity} x {item.nameSnapshot}</span>
-              <span>{currency}{item.lineTotal.toFixed(2)}</span>
+            <div key={i} className="py-2">
+              <div className="flex justify-between">
+                <span>{item.quantity} x {item.nameSnapshot}</span>
+                <span>{currency}{item.lineTotal.toFixed(2)}</span>
+              </div>
+              {item.modifiers.length > 0 && (
+                <p className="text-brand-bg/60 text-xs mt-0.5">
+                  {item.modifiers.map((m) => m.nameSnapshot).join(', ')}
+                </p>
+              )}
+              {item.specialInstructions && (
+                <p className="text-amber-700 text-xs mt-0.5 font-medium">{item.specialInstructions}</p>
+              )}
             </div>
           ))}
         </div>
+        {order.specialRequests && (
+          <div className="mt-3 pt-3 border-t border-brand-bg/10 text-sm">
+            <p className="text-brand-bg/60 text-xs font-semibold uppercase tracking-wide mb-1">Special requests</p>
+            <p>{order.specialRequests}</p>
+          </div>
+        )}
         <div className="pt-3 mt-2 border-t border-brand-bg/10 font-semibold flex justify-between">
           <span>Total</span>
           <span>{currency}{order.totalAmount.toFixed(2)}</span>
