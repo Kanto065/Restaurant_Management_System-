@@ -35,6 +35,38 @@ class DeviceTokenResponse {
       );
 }
 
+/// Just the fields the POS terminal needs (receipt header, currency symbol) -
+/// mirrors a slice of the admin dashboard's RestaurantSettingsDto.
+class RestaurantInfo {
+  final String name;
+  final String addressLine1;
+  final String? addressLine2;
+  final String city;
+  final String postcode;
+  final String? phone;
+  final String currency;
+
+  RestaurantInfo({
+    required this.name,
+    required this.addressLine1,
+    required this.addressLine2,
+    required this.city,
+    required this.postcode,
+    required this.phone,
+    required this.currency,
+  });
+
+  factory RestaurantInfo.fromJson(Map<String, dynamic> json) => RestaurantInfo(
+        name: json['name'] as String,
+        addressLine1: json['addressLine1'] as String,
+        addressLine2: json['addressLine2'] as String?,
+        city: json['city'] as String,
+        postcode: json['postcode'] as String,
+        phone: json['phone'] as String?,
+        currency: json['currency'] as String? ?? 'GBP',
+      );
+}
+
 class OrderStatusDefinition {
   final String id;
   final String name;
@@ -191,6 +223,22 @@ class OrderItem {
       );
 }
 
+class OrderDeliveryAddress {
+  final String line1;
+  final String? line2;
+  final String city;
+  final String postcode;
+
+  OrderDeliveryAddress({required this.line1, required this.line2, required this.city, required this.postcode});
+
+  factory OrderDeliveryAddress.fromJson(Map<String, dynamic> json) => OrderDeliveryAddress(
+        line1: json['line1'] as String,
+        line2: json['line2'] as String?,
+        city: json['city'] as String,
+        postcode: json['postcode'] as String,
+      );
+}
+
 class OrderDetail {
   final String id;
   final String orderNumber;
@@ -207,6 +255,7 @@ class OrderDetail {
   final String? customerPhone;
   final String? customerEmail;
   final String? specialRequests;
+  final OrderDeliveryAddress? deliveryAddress;
   final DateTime createdAt;
   final List<OrderItem> items;
 
@@ -226,6 +275,7 @@ class OrderDetail {
     required this.customerPhone,
     required this.customerEmail,
     required this.specialRequests,
+    required this.deliveryAddress,
     required this.createdAt,
     required this.items,
   });
@@ -246,6 +296,8 @@ class OrderDetail {
         customerPhone: json['customerPhone'] as String?,
         customerEmail: json['customerEmail'] as String?,
         specialRequests: json['specialRequests'] as String?,
+        deliveryAddress:
+            json['deliveryAddress'] == null ? null : OrderDeliveryAddress.fromJson(json['deliveryAddress'] as Map<String, dynamic>),
         createdAt: DateTime.parse(json['createdAt'] as String),
         items: (json['items'] as List).map((e) => OrderItem.fromJson(e as Map<String, dynamic>)).toList(),
       );
