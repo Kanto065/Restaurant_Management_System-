@@ -206,7 +206,14 @@ export interface TrackOrder {
   totalAmount: number;
   estimatedReadyAt: string | null;
   createdAt: string;
-  items: { nameSnapshot: string; quantity: number; lineTotal: number }[];
+  specialRequests: string | null;
+  items: {
+    nameSnapshot: string;
+    quantity: number;
+    lineTotal: number;
+    specialInstructions: string | null;
+    modifiers: { nameSnapshot: string; priceDeltaSnapshot: number }[];
+  }[];
 }
 
 export interface AccountOrderSummary {

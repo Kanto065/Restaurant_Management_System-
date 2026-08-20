@@ -23,10 +23,13 @@ public record CreatedOrderDto(
     Guid Id, string OrderNumber, string Status, decimal Subtotal, decimal DeliveryFee, decimal ProcessingFee,
     decimal DiscountAmount, decimal TotalAmount, int LoyaltyPointsEarned, int LoyaltyPointsRedeemed);
 
-public record TrackOrderItemDto(string NameSnapshot, int Quantity, decimal LineTotal);
+public record TrackOrderModifierDto(string NameSnapshot, decimal PriceDeltaSnapshot);
+public record TrackOrderItemDto(
+    string NameSnapshot, int Quantity, decimal LineTotal, string? SpecialInstructions, List<TrackOrderModifierDto> Modifiers);
 public record TrackOrderDto(
     Guid Id, string OrderNumber, OrderType OrderType, string Status, string PaymentStatus, PaymentMethod PaymentMethod,
-    decimal TotalAmount, DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt, List<TrackOrderItemDto> Items);
+    decimal TotalAmount, DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt, string? SpecialRequests,
+    List<TrackOrderItemDto> Items);
 
 /// <summary>Anonymous (guest) or customer-authenticated order placement and tracking, host-resolved tenant.</summary>
 [ApiController]
@@ -249,14 +252,16 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
     [HttpGet("{id:guid}/track")]
     public async Task<ActionResult<ApiResponse<TrackOrderDto>>> Track(Guid id)
     {
-        var order = await db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id);
+        var order = await db.Orders.Include(o => o.Items).ThenInclude(i => i.Modifiers).FirstOrDefaultAsync(o => o.Id == id);
         if (order is null)
             return NotFound(ApiResponse<TrackOrderDto>.Fail("Order not found.", 404));
 
         var dto = new TrackOrderDto(
             order.Id, order.OrderNumber, order.OrderType, order.Status, order.PaymentStatus, order.PaymentMethod, order.TotalAmount,
-            order.EstimatedReadyAt, order.CreatedAt,
-            order.Items.Select(i => new TrackOrderItemDto(i.NameSnapshot, i.Quantity, i.LineTotal)).ToList());
+            order.EstimatedReadyAt, order.CreatedAt, order.SpecialRequests,
+            order.Items.Select(i => new TrackOrderItemDto(
+                i.NameSnapshot, i.Quantity, i.LineTotal, i.SpecialInstructions,
+                i.Modifiers.Select(m => new TrackOrderModifierDto(m.NameSnapshot, m.PriceDeltaSnapshot)).ToList())).ToList());
 
         return Ok(ApiResponse<TrackOrderDto>.Ok(dto));
     }
