@@ -7,6 +7,7 @@ import '../../theme.dart';
 import '../../widgets/pos_card.dart';
 import '../orders/new_order_alarm.dart';
 import '../printing/receipt_formatter.dart';
+import 'update_checker.dart';
 
 const _alarmModeLabels = {
   AlarmMode.untilConfirmed: 'Until answered',
@@ -14,8 +15,6 @@ const _alarmModeLabels = {
   AlarmMode.thirtySeconds: '30 seconds',
   AlarmMode.off: 'No sound',
 };
-
-const _appVersion = 'PTT POS v1.0.0';
 
 class SettingsTab extends ConsumerStatefulWidget {
   const SettingsTab({super.key});
@@ -28,16 +27,24 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
   bool _checkingUpdate = false;
   bool _testPrinting = false;
   bool? _sunmiAvailable;
+  final _updateChecker = UpdateChecker();
+  String _versionLabel = 'PTT POS';
 
   @override
   void initState() {
     super.initState();
     _checkSunmi();
+    _loadVersionLabel();
   }
 
   Future<void> _checkSunmi() async {
     final available = await ref.read(printerServiceProvider).isSunmiAvailable();
     if (mounted) setState(() => _sunmiAvailable = available);
+  }
+
+  Future<void> _loadVersionLabel() async {
+    final label = await _updateChecker.installedVersionLabel();
+    if (mounted) setState(() => _versionLabel = label);
   }
 
   Future<void> openTerminalOptionsMenu() async {
@@ -156,10 +163,59 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
 
   Future<void> _checkUpdates() async {
     setState(() => _checkingUpdate = true);
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (mounted) {
-      setState(() => _checkingUpdate = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You\'re on the latest version')));
+    try {
+      final update = await _updateChecker.checkForUpdate();
+      if (!mounted) return;
+      if (update == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You\'re on the latest version')));
+        return;
+      }
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Update available'),
+          content: Text('Version ${update.versionName} is available. Download and install it now?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Not now')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Update')),
+          ],
+        ),
+      );
+      if (confirmed == true && mounted) await _downloadAndInstall();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Update check failed: $e')));
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
+    }
+  }
+
+  Future<void> _downloadAndInstall() async {
+    final progress = ValueNotifier<double>(0);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Downloading update'),
+        content: ValueListenableBuilder<double>(
+          valueListenable: progress,
+          builder: (context, value, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LinearProgressIndicator(value: value > 0 ? value : null),
+              const SizedBox(height: 10),
+              Text(value > 0 ? '${(value * 100).round()}%' : 'Starting…'),
+            ],
+          ),
+        ),
+      ),
+    );
+    try {
+      await _updateChecker.downloadAndInstall(onProgress: (p) => progress.value = p);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+    } finally {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      progress.dispose();
     }
   }
 
@@ -405,7 +461,7 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
                         children: [
                           const Text('Check for updates', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5)),
                           const SizedBox(height: 2),
-                          Text(_appVersion, style: TextStyle(color: tokens.mutedFg, fontSize: 12)),
+                          Text(_versionLabel, style: TextStyle(color: tokens.mutedFg, fontSize: 12)),
                         ],
                       ),
                     ),
