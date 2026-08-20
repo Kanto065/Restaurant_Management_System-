@@ -71,16 +71,25 @@ class SettingsNotifier extends AsyncNotifier<TerminalSettings> {
 
 final settingsProvider = AsyncNotifierProvider<SettingsNotifier, TerminalSettings>(SettingsNotifier.new);
 
-final currencySymbolProvider = FutureProvider<String>((ref) async {
+/// Name/address/phone/currency for the receipt header and currency symbol -
+/// was silently unreachable from a POS device token until RestaurantsController's
+/// GET became StaffOrDevice (see backend), so this used to always fall back
+/// to hardcoded defaults instead of the real values.
+final restaurantInfoProvider = FutureProvider<RestaurantInfo?>((ref) async {
   final session = ref.watch(sessionProvider).valueOrNull;
-  if (session == null) return '£';
+  if (session == null) return null;
   try {
-    final code = await ref.read(apiClientProvider).getRestaurantCurrency();
-    const symbols = {'GBP': '£', 'USD': '\$', 'EUR': '€', 'AUD': '\$', 'CAD': '\$', 'INR': '₹', 'BDT': '৳'};
-    return symbols[code] ?? code;
+    return await ref.read(apiClientProvider).getRestaurantInfo();
   } catch (_) {
-    return '£';
+    return null;
   }
+});
+
+final currencySymbolProvider = FutureProvider<String>((ref) async {
+  final info = await ref.watch(restaurantInfoProvider.future);
+  if (info == null) return '£';
+  const symbols = {'GBP': '£', 'USD': '\$', 'EUR': '€', 'AUD': '\$', 'CAD': '\$', 'INR': '₹', 'BDT': '৳'};
+  return symbols[info.currency] ?? info.currency;
 });
 
 /// Live order list + status/payment definitions, kept current by REST

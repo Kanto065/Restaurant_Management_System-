@@ -79,7 +79,8 @@ class _OrderCardState extends ConsumerState<OrderCard> {
 
       final settings = ref.read(settingsProvider).valueOrNull;
       final currency = ref.read(currencySymbolProvider).valueOrNull ?? widget.currencySymbol;
-      final receipt = buildReceipt(detail, currencySymbol: currency);
+      final restaurant = ref.read(restaurantInfoProvider).valueOrNull;
+      final receipt = buildReceipt(detail, currencySymbol: currency, restaurant: restaurant);
       await ref.read(printerServiceProvider).printReceipt(receipt, copies: settings?.copiesPerOrder ?? 1);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Receipt reprinted')));
     } catch (e) {
