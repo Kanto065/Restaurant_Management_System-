@@ -6,6 +6,7 @@ import '../../providers.dart';
 import '../../theme.dart';
 import '../../widgets/pos_card.dart';
 import '../orders/new_order_alarm.dart';
+import '../printing/receipt_formatter.dart';
 
 const _alarmModeLabels = {
   AlarmMode.untilConfirmed: 'Until answered',
@@ -126,10 +127,28 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
 
   Future<void> _testPrint() async {
     setState(() => _testPrinting = true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    if (mounted) {
-      setState(() => _testPrinting = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Test print sent')));
+    try {
+      final now = DateTime.now();
+      final receipt = Receipt(
+        title: 'Test Print',
+        subtitle: 'Port Tennant Tandoori POS',
+        lines: [
+          'Printer connection test',
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+              '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+          '',
+          'If you can read this clearly,',
+          'the printer is set up correctly.',
+        ],
+      );
+      // Always 1 copy, regardless of the configured copies-per-order - this is a connectivity
+      // check, not a real order, no reason to burn extra paper testing it.
+      await ref.read(printerServiceProvider).printReceipt(receipt, copies: 1);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Test print sent')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Test print failed: $e')));
+    } finally {
+      if (mounted) setState(() => _testPrinting = false);
     }
   }
 
