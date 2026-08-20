@@ -14,12 +14,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // Disabled by default on current AGP - needed to compile the Sunmi printer service's
-    // AIDL interface under app/src/main/aidl (SunmiPrinterPlugin.kt).
-    buildFeatures {
-        aidl = true
-    }
-
     // Committed on purpose - a debug key secures nothing, and it exists ONLY so every CI-built
     // APK is signed with the SAME key run to run (same file the archived Kotlin app used, see
     // git history at android/app/keystore/debug.keystore before the Flutter rewrite). Without an
