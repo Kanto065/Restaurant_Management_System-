@@ -121,7 +121,15 @@ public class PaymentsController(
         Event stripeEvent;
         try
         {
-            stripeEvent = EventUtility.ConstructEvent(json, signature, stripeOptions.Value.WebhookSecret);
+            // throwOnApiVersionMismatch: false - this Stripe account's configured API version
+            // doesn't have to match whatever Stripe.net's own bundled version constant is, and a
+            // mismatch there shouldn't ever block payment confirmation. Confirmed live: real
+            // Stripe deliveries for this account crash inside EventUtility.ParseEvent's version
+            // check with the default (true), which is why Stripe's dashboard shows this
+            // endpoint's checkout.session.completed events stuck at pending_webhooks=1 - only
+            // the signature itself needs to be trustworthy, not the API version string.
+            stripeEvent = EventUtility.ConstructEvent(
+                json, signature, stripeOptions.Value.WebhookSecret, tolerance: 300, throwOnApiVersionMismatch: false);
         }
         catch (Exception ex)
         {
