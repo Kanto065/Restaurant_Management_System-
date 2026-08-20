@@ -48,11 +48,6 @@ class SettingsNotifier extends AsyncNotifier<TerminalSettings> {
     state = AsyncValue.data(state.requireValue.copyWith(darkTheme: dark));
   }
 
-  Future<void> setPrinterId(String id) async {
-    await ref.read(settingsStoreProvider).setPrinterId(id);
-    state = AsyncValue.data(state.requireValue.copyWith(printerId: id));
-  }
-
   Future<void> setCopiesPerOrder(int copies) async {
     await ref.read(settingsStoreProvider).setCopiesPerOrder(copies);
     state = AsyncValue.data(state.requireValue.copyWith(copiesPerOrder: copies.clamp(1, 3)));

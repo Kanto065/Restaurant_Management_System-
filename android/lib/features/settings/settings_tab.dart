@@ -6,7 +6,6 @@ import '../../providers.dart';
 import '../../theme.dart';
 import '../../widgets/pos_card.dart';
 import '../orders/new_order_alarm.dart';
-import '../printing/printer_service.dart';
 
 const _alarmModeLabels = {
   AlarmMode.untilConfirmed: 'Until answered',
@@ -14,6 +13,8 @@ const _alarmModeLabels = {
   AlarmMode.thirtySeconds: '30 seconds',
   AlarmMode.off: 'No sound',
 };
+
+const _appVersion = 'PTT POS v1.0.0';
 
 class SettingsTab extends ConsumerStatefulWidget {
   const SettingsTab({super.key});
@@ -25,6 +26,18 @@ class SettingsTab extends ConsumerStatefulWidget {
 class SettingsTabState extends ConsumerState<SettingsTab> {
   bool _checkingUpdate = false;
   bool _testPrinting = false;
+  bool? _sunmiAvailable;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSunmi();
+  }
+
+  Future<void> _checkSunmi() async {
+    final available = await ref.read(printerServiceProvider).isSunmiAvailable();
+    if (mounted) setState(() => _sunmiAvailable = available);
+  }
 
   Future<void> openTerminalOptionsMenu() async {
     final choice = await showModalBottomSheet<String>(
@@ -148,80 +161,106 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
     if (confirmed == true) await ref.read(sessionProvider.notifier).signOut();
   }
 
+  Widget _sectionLabel(PosTokens tokens, String text) => Padding(
+        padding: const EdgeInsets.only(left: 4, bottom: 8),
+        child: Text(text, style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w600, fontSize: 11.5, letterSpacing: 0.06)),
+      );
+
+  Widget _row({required Widget child, VoidCallback? onTap}) {
+    final content = Padding(padding: const EdgeInsets.all(14), child: child);
+    return onTap == null ? content : InkWell(onTap: onTap, child: content);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final tokens = Theme.of(context).extension<PosTokens>()!;
     final settingsAsync = ref.watch(settingsProvider);
     final session = ref.watch(sessionProvider).valueOrNull;
     final settings = settingsAsync.valueOrNull ?? const TerminalSettings();
+    final divider = Divider(height: 1, color: scheme.outline);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 26),
       children: [
         PosCard(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: _row(
+            child: Row(
               children: [
-                Text('PAIRED RESTAURANT', style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w500, fontSize: 11.5, letterSpacing: 0.06)),
-                const SizedBox(height: 6),
-                Text(session?.restaurantName ?? '—', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 19)),
-                const SizedBox(height: 4),
-                // No device ID or version string here, per FLUTTER_PROMPT.md - "Check for
-                // updates" lower on this tab is where the version number belongs.
-                Text('Paired', style: TextStyle(color: tokens.mutedFg, fontSize: 13)),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        PosCard(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Appearance', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-                const SizedBox(height: 12),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Light')),
-                    ButtonSegment(value: true, label: Text('Dark')),
-                  ],
-                  selected: {settings.darkTheme},
-                  onSelectionChanged: (v) => ref.read(settingsProvider.notifier).setDarkTheme(v.first),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.storefront_rounded, color: Colors.white),
                 ),
-                const SizedBox(height: 9),
-                Text('Follows the same tokens as the admin dashboard\'s theme switch.', style: TextStyle(color: tokens.mutedFg, fontSize: 12)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(session?.restaurantName ?? '—', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15.5)),
+                      const SizedBox(height: 2),
+                      Text('Paired', style: TextStyle(color: tokens.mutedFg, fontSize: 12.5)),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
+        _sectionLabel(tokens, 'APPEARANCE'),
         PosCard(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Thermal printer', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-                const SizedBox(height: 12),
-                for (final printer in defaultPrinters)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: RadioListTile<String>(
-                      value: printer.id,
-                      groupValue: settings.printerId,
-                      onChanged: (v) => ref.read(settingsProvider.notifier).setPrinterId(v!),
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(printer.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                      subtitle: Text(printer.detail, style: TextStyle(color: tokens.mutedFg, fontSize: 12)),
+          child: _row(
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, icon: Icon(Icons.circle_outlined, size: 14), label: Text('Light')),
+                ButtonSegment(value: true, icon: Icon(Icons.circle, size: 14), label: Text('Dark')),
+              ],
+              showSelectedIcon: false,
+              selected: {settings.darkTheme},
+              onSelectionChanged: (v) => ref.read(settingsProvider.notifier).setDarkTheme(v.first),
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        _sectionLabel(tokens, 'PRINTING'),
+        PosCard(
+          child: Column(
+            children: [
+              _row(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _sunmiAvailable == true ? Colors.green : tokens.mutedFg,
+                      ),
                     ),
-                  ),
-                Divider(height: 1, color: Theme.of(context).colorScheme.outline),
-                const SizedBox(height: 12),
-                Row(
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Sunmi internal printer', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                          const SizedBox(height: 2),
+                          Text(
+                            _sunmiAvailable == null
+                                ? '80mm · built-in · checking…'
+                                : (_sunmiAvailable! ? '80mm · built-in · connected' : '80mm · built-in · not detected'),
+                            style: TextStyle(color: tokens.mutedFg, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              divider,
+              _row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Copies per order', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5)),
@@ -234,102 +273,135 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: _testPrinting ? null : _testPrint,
-                  child: Text(_testPrinting ? 'Printing test…' : 'Test print'),
+              ),
+              divider,
+              _row(
+                onTap: _testPrinting ? null : _testPrint,
+                child: Row(
+                  children: [
+                    Icon(Icons.print_outlined, size: 18, color: scheme.primary),
+                    const SizedBox(width: 8),
+                    Text(_testPrinting ? 'Printing test…' : 'Test print', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
+        _sectionLabel(tokens, 'NEW-ORDER ALARM'),
         PosCard(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('New-order alarm', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-                const SizedBox(height: 4),
-                InkWell(
-                  onTap: _openToneSheet,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
+          child: Column(
+            children: [
+              _row(
+                onTap: _openToneSheet,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Alert tone', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5)),
+                          const SizedBox(height: 2),
+                          Text(alarmToneInfo[settings.alarmTone]!.detail, style: TextStyle(color: tokens.mutedFg, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    Text(alarmToneInfo[settings.alarmTone]!.name, style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w600, fontSize: 13)),
+                    Icon(Icons.chevron_right_rounded, color: tokens.mutedFg, size: 18),
+                  ],
+                ),
+              ),
+              divider,
+              _row(
+                onTap: _openAlarmModeSheet,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Alert tone', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5)),
-                              const SizedBox(height: 2),
-                              Text(alarmToneInfo[settings.alarmTone]!.detail, style: TextStyle(color: tokens.mutedFg, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                        Text(alarmToneInfo[settings.alarmTone]!.name, style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w600, fontSize: 13)),
+                        const Text('How long it sounds', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5)),
+                        const SizedBox(height: 2),
+                        Text('Until answered, or a fixed burst', style: TextStyle(color: tokens.mutedFg, fontSize: 12)),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Text(_alarmModeLabels[settings.alarmMode]!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                         Icon(Icons.chevron_right_rounded, color: tokens.mutedFg, size: 18),
                       ],
                     ),
-                  ),
+                  ],
                 ),
-                Divider(height: 1, color: Theme.of(context).colorScheme.outline),
-                InkWell(
-                  onTap: _openAlarmModeSheet,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('How long it sounds', style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w500, fontSize: 13.5)),
-                        Row(
-                          children: [
-                            Text(_alarmModeLabels[settings.alarmMode]!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                            Icon(Icons.chevron_right_rounded, color: tokens.mutedFg, size: 18),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Divider(height: 1, color: Theme.of(context).colorScheme.outline),
-                const SizedBox(height: 12),
-                Row(
+              ),
+              divider,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Volume', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5)),
                     Text('${settings.alarmVolume}%', style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w600, fontSize: 13, fontFamily: 'monospace')),
                   ],
                 ),
-                Slider(
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Slider(
                   value: settings.alarmVolume.toDouble(),
                   min: 0,
                   max: 100,
                   onChanged: (v) => ref.read(settingsProvider.notifier).setAlarmVolume(v.round()),
                 ),
-                Divider(height: 1, color: Theme.of(context).colorScheme.outline),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _previewAlarm,
-                  icon: const Icon(Icons.volume_up_rounded, size: 18),
-                  label: const Text('Preview alarm'),
+              ),
+              divider,
+              _row(
+                onTap: _previewAlarm,
+                child: Row(
+                  children: [
+                    Icon(Icons.volume_up_rounded, size: 18, color: scheme.primary),
+                    const SizedBox(width: 8),
+                    Text('Preview alarm', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 14),
-        OutlinedButton.icon(
-          onPressed: _checkingUpdate ? null : _checkUpdates,
-          icon: const Icon(Icons.system_update_alt_rounded),
-          label: Text(_checkingUpdate ? 'Checking…' : 'Check for updates'),
-        ),
-        const SizedBox(height: 10),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-          onPressed: _signOut,
-          child: const Text('Sign out this terminal'),
+        const SizedBox(height: 18),
+        _sectionLabel(tokens, 'TERMINAL'),
+        PosCard(
+          child: Column(
+            children: [
+              _row(
+                onTap: _checkingUpdate ? null : _checkUpdates,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Check for updates', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5)),
+                          const SizedBox(height: 2),
+                          Text(_appVersion, style: TextStyle(color: tokens.mutedFg, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    if (_checkingUpdate)
+                      const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    else
+                      Icon(Icons.chevron_right_rounded, color: tokens.mutedFg, size: 18),
+                  ],
+                ),
+              ),
+              divider,
+              _row(
+                onTap: _signOut,
+                child: Text('Sign out this terminal', style: TextStyle(color: scheme.error, fontWeight: FontWeight.w600, fontSize: 13.5)),
+              ),
+            ],
+          ),
         ),
       ],
     );

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/models.dart';
 import '../../providers.dart';
 import '../../theme.dart';
-import '../printing/printer_service.dart';
 import '../printing/receipt_formatter.dart';
 import 'incoming_queue.dart';
 
@@ -114,7 +113,6 @@ class _IncomingOrderScreenState extends ConsumerState<_IncomingOrderScreen> {
       // (setState/context) needs a mounted check.
       final ordersNotifier = ref.read(ordersProvider.notifier);
       final settings = ref.read(settingsProvider).valueOrNull;
-      final printer = defaultPrinters.where((p) => p.id == settings?.printerId).firstOrNull ?? defaultPrinters.first;
       final currency = ref.read(currencySymbolProvider).valueOrNull ?? '£';
       final receipt = buildReceipt(detail, currencySymbol: currency);
       final printerService = ref.read(printerServiceProvider);
@@ -123,7 +121,7 @@ class _IncomingOrderScreenState extends ConsumerState<_IncomingOrderScreen> {
 
       if (mounted) setState(() => _printing = true);
       try {
-        await printerService.printReceipt(printer, receipt, copies: settings?.copiesPerOrder ?? 1);
+        await printerService.printReceipt(receipt, copies: settings?.copiesPerOrder ?? 1);
         await Future.delayed(const Duration(milliseconds: 1100));
         if (mounted) {
           setState(() => _printing = false);
@@ -141,7 +139,7 @@ class _IncomingOrderScreenState extends ConsumerState<_IncomingOrderScreen> {
                 label: 'Reprint',
                 onPressed: () async {
                   try {
-                    await printerService.printReceipt(printer, receipt, copies: settings?.copiesPerOrder ?? 1);
+                    await printerService.printReceipt(receipt, copies: settings?.copiesPerOrder ?? 1);
                   } catch (_) {}
                 },
               ),

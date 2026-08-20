@@ -21,12 +21,7 @@ const alarmToneInfo = {
 };
 
 class TerminalSettings {
-  static const printerSunmi = 'sunmi';
-  static const printerStar = 'star';
-  static const printerEpson = 'epson';
-
   final bool darkTheme;
-  final String printerId;
   final int copiesPerOrder;
   final int alarmVolume;
   final AlarmMode alarmMode;
@@ -34,7 +29,6 @@ class TerminalSettings {
 
   const TerminalSettings({
     this.darkTheme = true,
-    this.printerId = printerSunmi,
     this.copiesPerOrder = 1,
     this.alarmVolume = 80,
     this.alarmMode = AlarmMode.untilConfirmed,
@@ -43,7 +37,6 @@ class TerminalSettings {
 
   TerminalSettings copyWith({
     bool? darkTheme,
-    String? printerId,
     int? copiesPerOrder,
     int? alarmVolume,
     AlarmMode? alarmMode,
@@ -51,7 +44,6 @@ class TerminalSettings {
   }) {
     return TerminalSettings(
       darkTheme: darkTheme ?? this.darkTheme,
-      printerId: printerId ?? this.printerId,
       copiesPerOrder: copiesPerOrder ?? this.copiesPerOrder,
       alarmVolume: alarmVolume ?? this.alarmVolume,
       alarmMode: alarmMode ?? this.alarmMode,
@@ -66,7 +58,6 @@ class TerminalSettings {
 /// and have no reason to be cleared on sign-out. Mirrors SettingsStore.kt.
 class SettingsStore {
   static const _kDarkTheme = 'dark_theme';
-  static const _kPrinterId = 'printer_id';
   static const _kCopiesPerOrder = 'copies_per_order';
   static const _kAlarmVolume = 'alarm_volume';
   static const _kAlarmMode = 'alarm_mode';
@@ -78,7 +69,6 @@ class SettingsStore {
     final toneName = prefs.getString(_kAlarmTone);
     return TerminalSettings(
       darkTheme: prefs.getBool(_kDarkTheme) ?? true,
-      printerId: prefs.getString(_kPrinterId) ?? TerminalSettings.printerSunmi,
       copiesPerOrder: prefs.getInt(_kCopiesPerOrder) ?? 1,
       alarmVolume: prefs.getInt(_kAlarmVolume) ?? 80,
       alarmMode: AlarmMode.values.where((m) => m.name == modeName).firstOrNull ?? AlarmMode.untilConfirmed,
@@ -89,11 +79,6 @@ class SettingsStore {
   Future<void> setDarkTheme(bool dark) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kDarkTheme, dark);
-  }
-
-  Future<void> setPrinterId(String printerId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kPrinterId, printerId);
   }
 
   Future<void> setCopiesPerOrder(int copies) async {
