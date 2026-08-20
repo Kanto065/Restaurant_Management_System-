@@ -166,21 +166,29 @@ public class PaymentsController(
             return;
         }
 
-        var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId);
+        // IgnoreQueryFilters() - the global tenant filter is keyed on ICurrentTenant.RestaurantId,
+        // which is never resolved for this webhook (Stripe hits api.porttennanttandoori.co.uk
+        // directly, not a tenant-resolving Host header, and carries no JWT). With a null
+        // RestaurantId, EF Core still has to evaluate `_currentTenant.RestaurantId.Value` as a
+        // query parameter to build the SQL "OR" - not just skip it - so the filter throws
+        // InvalidOperationException before this ever reaches the database. The order/payment
+        // rows are looked up by globally-unique Guid anyway, so tenant scoping adds nothing here.
+        var order = await db.Orders.IgnoreQueryFilters().FirstOrDefaultAsync(o => o.Id == orderId);
         if (order is null)
         {
             logger.LogWarning("Stripe checkout.session.completed referenced unknown order {OrderId}", orderId);
             return;
         }
 
-        var paidStatus = await db.PaymentStatusDefinitions
+        var paidStatus = await db.PaymentStatusDefinitions.IgnoreQueryFilters()
             .Where(d => d.RestaurantId == order.RestaurantId && d.Name.ToLower() == "paid")
             .Select(d => d.Name)
             .FirstOrDefaultAsync() ?? "Paid";
 
         order.PaymentStatus = paidStatus;
 
-        var payment = await db.Payments.FirstOrDefaultAsync(p => p.OrderId == order.Id && p.StripePaymentIntentId == session.Id);
+        var payment = await db.Payments.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(p => p.OrderId == order.Id && p.StripePaymentIntentId == session.Id);
         if (payment is not null)
         {
             payment.Status = paidStatus;
