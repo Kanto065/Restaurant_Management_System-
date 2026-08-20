@@ -8,9 +8,11 @@ using Microsoft.IdentityModel.Tokens;
 using Platform.Application.Common;
 using Platform.Infrastructure.Identity;
 using Platform.Infrastructure.Multitenancy;
+using Platform.Infrastructure.Payments;
 using Platform.Infrastructure.Persistence;
 using Platform.Infrastructure.Realtime;
 using Platform.Infrastructure.Storage;
+using Stripe;
 
 namespace Platform.Infrastructure;
 
@@ -97,6 +99,10 @@ public static class DependencyInjection
 
         services.AddSingleton<SseConnectionManager>();
         services.AddScoped<IOrderNotifier, OrderNotifier>();
+
+        services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
+        services.AddSingleton(sp =>
+            new StripeClient(sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StripeOptions>>().Value.SecretKey));
 
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
         var storageProvider = configuration.GetSection(StorageOptions.SectionName)["Provider"];
