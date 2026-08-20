@@ -20,6 +20,22 @@ android {
         aidl = true
     }
 
+    // Committed on purpose - a debug key secures nothing, and it exists ONLY so every CI-built
+    // APK is signed with the SAME key run to run (same file the archived Kotlin app used, see
+    // git history at android/app/keystore/debug.keystore before the Flutter rewrite). Without an
+    // explicit storeFile, Gradle falls back to an auto-generated ~/.android/debug.keystore that's
+    // different on every fresh CI runner, and Android refuses to install an update signed by a
+    // different key than what's already on the device - the "app not installed" error this
+    // avoids.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.porttennanttandoori.pos_terminal"
@@ -37,8 +53,9 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Signing with the debug keys for now - a real release-signing config (keystore +
+            // passwords as repo secrets) belongs here before this app goes any wider than our
+            // own Sunmi terminals.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
