@@ -25,7 +25,7 @@ public record CreatedOrderDto(
 
 public record TrackOrderItemDto(string NameSnapshot, int Quantity, decimal LineTotal);
 public record TrackOrderDto(
-    Guid Id, string OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
+    Guid Id, string OrderNumber, OrderType OrderType, string Status, string PaymentStatus, PaymentMethod PaymentMethod,
     decimal TotalAmount, DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt, List<TrackOrderItemDto> Items);
 
 /// <summary>Anonymous (guest) or customer-authenticated order placement and tracking, host-resolved tenant.</summary>
@@ -254,7 +254,7 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
             return NotFound(ApiResponse<TrackOrderDto>.Fail("Order not found.", 404));
 
         var dto = new TrackOrderDto(
-            order.Id, order.OrderNumber, order.OrderType, order.Status, order.PaymentStatus, order.TotalAmount,
+            order.Id, order.OrderNumber, order.OrderType, order.Status, order.PaymentStatus, order.PaymentMethod, order.TotalAmount,
             order.EstimatedReadyAt, order.CreatedAt,
             order.Items.Select(i => new TrackOrderItemDto(i.NameSnapshot, i.Quantity, i.LineTotal)).ToList());
 
