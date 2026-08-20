@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sunmi_printer_plus/enums.dart';
 import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 import 'package:sunmi_printer_plus/sunmi_style.dart';
@@ -107,8 +109,14 @@ class PrinterService {
   // a stray "E" on the next line) - manually padding to a fixed width and
   // sending it through printText (the same call meta/customer lines already
   // use without issue) is deterministic and avoids that plugin-internal quirk.
+  //
+  // The printer's line-wrap counts UTF-8 *bytes*, not Dart String.length
+  // (UTF-16 code units) - "£" is 1 code unit but 2 bytes, so any row with a
+  // price was silently 1 byte over the real limit and wrapped its last
+  // character (e.g. "£1.30" printing "£1.3" then a stray "0" below). Padding
+  // must be sized off the UTF-8 byte length, not the character count.
   Future<void> _printRow(String label, String value, {bool bold = false}) async {
-    final gap = _rowWidth - label.length - value.length;
+    final gap = _rowWidth - utf8.encode(label).length - utf8.encode(value).length;
     final line = gap > 0 ? '$label${' ' * gap}$value' : '$label $value';
     if (bold) await SunmiPrinter.bold();
     await SunmiPrinter.printText(line);
