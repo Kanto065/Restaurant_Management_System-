@@ -14,9 +14,16 @@ class PrinterException implements Exception {
   String toString() => message;
 }
 
-// 80mm paper at the default font fits ~32 characters per line - split between
-// the item/label column and the right-aligned price column.
+// 80mm paper fits ~32 characters per line at SunmiFontSize.MD (24pt) - which
+// SunmiPrinter.line()'s internal resetFontSize() call actually resets *to*
+// (its own doc comment: "reset the font size to the medium (default) size"),
+// so every _printRow call already lands at MD even without an explicit
+// setFontSize. LG (36pt) is used for items/totals to match the reference
+// receipt's bigger item text; 24/36 of 32 is ~21 chars, though the real
+// figure needs confirming on the actual printer - adjust _itemRowWidth below
+// once tested.
 const _rowWidth = 32;
+const _itemRowWidth = 21;
 
 /// Drives the Sunmi terminal's built-in 80mm printer via the sunmi_printer_plus
 /// package - swapped in after a hand-rolled binding straight to the same
@@ -62,11 +69,19 @@ class PrinterService {
         // Reverse video (GS B 1 / GS B 0) - same raw-ESC/POS mechanism bold()/
         // resetBold() already use on this hardware - to render the order type
         // as a dark banner with white text, matching the reference receipt.
+        // Reverse video only paints the characters actually sent, not the
+        // rest of the line - SunmiPrintAlign.CENTER on its own just centers
+        // "DELIVERY" itself, leaving white margin either side instead of a
+        // full-width block, so the label is manually space-padded to
+        // _rowWidth and sent left-aligned instead, which puts the reverse
+        // background under the whole line. Kept at MD (not LG) since MD is
+        // the size _rowWidth is calibrated against elsewhere in this file.
         await SunmiPrinter.line();
+        await SunmiPrinter.setFontSize(SunmiFontSize.MD);
         await SunmiPrinter.printRawData(Uint8List.fromList([29, 66, 1]));
         await SunmiPrinter.printText(
-          receipt.orderTypeLabel,
-          style: SunmiStyle(bold: true, fontSize: SunmiFontSize.LG, align: SunmiPrintAlign.CENTER),
+          _padCenter(receipt.orderTypeLabel, _rowWidth),
+          style: SunmiStyle(bold: true, align: SunmiPrintAlign.LEFT),
         );
         await SunmiPrinter.printRawData(Uint8List.fromList([29, 66, 0]));
 
@@ -87,24 +102,20 @@ class PrinterService {
           }
         }
 
-        // Items/totals keep the default (unset) font size deliberately - they're
-        // rendered through _printRow's fixed 32-char width padding (tuned for
-        // that size to work around a firmware wrapping bug, see below); bumping
-        // the font here would shrink the real chars-per-line and reintroduce
-        // that same wrapping bug, so only the free-flowing single-column
-        // sections (meta/customer above) get the larger MD size.
         if (receipt.items.isNotEmpty) {
           await SunmiPrinter.line();
-          await _printRow('ITEMS', 'PRICE');
+          await SunmiPrinter.setFontSize(SunmiFontSize.LG);
+          await _printRow('ITEMS', 'PRICE', width: _itemRowWidth);
           for (final row in receipt.items) {
-            await _printRow(row.left, row.right, bold: row.bold);
+            await _printRow(row.left, row.right, bold: row.bold, width: _itemRowWidth);
           }
         }
 
         if (receipt.totals.isNotEmpty) {
           await SunmiPrinter.line();
+          await SunmiPrinter.setFontSize(SunmiFontSize.LG);
           for (final row in receipt.totals) {
-            await _printRow(row.left, row.right, bold: row.bold);
+            await _printRow(row.left, row.right, bold: row.bold, width: _itemRowWidth);
           }
         }
         if (receipt.paymentLine.isNotEmpty) {
@@ -138,11 +149,33 @@ class PrinterService {
   // price was silently 1 byte over the real limit and wrapped its last
   // character (e.g. "£1.30" printing "£1.3" then a stray "0" below). Padding
   // must be sized off the UTF-8 byte length, not the character count.
-  Future<void> _printRow(String label, String value, {bool bold = false}) async {
-    final gap = _rowWidth - utf8.encode(label).length - utf8.encode(value).length;
-    final line = gap > 0 ? '$label${' ' * gap}$value' : '$label $value';
+  Future<void> _printRow(String label, String value, {bool bold = false, int width = _rowWidth}) async {
+    final labelBytes = utf8.encode(label).length;
+    final valueBytes = utf8.encode(value).length;
+    final gap = width - labelBytes - valueBytes;
     if (bold) await SunmiPrinter.bold();
-    await SunmiPrinter.printText(line);
+    if (value.isEmpty || gap >= 1) {
+      await SunmiPrinter.printText(gap >= 1 ? '$label${' ' * gap}$value' : '$label $value');
+    } else {
+      // The label alone doesn't leave room for the price on this line -
+      // print the label on its own line and right-align the price on the
+      // next, rather than letting the firmware's own line-wrap handle the
+      // overflow (it corrupts the tail instead of wrapping cleanly, per the
+      // byte-width note above - this was printing the price on a line by
+      // itself anyway, just without the right-alignment).
+      await SunmiPrinter.printText(label);
+      final valueGap = (width - valueBytes).clamp(0, width);
+      await SunmiPrinter.printText('${' ' * valueGap}$value');
+    }
     if (bold) await SunmiPrinter.resetBold();
+  }
+
+  String _padCenter(String text, int width) {
+    final len = utf8.encode(text).length;
+    if (len >= width) return text;
+    final totalPad = width - len;
+    final left = totalPad ~/ 2;
+    final right = totalPad - left;
+    return '${' ' * left}$text${' ' * right}';
   }
 }

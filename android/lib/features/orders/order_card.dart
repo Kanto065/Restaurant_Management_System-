@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../api/models.dart';
 import '../../providers.dart';
 import '../../theme.dart';
+import '../../widgets/estimated_time_button.dart';
 import '../../widgets/pos_card.dart';
 import '../../widgets/status_chip_control.dart';
 import '../printing/receipt_formatter.dart';
@@ -139,6 +140,17 @@ class _OrderCardState extends ConsumerState<OrderCard> {
     }
   }
 
+  Future<void> _setEstimatedTime(int minutesFromNow) async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(ordersProvider.notifier).setEstimatedTime(widget.order.id, minutesFromNow);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to set estimated time: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -216,13 +228,24 @@ class _OrderCardState extends ConsumerState<OrderCard> {
                     },
                     onJumpToTerminal: () => _setStatus(completedStatus),
                   ),
-                  if (order.estimatedReadyAt != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Ready by ${_readyTimeFormat.format(order.estimatedReadyAt!.toLocal())}',
-                      style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w600, fontSize: 12.5),
-                    ),
-                  ],
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if (order.estimatedReadyAt != null)
+                        Expanded(
+                          child: Text(
+                            'Ready by ${_readyTimeFormat.format(order.estimatedReadyAt!.toLocal())}',
+                            style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w600, fontSize: 12.5),
+                          ),
+                        ),
+                      EstimatedTimeButton(
+                        orderType: order.orderType,
+                        hasEstimatedTime: order.estimatedReadyAt != null,
+                        busy: _busy,
+                        onSet: _setEstimatedTime,
+                      ),
+                    ],
+                  ),
                   if (_expanded) ...[
                     const SizedBox(height: 7),
                     IntrinsicHeight(

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../api/models.dart';
 import '../../providers.dart';
 import '../../theme.dart';
+import '../../widgets/estimated_time_button.dart';
 import '../printing/receipt_formatter.dart';
 import 'incoming_queue.dart';
+
+final _readyTimeFormat = DateFormat('hh:mm a');
 
 /// Full-screen takeover shown while one or more orders sit unconfirmed.
 /// Nothing else is usable until Confirm or Cancel - queues multiple
@@ -87,6 +91,18 @@ class _IncomingOrderScreenState extends ConsumerState<_IncomingOrderScreen> {
       final definitions = ref.read(orderStatusDefinitionsProvider);
       final cancelled = definitions.where((d) => d.name.toLowerCase() == 'cancelled').firstOrNull?.name ?? 'Cancelled';
       await ref.read(ordersProvider.notifier).updateStatus(widget.orderId, cancelled);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _setEstimatedTime(int minutesFromNow) async {
+    setState(() => _busy = true);
+    try {
+      final updated = await ref.read(ordersRepositoryProvider).setEstimatedTime(widget.orderId, minutesFromNow);
+      if (mounted) setState(() => _detail = updated);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to set estimated time: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -207,6 +223,24 @@ class _IncomingOrderScreenState extends ConsumerState<_IncomingOrderScreen> {
                                 _Pill(label: detail.orderType, background: tokens.secondary, foreground: Colors.white),
                                 _Pill(label: detail.paymentMethod, outlined: true),
                                 _Pill(label: detail.paymentStatus, outlined: true),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                if (detail.estimatedReadyAt != null)
+                                  Expanded(
+                                    child: Text(
+                                      'Ready by ${_readyTimeFormat.format(detail.estimatedReadyAt!.toLocal())}',
+                                      style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w600, fontSize: 13),
+                                    ),
+                                  ),
+                                EstimatedTimeButton(
+                                  orderType: detail.orderType,
+                                  hasEstimatedTime: detail.estimatedReadyAt != null,
+                                  busy: _busy,
+                                  onSet: _setEstimatedTime,
+                                ),
                               ],
                             ),
                             const SizedBox(height: 14),

@@ -107,6 +107,12 @@ class OrdersRepository {
     return detail;
   }
 
+  Future<OrderDetail> setEstimatedTime(String orderId, int estimatedMinutesFromNow) async {
+    final detail = await apiClient.setEstimatedTime(orderId, estimatedMinutesFromNow);
+    _applyEstimatedTimeLocally(orderId, detail.estimatedReadyAt);
+    return detail;
+  }
+
   Stream<OrderEvent> eventStream({String? bearerToken}) => sseClient.stream(bearerToken: bearerToken);
 
   Future<void> onEvent(OrderEvent event) async {
