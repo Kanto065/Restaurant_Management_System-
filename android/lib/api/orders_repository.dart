@@ -117,6 +117,8 @@ class OrdersRepository {
         _applyStatusLocally(orderId, status);
       case PaymentReceivedEvent():
         await refresh();
+      case EstimatedTimeChangedEvent(:final orderId, :final estimatedReadyAt):
+        _applyEstimatedTimeLocally(orderId, estimatedReadyAt);
     }
   }
 
@@ -140,6 +142,12 @@ class OrdersRepository {
 
   void _applyPaymentStatusLocally(String orderId, String paymentStatus) {
     _orders = _orders.map((o) => o.id == orderId ? o.copyWith(paymentStatus: paymentStatus) : o).toList();
+    _ordersController.add(_orders);
+  }
+
+  void _applyEstimatedTimeLocally(String orderId, DateTime? estimatedReadyAt) {
+    if (estimatedReadyAt == null) return;
+    _orders = _orders.map((o) => o.id == orderId ? o.copyWith(estimatedReadyAt: estimatedReadyAt) : o).toList();
     _ordersController.add(_orders);
   }
 

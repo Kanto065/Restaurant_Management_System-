@@ -10,6 +10,7 @@ import '../../widgets/status_chip_control.dart';
 import '../printing/receipt_formatter.dart';
 
 final _timeFormat = DateFormat('h:mm a');
+final _readyTimeFormat = DateFormat('hh:mm a');
 final _invoiceDateFormat = DateFormat('d MMM yyyy');
 
 String _orderTypeDescription(String orderType) {
@@ -215,6 +216,13 @@ class _OrderCardState extends ConsumerState<OrderCard> {
                     },
                     onJumpToTerminal: () => _setStatus(completedStatus),
                   ),
+                  if (order.estimatedReadyAt != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Ready by ${_readyTimeFormat.format(order.estimatedReadyAt!.toLocal())}',
+                      style: TextStyle(color: tokens.mutedFg, fontWeight: FontWeight.w600, fontSize: 12.5),
+                    ),
+                  ],
                   if (_expanded) ...[
                     const SizedBox(height: 7),
                     IntrinsicHeight(
