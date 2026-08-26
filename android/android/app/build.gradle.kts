@@ -12,6 +12,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications (order_listener_service.dart's background alert) needs
+        // this to use java.time APIs on older Android versions.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     // Committed on purpose - a debug key secures nothing, and it exists ONLY so every CI-built
@@ -63,4 +66,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
