@@ -40,6 +40,7 @@ type PaymentMethod = 'Card' | 'Cash' | 'ApplePay' | 'GooglePay';
 interface OrderListItem {
   id: string; orderNumber: string; orderType: OrderType; status: OrderStatus; paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod; totalAmount: number; customerName: string | null; createdAt: string;
+  estimatedReadyAt: string | null;
 }
 
 interface OrderItem { id: string; nameSnapshot: string; unitPriceSnapshot: number; quantity: number; lineTotal: number; specialInstructions: string | null }
@@ -60,6 +61,9 @@ const PAGE_SIZE = 25;
 
 const formatTime = (date: string) =>
   new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
+
+const formatTimeOnly = (date: string) =>
+  new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
@@ -457,9 +461,13 @@ const Orders = () => {
 
                     <div className="font-medium">{formatCurrency(order.totalAmount)}</div>
 
-                    <div onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1.5 min-w-0" onClick={(e) => e.stopPropagation()}>
+                      {order.estimatedReadyAt && (
+                        <span className="text-sm text-muted-foreground truncate">{formatTimeOnly(order.estimatedReadyAt)}</span>
+                      )}
                       <EstimatedTimeButton
                         orderType={order.orderType}
+                        currentEstimatedReadyAt={order.estimatedReadyAt}
                         onSet={(minutes) => timeMutation.mutate({ orderId: order.id, minutes })}
                         pending={timeMutation.isPending}
                       />
@@ -776,7 +784,9 @@ const DEFAULT_ESTIMATED_MINUTES: Partial<Record<OrderType, string>> = {
   Collection: '20',
 };
 
-function EstimatedTimeButton({ orderType, onSet, pending }: { orderType: OrderType; onSet: (minutes: number) => void; pending: boolean }) {
+function EstimatedTimeButton({
+  orderType, currentEstimatedReadyAt, onSet, pending,
+}: { orderType: OrderType; currentEstimatedReadyAt?: string | null; onSet: (minutes: number) => void; pending: boolean }) {
   const [open, setOpen] = useState(false);
   const [minutes, setMinutes] = useState('');
 
@@ -785,7 +795,17 @@ function EstimatedTimeButton({ orderType, onSet, pending }: { orderType: OrderTy
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) setMinutes(DEFAULT_ESTIMATED_MINUTES[orderType] ?? '');
+        if (next) {
+          // Reopening to edit an already-set time seeds the recomputed
+          // "minutes from now" to reach it, not the flat order-type default -
+          // otherwise editing looked like it silently reset to 60/20.
+          if (currentEstimatedReadyAt) {
+            const diffMinutes = Math.round((new Date(currentEstimatedReadyAt).getTime() - Date.now()) / 60000);
+            setMinutes(diffMinutes > 0 ? String(diffMinutes) : '0');
+          } else {
+            setMinutes(DEFAULT_ESTIMATED_MINUTES[orderType] ?? '');
+          }
+        }
       }}
     >
       <PopoverTrigger asChild>
