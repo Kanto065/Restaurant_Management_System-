@@ -140,7 +140,7 @@ export default function OrderTracking() {
         </div>
         {order.estimatedReadyAt && (
           <p className="mt-3 text-sm text-brand-bg/70">
-            Estimated ready: {new Date(order.estimatedReadyAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+            Estimated ready: {new Date(order.estimatedReadyAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
           </p>
         )}
       </div>
