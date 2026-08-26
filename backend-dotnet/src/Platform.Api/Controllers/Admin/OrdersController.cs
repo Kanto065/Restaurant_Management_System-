@@ -11,7 +11,8 @@ namespace Platform.Api.Controllers.Admin;
 
 public record OrderListItemDto(
     Guid Id, string OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
-    PaymentMethod PaymentMethod, decimal TotalAmount, string? CustomerName, DateTimeOffset CreatedAt, int ItemCount);
+    PaymentMethod PaymentMethod, decimal TotalAmount, string? CustomerName, DateTimeOffset CreatedAt, int ItemCount,
+    DateTimeOffset? EstimatedReadyAt);
 
 public record OrderStatusHistoryDto(string Status, string? Note, DateTimeOffset Timestamp);
 
@@ -83,7 +84,8 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(o => new OrderListItemDto(
-                o.Id, o.OrderNumber, o.OrderType, o.Status, o.PaymentStatus, o.PaymentMethod, o.TotalAmount, o.CustomerName, o.CreatedAt, o.Items.Count))
+                o.Id, o.OrderNumber, o.OrderType, o.Status, o.PaymentStatus, o.PaymentMethod, o.TotalAmount, o.CustomerName, o.CreatedAt, o.Items.Count,
+                o.EstimatedReadyAt))
             .ToListAsync();
 
         return Ok(ApiResponse<OrderListPageDto>.Ok(new OrderListPageDto(orders, totalCount)));
@@ -148,6 +150,7 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
 
         order.EstimatedReadyAt = DateTimeOffset.UtcNow.AddMinutes(request.EstimatedMinutesFromNow);
         await db.SaveChangesAsync();
+        await notifier.EstimatedTimeChangedAsync(currentTenant.RestaurantId!.Value, order.Id, order.EstimatedReadyAt);
 
         return Ok(ApiResponse<OrderDetailDto>.Ok(ToDetailDto(order)));
     }

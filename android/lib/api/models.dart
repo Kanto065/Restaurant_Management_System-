@@ -126,6 +126,7 @@ class OrderListItem {
   final String? customerName;
   final DateTime createdAt;
   final int itemCount;
+  final DateTime? estimatedReadyAt;
 
   OrderListItem({
     required this.id,
@@ -138,9 +139,10 @@ class OrderListItem {
     required this.customerName,
     required this.createdAt,
     required this.itemCount,
+    required this.estimatedReadyAt,
   });
 
-  OrderListItem copyWith({String? status, String? paymentStatus}) => OrderListItem(
+  OrderListItem copyWith({String? status, String? paymentStatus, DateTime? estimatedReadyAt}) => OrderListItem(
         id: id,
         orderNumber: orderNumber,
         orderType: orderType,
@@ -151,6 +153,7 @@ class OrderListItem {
         customerName: customerName,
         createdAt: createdAt,
         itemCount: itemCount,
+        estimatedReadyAt: estimatedReadyAt ?? this.estimatedReadyAt,
       );
 
   factory OrderListItem.fromJson(Map<String, dynamic> json) => OrderListItem(
@@ -164,6 +167,7 @@ class OrderListItem {
         customerName: json['customerName'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
         itemCount: json['itemCount'] as int? ?? 0,
+        estimatedReadyAt: json['estimatedReadyAt'] == null ? null : DateTime.parse(json['estimatedReadyAt'] as String),
       );
 }
 
@@ -257,6 +261,7 @@ class OrderDetail {
   final String? specialRequests;
   final OrderDeliveryAddress? deliveryAddress;
   final DateTime createdAt;
+  final DateTime? estimatedReadyAt;
   final List<OrderItem> items;
 
   OrderDetail({
@@ -277,6 +282,7 @@ class OrderDetail {
     required this.specialRequests,
     required this.deliveryAddress,
     required this.createdAt,
+    required this.estimatedReadyAt,
     required this.items,
   });
 
@@ -299,6 +305,7 @@ class OrderDetail {
         deliveryAddress:
             json['deliveryAddress'] == null ? null : OrderDeliveryAddress.fromJson(json['deliveryAddress'] as Map<String, dynamic>),
         createdAt: DateTime.parse(json['createdAt'] as String),
+        estimatedReadyAt: json['estimatedReadyAt'] == null ? null : DateTime.parse(json['estimatedReadyAt'] as String),
         items: (json['items'] as List).map((e) => OrderItem.fromJson(e as Map<String, dynamic>)).toList(),
       );
 }
@@ -326,6 +333,12 @@ class PaymentReceivedEvent extends OrderEvent {
   const PaymentReceivedEvent(this.orderId);
 }
 
+class EstimatedTimeChangedEvent extends OrderEvent {
+  final String orderId;
+  final DateTime? estimatedReadyAt;
+  const EstimatedTimeChangedEvent(this.orderId, this.estimatedReadyAt);
+}
+
 OrderEvent? parseOrderEvent(Map<String, dynamic> envelope) {
   final event = envelope['event'] as String?;
   final data = envelope['data'] as Map<String, dynamic>?;
@@ -339,6 +352,9 @@ OrderEvent? parseOrderEvent(Map<String, dynamic> envelope) {
       return status == null ? null : OrderStatusChangedEvent(orderId, status);
     case 'PaymentReceived':
       return PaymentReceivedEvent(orderId);
+    case 'EstimatedTimeChanged':
+      final estimatedReadyAt = data?['estimatedReadyAt'] as String?;
+      return EstimatedTimeChangedEvent(orderId, estimatedReadyAt == null ? null : DateTime.parse(estimatedReadyAt));
     default:
       return null;
   }

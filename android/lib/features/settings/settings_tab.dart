@@ -139,6 +139,7 @@ class SettingsTabState extends ConsumerState<SettingsTab> {
       final restaurant = ref.read(restaurantInfoProvider).valueOrNull;
       final receipt = Receipt(
         header: [restaurant?.name ?? 'Test Print'],
+        orderTypeLabel: 'TEST PRINT',
         meta: [
           'Printer connection test',
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '

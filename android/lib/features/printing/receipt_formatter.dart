@@ -15,7 +15,8 @@ class ReceiptRow {
 
 class Receipt {
   final List<String> header; // centered: restaurant name, address, phone
-  final List<String> meta; // left: Order #, Type, Date
+  final String orderTypeLabel; // centered banner: DELIVERY / COLLECTION / DINE IN
+  final List<String> meta; // left: Order #, Date, Time, Ready by
   final List<String> customer; // left: Customer, Phone, Delivery address
   final List<ReceiptRow> items; // two-column: item/modifier name -> price
   final List<ReceiptRow> totals; // two-column: Subtotal/fees/discount/Total
@@ -24,6 +25,7 @@ class Receipt {
 
   const Receipt({
     required this.header,
+    required this.orderTypeLabel,
     required this.meta,
     required this.customer,
     required this.items,
@@ -33,14 +35,24 @@ class Receipt {
   });
 }
 
-final _dateFormat = DateFormat('d MMM yyyy hh:mm a');
+final _dateOnlyFormat = DateFormat('d MMM yyyy');
+final _timeOnlyFormat = DateFormat('hh:mm a');
+
+String _orderTypeLabel(String orderType) {
+  switch (orderType.toLowerCase()) {
+    case 'dinein':
+      return 'DINE IN';
+    default:
+      return orderType.toUpperCase();
+  }
+}
 
 /// Formats an OrderDetail (plus the restaurant's own name/address/phone) into
 /// a structured receipt, laid out to match the reference invoice format:
 /// restaurant header, order # / type / date, customer + delivery address,
 /// an ITEMS/PRICE table, totals, payment method, then a thank-you footer.
 Receipt buildReceipt(OrderDetail order, {required String currencySymbol, RestaurantInfo? restaurant}) {
-  String money(double amount) => '$currencySymbol${amount.toStringAsFixed(2)}';
+  String money(double amount, {bool symbol = true}) => '${symbol ? currencySymbol : ''}${amount.toStringAsFixed(2)}';
 
   final header = <String>[restaurant?.name ?? 'Receipt'];
   if (restaurant != null) {
@@ -58,8 +70,9 @@ Receipt buildReceipt(OrderDetail order, {required String currencySymbol, Restaur
 
   final meta = <String>[
     'Order: #${order.orderNumber}',
-    'Type: ${order.orderType.toUpperCase()}',
-    'Date: ${_dateFormat.format(order.createdAt.toLocal())}',
+    'Date: ${_dateOnlyFormat.format(order.createdAt.toLocal())}',
+    'Time: ${_timeOnlyFormat.format(order.createdAt.toLocal())}',
+    if (order.estimatedReadyAt != null) 'Ready by: ${_timeOnlyFormat.format(order.estimatedReadyAt!.toLocal())}',
   ];
 
   final customer = <String>['Customer: ${order.customerName ?? 'Walk-in'}'];
@@ -74,9 +87,9 @@ Receipt buildReceipt(OrderDetail order, {required String currencySymbol, Restaur
 
   final items = <ReceiptRow>[];
   for (final item in order.items) {
-    items.add(ReceiptRow('${item.quantity}x ${item.nameSnapshot}', money(item.unitPriceSnapshot * item.quantity)));
+    items.add(ReceiptRow('${item.quantity}x ${item.nameSnapshot}', money(item.unitPriceSnapshot * item.quantity, symbol: false)));
     for (final modifier in item.modifiers) {
-      items.add(ReceiptRow('  + ${modifier.nameSnapshot}', money(modifier.priceDeltaSnapshot * item.quantity)));
+      items.add(ReceiptRow('  + ${modifier.nameSnapshot}', money(modifier.priceDeltaSnapshot * item.quantity, symbol: false)));
     }
     final instructions = item.specialInstructions;
     if (instructions != null && instructions.trim().isNotEmpty) {
@@ -98,6 +111,7 @@ Receipt buildReceipt(OrderDetail order, {required String currencySymbol, Restaur
 
   return Receipt(
     header: header,
+    orderTypeLabel: _orderTypeLabel(order.orderType),
     meta: meta,
     customer: customer,
     items: items,
