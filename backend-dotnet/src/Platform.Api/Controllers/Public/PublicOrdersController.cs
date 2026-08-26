@@ -70,6 +70,17 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
         var defaultOrderStatus = await db.OrderStatusDefinitions.Where(d => d.IsDefault).Select(d => d.Name).FirstOrDefaultAsync() ?? "Pending";
         var defaultPaymentStatus = await db.PaymentStatusDefinitions.Where(d => d.IsDefault).Select(d => d.Name).FirstOrDefaultAsync() ?? "Pending";
 
+        // Delivery defaults to 60 minutes, Collection to 20 - a real default set at
+        // creation, not just a suggested value staff sees when they open the time
+        // picker, so the customer sees an estimate immediately and staff always have
+        // a starting value to adjust rather than a blank field.
+        var estimatedMinutes = request.OrderType switch
+        {
+            OrderType.Delivery => 60,
+            OrderType.Collection => 20,
+            _ => (int?)null,
+        };
+
         var order = new Order
         {
             OrderType = request.OrderType,
@@ -82,6 +93,7 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
             Source = OrderSource.Web,
             Status = defaultOrderStatus,
             PaymentStatus = defaultPaymentStatus,
+            EstimatedReadyAt = estimatedMinutes.HasValue ? DateTimeOffset.UtcNow.AddMinutes(estimatedMinutes.Value) : null,
         };
 
         var customerId = await TryResolveAuthenticatedCustomerAsync();
