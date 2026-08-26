@@ -459,6 +459,7 @@ const Orders = () => {
 
                     <div onClick={(e) => e.stopPropagation()}>
                       <EstimatedTimeButton
+                        orderType={order.orderType}
                         onSet={(minutes) => timeMutation.mutate({ orderId: order.id, minutes })}
                         pending={timeMutation.isPending}
                       />
@@ -770,12 +771,23 @@ const Orders = () => {
   );
 };
 
-function EstimatedTimeButton({ onSet, pending }: { onSet: (minutes: number) => void; pending: boolean }) {
+const DEFAULT_ESTIMATED_MINUTES: Partial<Record<OrderType, string>> = {
+  Delivery: '60',
+  Collection: '20',
+};
+
+function EstimatedTimeButton({ orderType, onSet, pending }: { orderType: OrderType; onSet: (minutes: number) => void; pending: boolean }) {
   const [open, setOpen] = useState(false);
   const [minutes, setMinutes] = useState('');
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setMinutes(DEFAULT_ESTIMATED_MINUTES[orderType] ?? '');
+      }}
+    >
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="w-full justify-start">
           <Timer className="w-3.5 h-3.5 mr-1.5" />Time
