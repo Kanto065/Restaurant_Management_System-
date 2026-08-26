@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:sunmi_printer_plus/enums.dart';
 import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
@@ -58,19 +59,40 @@ class PrinterService {
           );
         }
 
+        // Reverse video (GS B 1 / GS B 0) - same raw-ESC/POS mechanism bold()/
+        // resetBold() already use on this hardware - to render the order type
+        // as a dark banner with white text, matching the reference receipt.
+        await SunmiPrinter.line();
+        await SunmiPrinter.printRawData(Uint8List.fromList([29, 66, 1]));
+        await SunmiPrinter.printText(
+          receipt.orderTypeLabel,
+          style: SunmiStyle(bold: true, fontSize: SunmiFontSize.LG, align: SunmiPrintAlign.CENTER),
+        );
+        await SunmiPrinter.printRawData(Uint8List.fromList([29, 66, 0]));
+
+        // SunmiPrinter.line() resets font size internally, so MD has to be
+        // re-applied after every line() call, not just once up front.
         await SunmiPrinter.setAlignment(SunmiPrintAlign.LEFT);
         await SunmiPrinter.line();
+        await SunmiPrinter.setFontSize(SunmiFontSize.MD);
         for (final line in receipt.meta) {
           await SunmiPrinter.printText(line);
         }
 
         if (receipt.customer.isNotEmpty) {
           await SunmiPrinter.line();
+          await SunmiPrinter.setFontSize(SunmiFontSize.MD);
           for (final line in receipt.customer) {
             await SunmiPrinter.printText(line);
           }
         }
 
+        // Items/totals keep the default (unset) font size deliberately - they're
+        // rendered through _printRow's fixed 32-char width padding (tuned for
+        // that size to work around a firmware wrapping bug, see below); bumping
+        // the font here would shrink the real chars-per-line and reintroduce
+        // that same wrapping bug, so only the free-flowing single-column
+        // sections (meta/customer above) get the larger MD size.
         if (receipt.items.isNotEmpty) {
           await SunmiPrinter.line();
           await _printRow('ITEMS', 'PRICE');
@@ -88,6 +110,7 @@ class PrinterService {
         if (receipt.paymentLine.isNotEmpty) {
           await SunmiPrinter.printText(receipt.paymentLine);
         }
+        await SunmiPrinter.resetFontSize();
 
         await SunmiPrinter.lineWrap(1);
         await SunmiPrinter.setAlignment(SunmiPrintAlign.CENTER);
