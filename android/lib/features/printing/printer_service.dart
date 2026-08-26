@@ -105,7 +105,11 @@ class PrinterService {
         if (receipt.items.isNotEmpty) {
           await SunmiPrinter.line();
           await SunmiPrinter.setFontSize(SunmiFontSize.LG);
-          await _printRow('ITEMS', 'PRICE', width: _itemRowWidth);
+          // Title case, not ITEMS/PRICE - capital "I" prints corrupted at LG
+          // size on this hardware/firmware (confirmed on a real receipt:
+          // "ITEMS"/"PRICE" came out "TTEMS"/"PRTCE"), while lowercase "i" in
+          // item names prints fine, so this sidesteps the glyph entirely.
+          await _printRow('Items', 'Price', width: _itemRowWidth);
           for (final row in receipt.items) {
             await _printRow(row.left, row.right, bold: row.bold, width: _itemRowWidth);
           }
