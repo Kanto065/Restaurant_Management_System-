@@ -16,7 +16,7 @@ class ReceiptRow {
 class Receipt {
   final List<String> header; // centered: restaurant name, address, phone
   final String orderTypeLabel; // centered banner: DELIVERY / COLLECTION / DINE IN
-  final List<String> meta; // left: Order #, Date, Time, Ready by
+  final List<String> meta; // left: Order #, Date, Time (estimated ready)
   final List<String> customer; // left: Customer, Phone, Delivery address
   final List<ReceiptRow> items; // two-column: item/modifier name -> price
   final List<ReceiptRow> totals; // two-column: Subtotal/fees/discount/Total
@@ -71,8 +71,9 @@ Receipt buildReceipt(OrderDetail order, {required String currencySymbol, Restaur
   final meta = <String>[
     'Order: #${order.orderNumber}',
     'Date: ${_dateOnlyFormat.format(order.createdAt.toLocal())}',
-    'Time: ${_timeOnlyFormat.format(order.createdAt.toLocal())}',
-    if (order.estimatedReadyAt != null) 'Ready by: ${_timeOnlyFormat.format(order.estimatedReadyAt!.toLocal())}',
+    // "Time" is the estimated ready time, not when the order came in - staff
+    // set this (POS new-order screen/order card, or admin) before printing.
+    if (order.estimatedReadyAt != null) 'Time: ${_timeOnlyFormat.format(order.estimatedReadyAt!.toLocal())}',
   ];
 
   final customer = <String>['Customer: ${order.customerName ?? 'Walk-in'}'];
