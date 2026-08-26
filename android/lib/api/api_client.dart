@@ -198,6 +198,13 @@ class ApiClient {
         parseData: (d) => OrderDetail.fromJson(d as Map<String, dynamic>),
       );
 
+  Future<OrderDetail> setEstimatedTime(String id, int estimatedMinutesFromNow) => _request(
+        'PUT',
+        '/api/admin/orders/$id/estimated-time',
+        body: {'estimatedMinutesFromNow': estimatedMinutesFromNow},
+        parseData: (d) => OrderDetail.fromJson(d as Map<String, dynamic>),
+      );
+
   Future<List<OrderStatusDefinition>> listOrderStatusDefinitions() => _request(
         'GET',
         '/api/admin/order-statuses',

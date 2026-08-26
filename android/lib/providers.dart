@@ -112,6 +112,9 @@ class OrdersNotifier extends AsyncNotifier<List<OrderListItem>> {
 
   Future<void> updatePaymentStatus(String orderId, String paymentStatus) =>
       ref.read(ordersRepositoryProvider).updatePaymentStatus(orderId, paymentStatus);
+
+  Future<void> setEstimatedTime(String orderId, int estimatedMinutesFromNow) =>
+      ref.read(ordersRepositoryProvider).setEstimatedTime(orderId, estimatedMinutesFromNow);
 }
 
 final ordersProvider = AsyncNotifierProvider<OrdersNotifier, List<OrderListItem>>(OrdersNotifier.new);
