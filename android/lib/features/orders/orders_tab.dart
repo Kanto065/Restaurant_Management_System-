@@ -126,7 +126,7 @@ class OrdersTabState extends ConsumerState<OrdersTab> {
                   padding: const EdgeInsets.all(14),
                   itemCount: filtered.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) => OrderCard(order: filtered[i], currencySymbol: currency),
+                  itemBuilder: (context, i) => OrderCard(key: ValueKey(filtered[i].id), order: filtered[i], currencySymbol: currency),
                 ),
               );
             },

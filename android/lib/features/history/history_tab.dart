@@ -178,7 +178,7 @@ class HistoryTabState extends ConsumerState<HistoryTab> {
                           padding: const EdgeInsets.all(14),
                           itemCount: _items.length,
                           separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, i) => OrderCard(order: _items[i], currencySymbol: currency, alwaysShowStatus: false),
+                          itemBuilder: (context, i) => OrderCard(key: ValueKey(_items[i].id), order: _items[i], currencySymbol: currency, alwaysShowStatus: false),
                         ),
         ),
         if (_pageCount > 1)
