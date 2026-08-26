@@ -8,4 +8,6 @@ public interface IOrderNotifier
     Task OrderStatusChangedAsync(Guid restaurantId, Guid orderId, string status, CancellationToken ct = default);
 
     Task PaymentReceivedAsync(Guid restaurantId, Guid orderId, CancellationToken ct = default);
+
+    Task EstimatedTimeChangedAsync(Guid restaurantId, Guid orderId, DateTimeOffset? estimatedReadyAt, CancellationToken ct = default);
 }

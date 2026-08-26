@@ -17,6 +17,9 @@ public class OrderNotifier(SseConnectionManager sse, AppDbContext db) : IOrderNo
     public Task PaymentReceivedAsync(Guid restaurantId, Guid orderId, CancellationToken ct = default) =>
         SendAndPersist(restaurantId, NotificationEventType.PaymentReceived, "PaymentReceived", new { orderId }, ct);
 
+    public Task EstimatedTimeChangedAsync(Guid restaurantId, Guid orderId, DateTimeOffset? estimatedReadyAt, CancellationToken ct = default) =>
+        SendAndPersist(restaurantId, NotificationEventType.EstimatedTimeChanged, "EstimatedTimeChanged", new { orderId, estimatedReadyAt }, ct);
+
     private async Task SendAndPersist(Guid restaurantId, NotificationEventType type, string eventName, object payload, CancellationToken ct)
     {
         db.NotificationEvents.Add(new NotificationEvent

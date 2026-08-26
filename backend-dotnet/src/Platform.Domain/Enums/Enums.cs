@@ -64,7 +64,8 @@ public enum NotificationEventType
 {
     NewOrder,
     OrderStatusChanged,
-    PaymentReceived
+    PaymentReceived,
+    EstimatedTimeChanged
 }
 
 public enum VoucherDiscountType
