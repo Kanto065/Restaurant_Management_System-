@@ -23,7 +23,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           script: |
             set -euo pipefail
-            cd ${{ secrets.VPS_UAT_DEPLOY_PATH }}
+            cd "${{ secrets.VPS_UAT_DEPLOY_PATH }}"
             git fetch origin uat
             git switch uat
             git reset --hard origin/uat
