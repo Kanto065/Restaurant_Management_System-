@@ -84,22 +84,31 @@ different parent directory. It serves `uat.porttennanttandoori.co.uk`,
 
 **Why UAT has no Caddy of its own**: only one process can bind ports 80/443 on
 the VPS, so production's Caddy (`docker-compose.prod.yml`) is the sole TLS
-terminator for both stacks. It reaches into the UAT stack's containers
-(`uat-api`, `uat-admin-frontend`, `uat-storefront`, `uat-minio` — explicit
-`container_name`s, since plain service names like `api` would otherwise
-resolve ambiguously once Caddy is attached to both stacks' networks at once)
-over a shared external Docker network:
+terminator for both stacks. It reaches UAT's containers (`uat-postgres`,
+`uat-minio`, `uat-api`, `uat-admin-frontend`, `uat-storefront` — service keys
+*and* `container_name`s are prefixed `uat-`, not just plain `api`/`minio`/etc,
+so their DNS aliases never collide with prod's own) by joining them all
+directly to prod's existing `internal` network, declared `external: true,
+name: platform_internal` in `docker-compose.uat.yml`.
 
-```bash
-# one-time, run directly - NOT owned by either compose file, on purpose:
-# `docker compose down` on either stack must never be able to delete a
-# network the other stack still depends on.
-docker network create platform-edge
-```
-
-Both `docker-compose.prod.yml` and `docker-compose.uat.yml` declare `edge` as
-`external: true, name: platform-edge` — this network must exist before either
-stack's `up` runs for the first time.
+**Do not give any container here (or Caddy) a second network to bridge
+stacks with — even a purpose-built one.** An earlier version of this setup
+used a separate shared `platform-edge` network so Caddy and UAT's containers
+could each keep their own private per-stack network too. Confirmed live on
+this VPS (2026-09-05, broke production admin login): a container attached to
+**more than one** Docker bridge network silently corrupts/strips certain
+outbound HTTP response headers (`Access-Control-*`/`Vary` specifically) -
+reproduced with disposable containers regardless of which side of a
+reverse-proxied request was the dual-homed one, and regardless of which of
+its networks was used for the connection. This is a host-level Docker/kernel
+networking quirk, not a Caddy or app bug - the only reliable fix found was
+eliminating dual-homing entirely. Every container both stacks use must stay
+on `platform_internal` and nothing else. This does mean UAT's Postgres/MinIO
+are reachable (not just discoverable by name) from prod's containers on that
+network and vice versa - not perfectly isolated at the network level, only by
+distinct credentials/container names. Acceptable trade-off given the
+alternative reproduced a production outage; revisit if this VPS's kernel/
+Docker version ever gets upgraded and the underlying bug might be gone.
 
 **Caddyfile changes still ship through the normal production pipeline.** Even
 though a change might only add or touch a UAT route, the Caddyfile lives in
@@ -120,7 +129,7 @@ Backing up UAT's database (the default `backup-postgres.sh` values target
 production's container/db names, so always override them explicitly for UAT):
 
 ```bash
-POSTGRES_CONTAINER=platform-uat-postgres-1 POSTGRES_DB=platform_uat \
+POSTGRES_CONTAINER=uat-postgres POSTGRES_DB=platform_uat \
   POSTGRES_USER=platform_uat BACKUP_DIR=/var/backups/platform-uat-postgres \
   /home/deploy/platform-uat/deploy/backup-postgres.sh
 ```

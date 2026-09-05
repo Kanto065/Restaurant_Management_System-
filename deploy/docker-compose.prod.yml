@@ -100,19 +100,18 @@ services:
       ADMIN_UAT_HOST: ${ADMIN_UAT_HOST}
       API_UAT_HOST: ${API_UAT_HOST}
     depends_on: [api, admin-frontend, storefront, minio]
-    # "edge" is the shared network the UAT stack's containers also join (see
-    # deploy/docker-compose.uat.yml) - it's created once, independently, with
-    # `docker network create platform-edge` (deliberately not owned by either
-    # compose file) so a `docker compose down` on either stack can never delete
-    # a network the other one is still using. Only Caddy needs to reach across
-    # into UAT; nothing else in this stack does.
-    networks: [internal, edge]
+    # UAT's proxy-facing containers (see deploy/docker-compose.uat.yml) join this
+    # SAME "internal" network directly - do not give Caddy a second network to
+    # reach them instead. Confirmed live on this VPS: a container attached to
+    # more than one Docker bridge network silently corrupts/strips certain
+    # outbound HTTP response headers (Access-Control-*/Vary specifically, seen
+    # both when Caddy itself was dual-homed and when an upstream container was)
+    # - a host-level Docker/kernel networking quirk, not a Caddy or app bug.
+    # Everything Caddy talks to must stay single-homed on "internal".
+    networks: [internal]
 
 networks:
   internal:
-  edge:
-    external: true
-    name: platform-edge
 
 volumes:
   postgres_data:
