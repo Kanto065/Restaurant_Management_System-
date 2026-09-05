@@ -73,9 +73,12 @@ cd deploy && docker compose -f docker-compose.prod.yml up -d --build
 
 A second, fully isolated stack (own Postgres, own MinIO, own volumes) runs
 alongside production on the **same VPS**, deployed from a separate clone at
-`/opt/platform-uat` tracking the `uat` branch (push to `uat` triggers
+`/home/deploy/platform-uat` tracking the `uat` branch (push to `uat` triggers
 `.github/workflows/deploy-uat.yml`, mirroring how `deploy` works for
-production). It serves `uat.porttennanttandoori.co.uk`,
+production). It lives under the `deploy` user's home directory rather than
+`/opt` because `/opt` is root-owned and the `deploy` user deliberately has no
+sudo access (see the CI/CD setup above) — no functional difference, just a
+different parent directory. It serves `uat.porttennanttandoori.co.uk`,
 `adminuat.porttennanttandoori.co.uk`, and
 `apiuat.porttennanttandoori.co.uk`.
 
@@ -107,7 +110,7 @@ other Caddyfile edit (see the `--force-recreate caddy` gotcha above).
 Bringing up UAT for the first time or after a reset:
 
 ```bash
-cd /opt/platform-uat/deploy
+cd /home/deploy/platform-uat/deploy
 cp .env.example .env.uat   # then edit: distinct passwords/keys, and Stripe
                             # TEST-mode keys only - UAT must never hold live keys
 docker compose -f docker-compose.uat.yml --env-file .env.uat up -d --build
@@ -119,5 +122,5 @@ production's container/db names, so always override them explicitly for UAT):
 ```bash
 POSTGRES_CONTAINER=platform-uat-postgres-1 POSTGRES_DB=platform_uat \
   POSTGRES_USER=platform_uat BACKUP_DIR=/var/backups/platform-uat-postgres \
-  /opt/platform-uat/deploy/backup-postgres.sh
+  /home/deploy/platform-uat/deploy/backup-postgres.sh
 ```
