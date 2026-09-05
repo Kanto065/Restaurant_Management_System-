@@ -68,3 +68,56 @@ Redeploying (also what the GitHub Actions deploy job runs):
 cd /opt/platform && git pull
 cd deploy && docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+## UAT environment
+
+A second, fully isolated stack (own Postgres, own MinIO, own volumes) runs
+alongside production on the **same VPS**, deployed from a separate clone at
+`/opt/platform-uat` tracking the `uat` branch (push to `uat` triggers
+`.github/workflows/deploy-uat.yml`, mirroring how `deploy` works for
+production). It serves `uat.porttennanttandoori.co.uk`,
+`adminuat.porttennanttandoori.co.uk`, and
+`apiuat.porttennanttandoori.co.uk`.
+
+**Why UAT has no Caddy of its own**: only one process can bind ports 80/443 on
+the VPS, so production's Caddy (`docker-compose.prod.yml`) is the sole TLS
+terminator for both stacks. It reaches into the UAT stack's containers
+(`uat-api`, `uat-admin-frontend`, `uat-storefront`, `uat-minio` — explicit
+`container_name`s, since plain service names like `api` would otherwise
+resolve ambiguously once Caddy is attached to both stacks' networks at once)
+over a shared external Docker network:
+
+```bash
+# one-time, run directly - NOT owned by either compose file, on purpose:
+# `docker compose down` on either stack must never be able to delete a
+# network the other stack still depends on.
+docker network create platform-edge
+```
+
+Both `docker-compose.prod.yml` and `docker-compose.uat.yml` declare `edge` as
+`external: true, name: platform-edge` — this network must exist before either
+stack's `up` runs for the first time.
+
+**Caddyfile changes still ship through the normal production pipeline.** Even
+though a change might only add or touch a UAT route, the Caddyfile lives in
+`docker-compose.prod.yml`'s world and is only picked up when production's
+`caddy` container is recreated — i.e. by pushing to `deploy`, same as any
+other Caddyfile edit (see the `--force-recreate caddy` gotcha above).
+
+Bringing up UAT for the first time or after a reset:
+
+```bash
+cd /opt/platform-uat/deploy
+cp .env.example .env.uat   # then edit: distinct passwords/keys, and Stripe
+                            # TEST-mode keys only - UAT must never hold live keys
+docker compose -f docker-compose.uat.yml --env-file .env.uat up -d --build
+```
+
+Backing up UAT's database (the default `backup-postgres.sh` values target
+production's container/db names, so always override them explicitly for UAT):
+
+```bash
+POSTGRES_CONTAINER=platform-uat-postgres-1 POSTGRES_DB=platform_uat \
+  POSTGRES_USER=platform_uat BACKUP_DIR=/var/backups/platform-uat-postgres \
+  /opt/platform-uat/deploy/backup-postgres.sh
+```

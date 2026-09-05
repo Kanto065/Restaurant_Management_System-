@@ -2,6 +2,13 @@
 # Revisit with on-demand TLS (see plan doc §7) once Phase 5 self-service tenant
 # onboarding lands and domains are no longer known ahead of time in this file.
 
+# Bare apex domain has no A record history of its own content - redirect to the
+# canonical www host instead of duplicating the storefront site block, so there's
+# only ever one indexable URL per page.
+{$APEX_HOST} {
+	redir https://{$STOREFRONT_HOST}{uri} permanent
+}
+
 {$API_HOST} {
 	# Admin-uploaded images (hero slides, logo, etc) live in the MinIO "uploads"
 	# bucket, not the api container - the bucket's public-read policy plus
@@ -50,5 +57,34 @@
 	}
 	handle {
 		reverse_proxy storefront:80
+	}
+}
+
+# UAT - fully separate Postgres/MinIO/api/admin-frontend/storefront stack
+# (docker-compose.uat.yml), reached over the shared "edge" external network since
+# this Caddy instance is the only thing on the VPS allowed to bind 80/443. See
+# deploy/README.md "UAT environment" for how that network is wired up.
+{$STOREFRONT_UAT_HOST} {
+	handle /api/* {
+		reverse_proxy uat-api:8080
+	}
+	handle /uploads/* {
+		reverse_proxy uat-minio:9000
+	}
+	handle {
+		reverse_proxy uat-storefront:80
+	}
+}
+
+{$ADMIN_UAT_HOST} {
+	reverse_proxy uat-admin-frontend:80
+}
+
+{$API_UAT_HOST} {
+	handle /uploads/* {
+		reverse_proxy uat-minio:9000
+	}
+	handle {
+		reverse_proxy uat-api:8080
 	}
 }

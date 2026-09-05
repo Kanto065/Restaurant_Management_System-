@@ -1,0 +1,92 @@
+# Isolated UAT stack: own Postgres, own MinIO, own volumes - zero shared state
+# with production. No Caddy service here - the production Caddy instance
+# (docker-compose.prod.yml) is the sole thing on the VPS allowed to bind 80/443,
+# and reverse-proxies into this stack's containers over the shared external
+# "edge" network. See deploy/README.md "UAT environment" for the full picture.
+name: platform-uat
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-platform_uat}
+      POSTGRES_USER: ${POSTGRES_USER:-platform_uat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - uat_postgres_data:/var/lib/postgresql/data
+    networks: [internal]
+    # No "ports:" - same as prod, Postgres is never reachable from the host/public internet.
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    container_name: uat-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - uat_minio_data:/data
+    networks: [internal, edge]
+    # On "edge" too (unlike prod's minio) because prod's Caddy proxies
+    # /uploads/* straight here for the UAT hosts - see the Caddyfile.
+
+  api:
+    build:
+      context: ../backend-dotnet
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    container_name: uat-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-platform_uat};Username=${POSTGRES_USER:-platform_uat};Password=${POSTGRES_PASSWORD}"
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      Stripe__SecretKey: ${STRIPE_SECRET_KEY}
+      Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
+      Seed__Enabled: ${SEED_ENABLED:-true}
+      Seed__Host: ${SEED_HOST:-uat.porttennanttandoori.co.uk}
+      Seed__OwnerEmail: ${SEED_OWNER_EMAIL}
+      Seed__OwnerPassword: ${SEED_OWNER_PASSWORD}
+      Cors__AllowedOrigins__0: https://${SEED_HOST:-uat.porttennanttandoori.co.uk}
+      Cors__AllowedOrigins__1: https://${ADMIN_HOST}
+      Storage__Provider: S3
+      Storage__S3__ServiceUrl: http://minio:9000
+      Storage__S3__AccessKey: ${MINIO_ROOT_USER}
+      Storage__S3__SecretKey: ${MINIO_ROOT_PASSWORD}
+      Storage__S3__Bucket: uploads
+    depends_on: [postgres, minio]
+    networks: [internal, edge]
+
+  admin-frontend:
+    build:
+      context: ../admin-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: https://${API_HOST}
+    restart: unless-stopped
+    container_name: uat-admin-frontend
+    networks: [edge]
+
+  storefront:
+    build:
+      context: ../storefront
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    container_name: uat-storefront
+    networks: [edge]
+    # Same as prod - calls /api and /uploads on its own origin, so Caddy's
+    # UAT storefront block can split traffic to uat-api/uat-minio while keeping
+    # the Host header equal to uat.porttennanttandoori.co.uk for tenant resolution.
+
+networks:
+  internal:
+  edge:
+    external: true
+    name: platform-edge
+
+volumes:
+  uat_postgres_data:
+  uat_minio_data:

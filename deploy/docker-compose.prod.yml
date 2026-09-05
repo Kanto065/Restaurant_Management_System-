@@ -95,11 +95,24 @@ services:
       API_HOST: ${API_HOST}
       ADMIN_HOST: ${ADMIN_HOST}
       STOREFRONT_HOST: ${STOREFRONT_HOST}
+      APEX_HOST: ${APEX_HOST}
+      STOREFRONT_UAT_HOST: ${STOREFRONT_UAT_HOST}
+      ADMIN_UAT_HOST: ${ADMIN_UAT_HOST}
+      API_UAT_HOST: ${API_UAT_HOST}
     depends_on: [api, admin-frontend, storefront, minio]
-    networks: [internal]
+    # "edge" is the shared network the UAT stack's containers also join (see
+    # deploy/docker-compose.uat.yml) - it's created once, independently, with
+    # `docker network create platform-edge` (deliberately not owned by either
+    # compose file) so a `docker compose down` on either stack can never delete
+    # a network the other one is still using. Only Caddy needs to reach across
+    # into UAT; nothing else in this stack does.
+    networks: [internal, edge]
 
 networks:
   internal:
+  edge:
+    external: true
+    name: platform-edge
 
 volumes:
   postgres_data:
