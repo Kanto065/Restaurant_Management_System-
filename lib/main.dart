@@ -8,16 +8,18 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'firebase_options.dart';
 import 'printer_service.dart';
+import 'printing/receipt_settings.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
+
   // Initialize Printer Service
   await PrinterService().init();
-  
+  await ReceiptSettings().init();
+
   final provider = POSProvider();
   await provider.loadData();
   runApp(
@@ -723,10 +725,6 @@ class TopHeader extends StatelessWidget {
             tooltip: 'Printer Settings',
             onPressed: () => _showPrinterSettings(context),
           ),
-          const SizedBox(width: 16),
-          const CircleAvatar(backgroundColor: Colors.grey, child: Icon(Icons.person, color: Colors.white)),
-          const SizedBox(width: 10),
-          const Text('John Smith', style: TextStyle(color: Colors.white)),
         ],
       ),
     );
@@ -1361,10 +1359,38 @@ class _PrinterSettingsDialogState extends State<PrinterSettingsDialog> {
   List<Map<String, dynamic>> _devices = [];
   bool _isScanning = false;
 
+  late final TextEditingController _shopNameCtrl;
+  late final TextEditingController _addressLineCtrl;
+  late final TextEditingController _cityCtrl;
+  late final TextEditingController _postcodeCtrl;
+  late final TextEditingController _phoneCtrl;
+  late final TextEditingController _serverNameCtrl;
+  late final TextEditingController _customerNameCtrl;
+
   @override
   void initState() {
     super.initState();
     _scanPrinters();
+    final settings = ReceiptSettings();
+    _shopNameCtrl = TextEditingController(text: settings.shopName);
+    _addressLineCtrl = TextEditingController(text: settings.addressLine);
+    _cityCtrl = TextEditingController(text: settings.city);
+    _postcodeCtrl = TextEditingController(text: settings.postcode);
+    _phoneCtrl = TextEditingController(text: settings.phone);
+    _serverNameCtrl = TextEditingController(text: settings.serverName);
+    _customerNameCtrl = TextEditingController(text: settings.customerName);
+  }
+
+  @override
+  void dispose() {
+    _shopNameCtrl.dispose();
+    _addressLineCtrl.dispose();
+    _cityCtrl.dispose();
+    _postcodeCtrl.dispose();
+    _phoneCtrl.dispose();
+    _serverNameCtrl.dispose();
+    _customerNameCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _scanPrinters() async {
@@ -1376,15 +1402,48 @@ class _PrinterSettingsDialogState extends State<PrinterSettingsDialog> {
     });
   }
 
+  Future<void> _saveReceiptDetails() async {
+    await ReceiptSettings().save(
+      shopName: _shopNameCtrl.text.trim(),
+      addressLine: _addressLineCtrl.text.trim(),
+      city: _cityCtrl.text.trim(),
+      postcode: _postcodeCtrl.text.trim(),
+      phone: _phoneCtrl.text.trim(),
+      serverName: _serverNameCtrl.text.trim(),
+      customerName: _customerNameCtrl.text.trim(),
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Receipt details saved')));
+    }
+  }
+
+  Widget _receiptField(String label, TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: controller,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+          isDense: true,
+          enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E293B))),
+          focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.blueAccent)),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedName = PrinterService().selectedPrinterName;
-    
+
     return AlertDialog(
       backgroundColor: const Color(0xFF0F172A),
       title: const Text('Printer Settings', style: TextStyle(fontWeight: FontWeight.bold)),
       content: SizedBox(
         width: 400,
+        child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1454,7 +1513,28 @@ class _PrinterSettingsDialogState extends State<PrinterSettingsDialog> {
                 ),
               ],
             ),
+            const SizedBox(height: 20),
+            const Divider(color: Color(0xFF1E293B)),
+            const SizedBox(height: 10),
+            const Text('Receipt Details', style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            _receiptField('Shop Name', _shopNameCtrl),
+            _receiptField('Address Line', _addressLineCtrl),
+            _receiptField('City', _cityCtrl),
+            _receiptField('Postcode', _postcodeCtrl),
+            _receiptField('Phone', _phoneCtrl),
+            _receiptField('Server Name', _serverNameCtrl),
+            _receiptField('Default Customer Name', _customerNameCtrl),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saveReceiptDetails,
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF16A34A)),
+                child: const Text('Save Receipt Details'),
+              ),
+            ),
           ],
+        ),
         ),
       ),
       actions: [
