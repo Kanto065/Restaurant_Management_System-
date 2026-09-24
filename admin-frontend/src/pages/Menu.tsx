@@ -21,6 +21,8 @@ import { api } from '@/lib/api';
 import { getImageUrl } from '@/config/api';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ImageUploadField } from '@/components/ImageUploadField';
+import { RichTextEditor } from '@/components/RichTextEditor';
+import { htmlToPlainText } from '@/lib/richText';
 import { ItemVariantsPanel } from '@/components/ItemVariantsPanel';
 
 const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Hot'] as const;
@@ -356,9 +358,9 @@ const Menu = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Textarea id="description" value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Describe the dish" rows={3} disabled={isSubmitting} />
+                <RichTextEditor key={editingItem?.id ?? 'new'} id="description" value={form.description}
+                  onChange={(html) => setForm((f) => ({ ...f, description: html }))}
+                  disabled={isSubmitting} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -604,7 +606,7 @@ const Menu = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground line-clamp-2">{item.description || 'No description'}</p>
+                <p className="text-sm text-muted-foreground line-clamp-2">{htmlToPlainText(item.description) || 'No description'}</p>
 
                 <div className="flex items-center gap-2">
                   <Switch checked={item.isAvailable} onCheckedChange={() => toggleAvailableMutation.mutate(item)} />
