@@ -88,3 +88,7 @@
 		reverse_proxy uat-api:8080
 	}
 }
+
+# Per-project site files that live outside this repo so deploys here cannot overwrite them.
+# Host folder /opt/caddy-sites.d is mounted at /etc/caddy/sites.d (see docker-compose.prod.yml).
+import /etc/caddy/sites.d/*.caddy
