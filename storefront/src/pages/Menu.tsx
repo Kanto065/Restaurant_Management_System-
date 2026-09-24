@@ -8,6 +8,7 @@ import { currencySymbol } from '../lib/currency';
 import { spiceIcon } from '../lib/spice';
 import ModifierModal from '../components/ModifierModal';
 import CartPanel from '../components/CartPanel';
+import RichDescription from '../components/RichDescription';
 import MandalaAccent from '../components/MandalaAccent';
 import type { MenuItem, OrderType } from '../types/api';
 
@@ -246,7 +247,7 @@ export default function Menu() {
                             <span className="text-xs ml-1.5 align-middle" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>
                           )}
                         </p>
-                        {item.description && <p className="text-sm text-brand-bg/70">{item.description}</p>}
+                        {item.description && <RichDescription html={item.description} className="text-sm text-brand-bg/70" />}
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 shrink-0">
@@ -286,7 +287,7 @@ export default function Menu() {
                           <span className="text-xs ml-1.5 align-middle" title={item.spiceLevel}>{spiceIcon(item.spiceLevel)}</span>
                         )}
                       </p>
-                      {item.description && <p className="text-sm text-brand-bg/70">{item.description}</p>}
+                      {item.description && <RichDescription html={item.description} className="text-sm text-brand-bg/70" />}
                       {(item.isVegan || item.isVegetarian) && (
                         <div className="flex gap-1.5 mt-0.5 flex-wrap">
                           {item.isVegan && <span className="text-xs bg-green-600/10 text-green-700 px-1.5 py-0.5 rounded">Vegan</span>}

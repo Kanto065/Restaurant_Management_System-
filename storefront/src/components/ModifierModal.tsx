@@ -6,7 +6,7 @@ import { useFavourites, useRestaurant } from '../lib/queries';
 import { api, customerAuth } from '../lib/api';
 import { currencySymbol } from '../lib/currency';
 import { spiceIcon } from '../lib/spice';
-
+import RichDescription from './RichDescription';
 
 export default function ModifierModal({ item, onClose }: { item: MenuItem; onClose: () => void }) {
   const addLine = useCartStore((s) => s.addLine);
@@ -83,7 +83,7 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
               </span>
             )}
           </div>
-          {item.description && <p className="text-sm text-brand-cream/70 mt-2 leading-relaxed">{item.description}</p>}
+          {item.description && <RichDescription html={item.description} className="text-sm text-brand-cream/70 mt-2 leading-relaxed" />}
 
           <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 pt-4 border-t border-brand-cream/10 text-sm text-brand-cream/80">
             {item.spiceLevel !== 'None' && (
