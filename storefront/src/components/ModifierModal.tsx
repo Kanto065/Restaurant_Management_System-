@@ -8,6 +8,54 @@ import { currencySymbol } from '../lib/currency';
 import { spiceIcon } from '../lib/spice';
 import RichDescription from './RichDescription';
 
+// Groups with more options than this render as a dropdown instead of a wall of chips.
+const DROPDOWN_THRESHOLD = 4;
+
+function MultiSelectDropdown({ placeholder, options, selectedIds, labelFor, onToggle }: {
+  placeholder: string;
+  options: ModifierOption[];
+  selectedIds: string[];
+  labelFor: (option: ModifierOption) => string;
+  onToggle: (option: ModifierOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const summary = options.filter((o) => selectedIds.includes(o.id)).map((o) => o.name).join(', ');
+
+  return (
+    <div className="rounded-lg border border-brand-cream/20">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-left"
+      >
+        <span className={`truncate ${summary ? '' : 'text-brand-cream/50'}`}>
+          {summary || placeholder}
+        </span>
+        <span aria-hidden className={`shrink-0 text-xs transition-transform ${open ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+      {open && (
+        <div className="max-h-56 overflow-y-auto border-t border-brand-cream/10 py-1">
+          {options.map((option) => {
+            const checked = selectedIds.includes(option.id);
+            return (
+              <label key={option.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-brand-cream/5">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggle(option)}
+                  className="accent-brand-green w-4 h-4"
+                />
+                <span>{labelFor(option)}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ModifierModal({ item, onClose }: { item: MenuItem; onClose: () => void }) {
   const addLine = useCartStore((s) => s.addLine);
   const { data: restaurant } = useRestaurant();
@@ -105,32 +153,75 @@ export default function ModifierModal({ item, onClose }: { item: MenuItem; onClo
                   <p className="font-medium text-sm mb-2">
                     {group.name} {group.isRequired && <span className="text-brand-orange">*</span>}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {group.options.map((option) => {
-                      const isSelected = (selected[group.id] ?? []).some((o) => o.id === option.id);
+                  {(() => {
+                    const groupSelected = selected[group.id] ?? [];
+                    const labelFor = (option: ModifierOption) => {
                       const priceLabel =
                         group.groupType === 'Variation'
                           ? `${currency}${(item.basePrice + option.priceDelta).toFixed(2)}`
                           : option.priceDelta !== 0
                           ? `${option.priceDelta > 0 ? '+' : ''}${currency}${option.priceDelta.toFixed(2)}`
                           : null;
+                      return priceLabel ? `${option.name} (${priceLabel})` : option.name;
+                    };
+
+                    if (group.options.length > DROPDOWN_THRESHOLD && group.maxSelect <= 1) {
                       return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => toggleOption(group.id, option, group.maxSelect)}
-                          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                            isSelected
-                              ? 'bg-brand-green text-white border-brand-green'
-                              : 'border-brand-cream/20 hover:border-brand-green'
-                          }`}
+                        <select
+                          aria-label={group.name}
+                          value={groupSelected[0]?.id ?? ''}
+                          onChange={(e) => {
+                            const option = group.options.find((o) => o.id === e.target.value);
+                            setSelected((prev) => ({ ...prev, [group.id]: option ? [option] : [] }));
+                          }}
+                          className="w-full rounded-lg border border-brand-cream/20 bg-brand-bg px-3 py-2.5 text-sm text-brand-cream focus:border-brand-green focus:outline-none"
                         >
-                          {option.name}
-                          {priceLabel && ` (${priceLabel})`}
-                        </button>
+                          <option value="" disabled={group.isRequired} className="bg-brand-bg text-brand-cream">
+                            {group.isRequired ? `Select ${group.name.toLowerCase()}...` : 'None'}
+                          </option>
+                          {group.options.map((option) => (
+                            <option key={option.id} value={option.id} className="bg-brand-bg text-brand-cream">
+                              {labelFor(option)}
+                            </option>
+                          ))}
+                        </select>
                       );
-                    })}
-                  </div>
+                    }
+
+                    if (group.options.length > DROPDOWN_THRESHOLD) {
+                      return (
+                        <MultiSelectDropdown
+                          placeholder={`Choose up to ${group.maxSelect}...`}
+                          options={group.options}
+                          selectedIds={groupSelected.map((o) => o.id)}
+                          labelFor={labelFor}
+                          onToggle={(option) => toggleOption(group.id, option, group.maxSelect)}
+                        />
+                      );
+                    }
+
+                    return (
+                      <div className="flex flex-wrap gap-2">
+                        {group.options.map((option) => {
+                          const isSelected = groupSelected.some((o) => o.id === option.id);
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => toggleOption(group.id, option, group.maxSelect)}
+                              className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                                isSelected
+                                  ? 'bg-brand-green text-white border-brand-green'
+                                  : 'border-brand-cream/20 hover:border-brand-green'
+                              }`}
+                            >
+                              {labelFor(option)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
