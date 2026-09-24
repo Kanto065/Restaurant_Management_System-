@@ -33,10 +33,10 @@ export interface ModifierGroup {
 
 // `key` is a client-only stable identity for drag reordering and React keys - unrelated to
 // the server `id`, which new (unsaved) options don't have yet.
-type OptionForm = { key: string; id?: string; name: string; priceDelta: string; isDefault: boolean };
+type OptionForm = { key: string; id?: string; name: string; priceDelta: string; isDefault: boolean; isAvailable: boolean };
 
 const newOptionKey = () => crypto.randomUUID();
-const emptyOption = (): OptionForm => ({ key: newOptionKey(), name: '', priceDelta: '0', isDefault: false });
+const emptyOption = (): OptionForm => ({ key: newOptionKey(), name: '', priceDelta: '0', isDefault: false, isAvailable: true });
 
 interface ModifierGroupDialogProps {
   itemId: string;
@@ -64,7 +64,7 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
       setGroupType(group.groupType);
       setIsRequired(group.isRequired);
       setSingleSelect(group.maxSelect <= 1);
-      setOptions(group.options.map((o) => ({ key: newOptionKey(), id: o.id, name: o.name, priceDelta: o.priceDelta.toString(), isDefault: o.isDefault })));
+      setOptions(group.options.map((o) => ({ key: newOptionKey(), id: o.id, name: o.name, priceDelta: o.priceDelta.toString(), isDefault: o.isDefault, isAvailable: o.isAvailable })));
     } else {
       setName('');
       setGroupType('Modifier');
@@ -134,7 +134,7 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
         groupType,
         options: options
           .filter((o) => o.name.trim())
-          .map((o) => ({ id: o.id ?? null, name: o.name, priceDelta: parseFloat(o.priceDelta) || 0, isDefault: o.isDefault, isAvailable: true })),
+          .map((o) => ({ id: o.id ?? null, name: o.name, priceDelta: parseFloat(o.priceDelta) || 0, isDefault: o.isDefault, isAvailable: o.isAvailable })),
       };
       return group
         ? api.put(`/api/admin/modifier-groups/${group.id}`, payload)
@@ -156,6 +156,10 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
     }
     if (options.filter((o) => o.name.trim()).length < 2) {
       toast({ title: 'Validation Error', description: 'Add at least two options (e.g. Plain, Spicy).', variant: 'destructive' });
+      return;
+    }
+    if (!options.some((o) => o.name.trim() && o.isAvailable)) {
+      toast({ title: 'Validation Error', description: 'At least one option must be active.', variant: 'destructive' });
       return;
     }
     saveMutation.mutate();
@@ -224,6 +228,7 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
               {groupType === 'Variation'
                 ? "Enter each option's full price - the item's own base price should be left at £0.00"
                 : 'Enter how much each option adds to the price'}
+              {'. Use the switch to hide an option from customers without deleting it.'}
             </p>
             {options.map((option) => (
               <div
@@ -236,6 +241,8 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
                 onDragEnd={() => { setDragKey(null); setDragOverKey(null); }}
                 onDrop={() => handleDrop(option.key)}
                 className={`flex items-center gap-2 border-t-2 transition-colors ${
+                  !option.isAvailable && dragKey !== option.key ? 'opacity-60' : ''
+                } ${
                   dragKey === option.key ? 'opacity-40' : dragOverKey === option.key ? 'border-t-primary' : 'border-t-transparent'
                 }`}
               >
@@ -253,6 +260,12 @@ export function ModifierGroupDialog({ itemId, group, onClose }: ModifierGroupDia
                   onChange={(e) => updateOption(option.key, { priceDelta: e.target.value })}
                   placeholder={groupType === 'Variation' ? '0.00' : '+0.00'}
                   className="w-24"
+                />
+                <Switch
+                  checked={option.isAvailable}
+                  onCheckedChange={(checked) => updateOption(option.key, { isAvailable: checked })}
+                  aria-label={option.isAvailable ? 'Active - click to deactivate' : 'Inactive - click to activate'}
+                  title={option.isAvailable ? 'Active (shown to customers)' : 'Inactive (hidden from customers)'}
                 />
                 <Button
                   type="button"

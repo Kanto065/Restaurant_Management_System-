@@ -138,8 +138,14 @@ export function ItemVariantsPanel({ itemId, showVariantsAsRows, onToggleShowVari
             </div>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
               {group.options.map((o) => (
-                <Badge key={o.id} variant="secondary" className="text-xs font-normal">
+                <Badge
+                  key={o.id}
+                  variant="secondary"
+                  className={`text-xs font-normal ${o.isAvailable ? '' : 'opacity-50 line-through'}`}
+                  title={o.isAvailable ? undefined : 'Inactive - hidden from customers'}
+                >
                   {o.name}{o.priceDelta !== 0 && ` (${o.priceDelta > 0 ? '+' : ''}${currency}${o.priceDelta.toFixed(2)})`}
+                  {!o.isAvailable && ' - inactive'}
                 </Badge>
               ))}
             </div>
