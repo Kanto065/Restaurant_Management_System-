@@ -71,6 +71,25 @@
 	}
 }
 
+# Platform owner's super admin panel. No Domain row points here, so the API resolves no
+# tenant for it and only /api/platform/* (PlatformSuperAdmin tokens) is useful.
+# basic_auth guards the app itself as a second lock in front of its own login, but NOT
+# /api/*: the browser's Basic credentials would share the Authorization header with the
+# app's Bearer token. /api/platform/* is protected by that token (and /api/* is reachable
+# on every tenant host anyway).
+{$SUPERADMIN_HOST} {
+	header X-Robots-Tag "noindex, nofollow"
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+	handle {
+		basic_auth {
+			{$SUPERADMIN_BASIC_USER} {$SUPERADMIN_BASIC_HASH}
+		}
+		reverse_proxy superadmin-frontend:80
+	}
+}
+
 # UAT - fully separate Postgres/MinIO/api/admin-frontend/storefront stack
 # (docker-compose.uat.yml), reached over the shared "edge" external network since
 # this Caddy instance is the only thing on the VPS allowed to bind 80/443. See

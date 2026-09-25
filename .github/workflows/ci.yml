@@ -61,3 +61,23 @@ jobs:
       # them here without blocking deploys on debt already scheduled to be paid down.
       - run: npm run lint
         continue-on-error: true
+
+  superadmin-frontend:
+    name: Super admin frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: superadmin-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: superadmin-frontend/package-lock.json
+
+      - run: npm ci
+      # Includes a tsc type-check (see package.json "build").
+      - run: npm run build
+      - run: npm run lint
