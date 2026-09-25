@@ -66,7 +66,7 @@ public static class DbSeeder
             await db.SaveChangesAsync();
         }
 
-        var owner = await userManager.FindByEmailAsync(options.OwnerEmail);
+        var owner = await userManager.FindByNameAsync(options.OwnerEmail);
         if (owner is null)
         {
             owner = new AppUser

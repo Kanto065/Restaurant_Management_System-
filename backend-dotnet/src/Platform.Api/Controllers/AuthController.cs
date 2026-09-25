@@ -71,7 +71,8 @@ public class AuthController(
     [HttpPost("staff/login")]
     public async Task<ActionResult<ApiResponse<TokenResponse>>> StaffLogin(StaffLoginRequest request)
     {
-        var user = await userManager.FindByEmailAsync(request.Email);
+        // Staff UserName is their email; customer usernames are restaurant-scoped so never match here.
+        var user = await userManager.FindByNameAsync(request.Email);
         if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
             return Unauthorized(ApiResponse<TokenResponse>.Fail("Invalid email or password.", 401));
 
@@ -140,11 +141,17 @@ public class AuthController(
 
         var restaurantId = currentTenant.RestaurantId.Value;
 
-        var existing = await db.Customers.FirstOrDefaultAsync(c => c.Email == request.Email);
+        // Scoped to this restaurant only - an account at another restaurant doesn't block (or reveal) anything.
+        var existing = await userManager.FindByNameAsync(AppUser.CustomerUserName(restaurantId, request.Email));
         if (existing is not null)
             return Conflict(ApiResponse<TokenResponse>.Fail("An account with this email already exists.", 409));
 
-        var user = new AppUser { UserName = request.Email, Email = request.Email, FullName = request.FullName };
+        var user = new AppUser
+        {
+            UserName = AppUser.CustomerUserName(restaurantId, request.Email),
+            Email = request.Email,
+            FullName = request.FullName,
+        };
         var createResult = await userManager.CreateAsync(user, request.Password);
         if (!createResult.Succeeded)
         {
@@ -195,7 +202,7 @@ public class AuthController(
         if (!currentTenant.RestaurantId.HasValue)
             return BadRequest(ApiResponse<TokenResponse>.Fail("Could not resolve restaurant from this domain.", 400));
 
-        var user = await userManager.FindByEmailAsync(request.Email);
+        var user = await userManager.FindByNameAsync(AppUser.CustomerUserName(currentTenant.RestaurantId.Value, request.Email));
         if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
             return Unauthorized(ApiResponse<TokenResponse>.Fail("Invalid email or password.", 401));
 

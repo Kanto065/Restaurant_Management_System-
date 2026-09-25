@@ -33,7 +33,9 @@ public static class DependencyInjection
         services.AddIdentityCore<AppUser>(o =>
             {
                 o.Password.RequiredLength = 8;
-                o.User.RequireUniqueEmail = true;
+                // Not unique: a customer can hold separate accounts at different restaurants
+                // (see AppUser.CustomerUserName). Look users up by UserName, never FindByEmail.
+                o.User.RequireUniqueEmail = false;
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<AppDbContext>()
