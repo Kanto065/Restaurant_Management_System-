@@ -12,6 +12,7 @@ using Platform.Infrastructure.Payments;
 using Platform.Infrastructure.Persistence;
 using Platform.Infrastructure.Realtime;
 using Platform.Infrastructure.Storage;
+using Platform.Infrastructure.Tenancy;
 using Stripe;
 
 namespace Platform.Infrastructure;
@@ -27,6 +28,7 @@ public static class DependencyInjection
 
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddScoped<ITenantDomainResolver, TenantDomainResolver>();
+        services.AddScoped<TenantProvisioningService>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentActor, CurrentActor>();
 
@@ -93,6 +95,7 @@ public static class DependencyInjection
         services.AddAuthorizationBuilder()
             .AddPolicy("StaffOnly", p => p.RequireClaim("token_type", "staff"))
             .AddPolicy("CustomerOnly", p => p.RequireClaim("token_type", "customer"))
+            .AddPolicy("PlatformSuperAdmin", p => p.RequireClaim("token_type", "platform"))
             .AddPolicy("PosDeviceOnly", p => p.RequireClaim("token_type", "device").RequireClaim("scope", "pos"))
             // Orders endpoints POS terminals need directly (list/read/update status) - staff
             // dashboard and paired Sunmi devices both allowed, nothing else.

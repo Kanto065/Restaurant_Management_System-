@@ -134,3 +134,60 @@ public class SeedOptions
     public string OwnerFullName { get; set; } = "Restaurant Owner";
     public string OwnerPassword { get; set; } = "ChangeMe123!";
 }
+
+/// <summary>
+/// The super admin panel's login (superadmin.porttennanttandoori.co.uk). Both values come from
+/// env (PlatformAdmin__Email / PlatformAdmin__Password); nothing is seeded when Email is empty.
+/// </summary>
+public class PlatformAdminOptions
+{
+    public const string SectionName = "PlatformAdmin";
+
+    public string? Email { get; set; }
+    public string? Password { get; set; }
+    public string FullName { get; set; } = "Platform Admin";
+}
+
+public static class PlatformAdminSeeder
+{
+    /// <summary>
+    /// Ensures the configured user exists and is flagged IsPlatformSuperAdmin. If a staff user with
+    /// that email already exists (e.g. you also own a restaurant) it is flagged, password untouched.
+    /// Never resets an existing user's password from config.
+    /// </summary>
+    public static async Task EnsureAsync(IServiceProvider services, PlatformAdminOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(options.Email))
+            return;
+
+        using var scope = services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+
+        var user = await userManager.FindByNameAsync(options.Email.Trim());
+        if (user is null)
+        {
+            if (string.IsNullOrWhiteSpace(options.Password))
+                throw new InvalidOperationException("PlatformAdmin:Password is required to create the platform admin user.");
+
+            user = new AppUser
+            {
+                UserName = options.Email.Trim(),
+                Email = options.Email.Trim(),
+                EmailConfirmed = true,
+                FullName = options.FullName,
+                IsPlatformSuperAdmin = true,
+            };
+            var result = await userManager.CreateAsync(user, options.Password);
+            if (!result.Succeeded)
+                throw new InvalidOperationException(
+                    "Failed to seed platform admin: " + string.Join("; ", result.Errors.Select(e => e.Description)));
+            return;
+        }
+
+        if (!user.IsPlatformSuperAdmin)
+        {
+            user.IsPlatformSuperAdmin = true;
+            await userManager.UpdateAsync(user);
+        }
+    }
+}

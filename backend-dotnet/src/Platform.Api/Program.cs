@@ -74,6 +74,10 @@ if (builder.Configuration.GetValue("Seed:Enabled", true))
     await DbSeeder.SeedFirstTenantAsync(app.Services, seedOptions);
 }
 
+// Super admin panel login - independent of Seed:Enabled (no-op unless PlatformAdmin:Email is set).
+await PlatformAdminSeeder.EnsureAsync(app.Services,
+    builder.Configuration.GetSection(PlatformAdminOptions.SectionName).Get<PlatformAdminOptions>() ?? new());
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

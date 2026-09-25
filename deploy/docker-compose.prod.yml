@@ -46,6 +46,8 @@ services:
       Seed__AdminHost: ${ADMIN_HOST}
       Seed__OwnerEmail: ${SEED_OWNER_EMAIL}
       Seed__OwnerPassword: ${SEED_OWNER_PASSWORD}
+      PlatformAdmin__Email: ${PLATFORM_ADMIN_EMAIL:-}
+      PlatformAdmin__Password: ${PLATFORM_ADMIN_PASSWORD:-}
       Cors__AllowedOrigins__0: https://${SEED_HOST:-www.porttennanttandoori.co.uk}
       Cors__AllowedOrigins__1: https://${ADMIN_HOST}
       Storage__Provider: S3
