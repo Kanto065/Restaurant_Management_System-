@@ -22,5 +22,12 @@ public class RefreshToken
     public DateTimeOffset? RevokedAt { get; set; }
     public string? ReplacedByTokenHash { get; set; }
 
+    /// <summary>
+    /// The restaurant the session was issued for, so refresh keeps a staff user on the restaurant
+    /// they signed into (instead of their first one) and picks the right customer row.
+    /// Null for tokens issued before this column existed.
+    /// </summary>
+    public Guid? RestaurantId { get; set; }
+
     public bool IsActive => RevokedAt is null && DateTimeOffset.UtcNow < ExpiresAt;
 }
