@@ -43,6 +43,7 @@ services:
       Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
       Seed__Enabled: ${SEED_ENABLED:-true}
       Seed__Host: ${SEED_HOST:-www.porttennanttandoori.co.uk}
+      Seed__AdminHost: ${ADMIN_HOST}
       Seed__OwnerEmail: ${SEED_OWNER_EMAIL}
       Seed__OwnerPassword: ${SEED_OWNER_PASSWORD}
       Cors__AllowedOrigins__0: https://${SEED_HOST:-www.porttennanttandoori.co.uk}

@@ -85,9 +85,17 @@ public class AuthController(
         if (staffRows.Count == 0)
             return Unauthorized(ApiResponse<TokenResponse>.Fail("This account has no active restaurant access.", 401));
 
-        var active = request.RestaurantId.HasValue
-            ? staffRows.FirstOrDefault(s => s.RestaurantId == request.RestaurantId.Value)
+        // On a restaurant's own admin domain, only that restaurant can be signed into - a Star Spice
+        // owner gets "Invalid email or password"-equivalent treatment on Port Tennant's admin.
+        // Unresolved hosts (the platform API host, used by older admin builds and the POS) keep the
+        // pick-by-request behaviour.
+        var wanted = currentTenant.RestaurantId ?? request.RestaurantId;
+        var active = wanted.HasValue
+            ? staffRows.FirstOrDefault(s => s.RestaurantId == wanted.Value)
             : staffRows[0];
+
+        if (active is null && currentTenant.IsResolved)
+            return Unauthorized(ApiResponse<TokenResponse>.Fail("Invalid email or password.", 401));
 
         if (active is null)
             return Unauthorized(ApiResponse<TokenResponse>.Fail("No access to the requested restaurant.", 401));

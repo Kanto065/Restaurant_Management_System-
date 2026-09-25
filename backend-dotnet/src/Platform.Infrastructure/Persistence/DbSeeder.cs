@@ -66,6 +66,23 @@ public static class DbSeeder
             await db.SaveChangesAsync();
         }
 
+        // The admin dashboard resolves its restaurant by host too (same-origin /api), so its
+        // host needs a Domain row. Hosts are stored lowercase to match TenantDomainResolver.
+        var adminHost = options.AdminHost?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(adminHost)
+            && !await db.Domains.IgnoreQueryFilters().AnyAsync(d => d.Host == adminHost))
+        {
+            db.Domains.Add(new RestaurantDomain
+            {
+                RestaurantId = restaurant.Id,
+                Host = adminHost,
+                Kind = DomainKind.Admin,
+                IsPrimary = true,
+                VerifiedAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
+
         var owner = await userManager.FindByNameAsync(options.OwnerEmail);
         if (owner is null)
         {
@@ -106,6 +123,8 @@ public class SeedOptions
     public const string SectionName = "Seed";
 
     public string Host { get; set; } = "www.porttennanttandoori.co.uk";
+    /// <summary>Admin dashboard host for this tenant (e.g. admin.porttennanttandoori.co.uk). Optional.</summary>
+    public string? AdminHost { get; set; }
     public string RestaurantName { get; set; } = "Port Tennant Tandoori";
     public string RestaurantSlug { get; set; } = "port-tennant-tandoori";
     public string AddressLine1 { get; set; } = "TBC";

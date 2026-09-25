@@ -76,6 +76,8 @@ public class RestaurantDomain : Entity
     public Restaurant? Restaurant { get; set; }
 
     public string Host { get; set; } = default!;
+    public DomainKind Kind { get; set; } = DomainKind.Storefront;
+    /// <summary>The canonical host of its Kind (e.g. used to build storefront links from admin).</summary>
     public bool IsPrimary { get; set; }
     public bool TlsProvisioned { get; set; }
     public DateTimeOffset? VerifiedAt { get; set; }

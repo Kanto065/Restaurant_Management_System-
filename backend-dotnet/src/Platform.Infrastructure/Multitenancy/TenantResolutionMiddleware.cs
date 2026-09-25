@@ -36,6 +36,14 @@ public class TenantResolutionMiddleware(RequestDelegate next)
                 return;
             }
 
+            if (!resolved.IsActive)
+            {
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                await context.Response.WriteAsJsonAsync(
+                    new { message = "This restaurant is currently unavailable." }, context.RequestAborted);
+                return;
+            }
+
             ((CurrentTenant)currentTenant).Set(resolved.RestaurantId, resolved.OrganizationId, resolved.Slug);
         }
         else if (context.User.Identity?.IsAuthenticated == true)

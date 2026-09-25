@@ -23,6 +23,7 @@ public class TenantResolutionMiddlewareTests
             {
                 "a.test" => new ResolvedTenant(RestaurantA, OrgA, "a"),
                 "b.test" => new ResolvedTenant(RestaurantB, OrgB, "b"),
+                "suspended.test" => new ResolvedTenant(Guid.NewGuid(), Guid.NewGuid(), "s", IsActive: false),
                 _ => null,
             });
 
@@ -79,6 +80,16 @@ public class TenantResolutionMiddlewareTests
 
         Assert.True(nextCalled);
         Assert.Equal(RestaurantB, tenant.RestaurantId);
+    }
+
+    [Fact]
+    public async Task SuspendedRestaurant_Returns503()
+    {
+        var (context, tenant, nextCalled) = await Run("suspended.test");
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.False(tenant.IsResolved);
     }
 
     [Fact]
