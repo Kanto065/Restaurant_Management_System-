@@ -36,7 +36,18 @@
 		rewrite * /uploads/pos/version.json
 		reverse_proxy minio:9000
 	}
-	reverse_proxy admin-frontend:80
+	# Same-origin API + uploads, like the storefront block: the admin build calls /api on
+	# whatever admin domain it's served from, and the API resolves the restaurant from that
+	# Host (a Domain row with Kind=Admin), so one admin build serves every restaurant.
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+	handle /uploads/* {
+		reverse_proxy minio:9000
+	}
+	handle {
+		reverse_proxy admin-frontend:80
+	}
 }
 
 {$STOREFRONT_HOST} {
@@ -77,7 +88,15 @@
 }
 
 {$ADMIN_UAT_HOST} {
-	reverse_proxy uat-admin-frontend:80
+	handle /api/* {
+		reverse_proxy uat-api:8080
+	}
+	handle /uploads/* {
+		reverse_proxy uat-minio:9000
+	}
+	handle {
+		reverse_proxy uat-admin-frontend:80
+	}
 }
 
 {$API_UAT_HOST} {

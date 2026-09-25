@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { POS_APP_DOWNLOAD_URL, getImageUrl } from '@/config/api';
 import { api } from '@/lib/api';
+import { useBranding } from '@/hooks/useBranding';
 
 const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
@@ -59,6 +60,7 @@ export function AppSidebar() {
     staleTime: 5 * 60 * 1000,
   });
   const logoUrl = restaurant?.data?.logoUrl;
+  const { name: restaurantName } = useBranding();
 
   return (
     <Sidebar className={collapsed ? 'w-14' : 'w-64'} collapsible="icon">
@@ -81,7 +83,7 @@ export function AppSidebar() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="font-bold text-lg truncate">Port Tennant Tandoori</h2>
+                <h2 className="font-bold text-lg truncate">{restaurantName}</h2>
                 <p className="text-xs text-muted-foreground">Admin Panel</p>
               </div>
               <SidebarTrigger className="shrink-0" />

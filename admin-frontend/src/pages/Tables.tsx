@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useBranding } from '@/hooks/useBranding';
 import { Plus, Edit, Trash2, Loader2, Copy, Check, ExternalLink, QrCode, Download } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
@@ -20,7 +21,6 @@ import { api } from '@/lib/api';
 
 // The storefront's own domain — table QR codes link to /table/:qrToken there.
 // Falls back to the current admin origin's registrable domain during local dev.
-const STOREFRONT_BASE_URL = import.meta.env.VITE_STOREFRONT_BASE_URL ?? 'https://www.porttennanttandoori.co.uk';
 
 interface TableData {
   id: string;
@@ -31,9 +31,9 @@ interface TableData {
   isActive: boolean;
 }
 
-const tableUrl = (t: TableData) => `${STOREFRONT_BASE_URL}/table/${t.qrToken}`;
-
 const Tables = () => {
+  const { storefrontUrl } = useBranding();
+  const tableUrl = (t: TableData) => `${storefrontUrl}/table/${t.qrToken}`;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 

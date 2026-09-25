@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { UtensilsCrossed, Loader2 } from 'lucide-react';
+import { useBranding } from '@/hooks/useBranding';
 
 const Login = () => {
+  const { name: restaurantName } = useBranding();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -61,7 +63,7 @@ const Login = () => {
           <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center">
             <UtensilsCrossed className="w-8 h-8 text-primary-foreground" />
           </div>
-          <CardTitle className="text-3xl font-bold">Port Tennant Tandoori</CardTitle>
+          <CardTitle className="text-3xl font-bold">{restaurantName}</CardTitle>
           <CardDescription>Sign in to manage your restaurant</CardDescription>
         </CardHeader>
         <CardContent>

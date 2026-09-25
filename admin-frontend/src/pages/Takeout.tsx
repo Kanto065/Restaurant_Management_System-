@@ -3,15 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Check, Download, ShoppingBag, Truck, ExternalLink } from 'lucide-react';
-
-const STOREFRONT_BASE_URL = import.meta.env.VITE_STOREFRONT_BASE_URL ?? 'https://www.porttennanttandoori.co.uk';
-
-const LINKS = [
-  { key: 'collection', label: 'Collection', icon: ShoppingBag, url: `${STOREFRONT_BASE_URL}/menu?type=Collection`, qrTitle: 'Collection Order' },
-  { key: 'delivery', label: 'Delivery', icon: Truck, url: `${STOREFRONT_BASE_URL}/menu?type=Delivery`, qrTitle: 'Delivery Order' },
-] as const;
+import { useBranding } from '@/hooks/useBranding';
 
 const Takeout = () => {
+  const { storefrontUrl } = useBranding();
+  const LINKS = [
+    { key: 'collection', label: 'Collection', icon: ShoppingBag, url: `${storefrontUrl}/menu?type=Collection`, qrTitle: 'Collection Order' },
+    { key: 'delivery', label: 'Delivery', icon: Truck, url: `${storefrontUrl}/menu?type=Delivery`, qrTitle: 'Delivery Order' },
+  ] as const;
   const { toast } = useToast();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 

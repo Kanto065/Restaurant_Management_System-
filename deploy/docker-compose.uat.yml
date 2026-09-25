@@ -71,8 +71,6 @@ services:
     build:
       context: ../admin-frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: https://${API_HOST}
     restart: unless-stopped
     container_name: uat-admin-frontend
     networks: [internal]
