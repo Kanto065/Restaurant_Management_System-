@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Platform.Api.Contracts;
+using Platform.Api.Filters;
 using Platform.Application.Common;
 using Platform.Domain.Entities;
 using Platform.Infrastructure.Identity;
@@ -13,6 +14,9 @@ using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers;
 
+// Staff/device login and refresh run on the platform API host with no tenant; the customer
+// endpoints check the host-resolved tenant themselves.
+[AllowUnresolvedTenant]
 [ApiController]
 [Route("api/auth")]
 public class AuthController(

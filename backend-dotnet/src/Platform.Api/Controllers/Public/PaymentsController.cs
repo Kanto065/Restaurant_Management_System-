@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Platform.Api.Contracts;
+using Platform.Api.Filters;
 using Platform.Application.Common;
 using Platform.Domain.Entities;
 using Platform.Domain.Enums;
@@ -102,6 +103,7 @@ public class PaymentsController(
 
     // Stripe calls this directly (no JWT, no tenant-resolving Host header) - authenticity comes
     // entirely from the Stripe-Signature header, verified against StripeOptions.WebhookSecret.
+    [AllowUnresolvedTenant]
     [HttpPost("stripe/webhook")]
     public async Task<IActionResult> Webhook()
     {

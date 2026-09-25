@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
+using Platform.Api.Filters;
 using Platform.Infrastructure;
 using Platform.Infrastructure.Identity;
 using Platform.Infrastructure.Multitenancy;
@@ -14,7 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((context, config) =>
     config.ReadFrom.Configuration(context.Configuration).WriteTo.Console());
 
-builder.Services.AddControllers().AddJsonOptions(options =>
+builder.Services.AddControllers(options => options.Filters.Add<RequireTenantFilter>()).AddJsonOptions(options =>
 {
     // Without this, enums (OrderStatus, PaymentMethod, ...) serialize as raw integers -
     // admin-frontend and storefront both already assume string values (e.g. "Pending"), so
