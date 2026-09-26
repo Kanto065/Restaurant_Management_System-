@@ -106,8 +106,9 @@ public static class DependencyInjection
         services.AddScoped<IOrderNotifier, OrderNotifier>();
 
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
-        services.AddSingleton(sp =>
-            new StripeClient(sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StripeOptions>>().Value.SecretKey));
+        services.Configure<PaymentsOptions>(configuration.GetSection(PaymentsOptions.SectionName));
+        services.AddSingleton<ISecretProtector, AesGcmSecretProtector>();
+        services.AddScoped<IStripeAccountProvider, StripeAccountProvider>();
 
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
         var storageProvider = configuration.GetSection(StorageOptions.SectionName)["Provider"];

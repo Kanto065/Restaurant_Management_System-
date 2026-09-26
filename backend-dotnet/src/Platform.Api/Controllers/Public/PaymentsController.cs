@@ -25,8 +25,7 @@ public record CreateCheckoutSessionResponse(string CheckoutUrl);
 public class PaymentsController(
     AppDbContext db,
     IOrderNotifier notifier,
-    StripeClient stripeClient,
-    IOptions<StripeOptions> stripeOptions,
+    IStripeAccountProvider stripeAccounts,
     ILogger<PaymentsController> logger) : ControllerBase
 {
     [HttpPost("orders/{id:guid}/checkout-session")]
@@ -47,7 +46,14 @@ public class PaymentsController(
         // redirect lands back on the same tenant site rather than a hardcoded platform host.
         var origin = $"{Request.Scheme}://{Request.Host}";
 
-        var sessionService = new SessionService(stripeClient);
+        // The restaurant's own Stripe account (or, for restaurants opted in, the config one) -
+        // the money goes to whoever owns these keys. None configured = no card payments.
+        var stripeAccount = await stripeAccounts.ForRestaurantAsync(order.RestaurantId);
+        if (stripeAccount is null)
+            return BadRequest(ApiResponse<CreateCheckoutSessionResponse>.Fail(
+                "Card payment isn't available for this restaurant yet. Please choose another payment method.", 400));
+
+        var sessionService = new SessionService(stripeAccount.Client);
         Session session;
         try
         {
@@ -101,12 +107,35 @@ public class PaymentsController(
         return Ok(ApiResponse<CreateCheckoutSessionResponse>.Ok(new CreateCheckoutSessionResponse(session.Url)));
     }
 
-    // Stripe calls this directly (no JWT, no tenant-resolving Host header) - authenticity comes
-    // entirely from the Stripe-Signature header, verified against StripeOptions.WebhookSecret.
+    // Stripe calls these directly (no JWT, no tenant-resolving Host header) - authenticity comes
+    // entirely from the Stripe-Signature header, verified against the matching account's secret.
+
+    /// <summary>Webhook for the config-level Stripe account (StripeOptions) - Port Tennant's
+    /// existing registration. Only settles orders of restaurants that use that account.</summary>
     [AllowUnresolvedTenant]
     [HttpPost("stripe/webhook")]
-    public async Task<IActionResult> Webhook()
+    public Task<IActionResult> Webhook() =>
+        HandleWebhookAsync(stripeAccounts.ConfigAccount?.WebhookSecret, restaurantId: null);
+
+    /// <summary>Webhook for a restaurant's own Stripe account - registered in that restaurant's
+    /// Stripe dashboard as .../stripe/webhook/{restaurantId}, verified with its own secret, and
+    /// only ever settles that restaurant's orders.</summary>
+    [AllowUnresolvedTenant]
+    [HttpPost("stripe/webhook/{restaurantId:guid}")]
+    public async Task<IActionResult> RestaurantWebhook(Guid restaurantId)
     {
+        var account = await stripeAccounts.ForRestaurantAsync(restaurantId);
+        if (account is not { IsRestaurantOwned: true })
+            return NotFound();
+
+        return await HandleWebhookAsync(account.WebhookSecret, restaurantId);
+    }
+
+    private async Task<IActionResult> HandleWebhookAsync(string? webhookSecret, Guid? restaurantId)
+    {
+        if (string.IsNullOrEmpty(webhookSecret))
+            return NotFound();
+
         var signatureHeaderValues = Request.Headers["Stripe-Signature"];
         var signature = signatureHeaderValues.ToString();
         if (string.IsNullOrEmpty(signature))
@@ -131,7 +160,7 @@ public class PaymentsController(
             // endpoint's checkout.session.completed events stuck at pending_webhooks=1 - only
             // the signature itself needs to be trustworthy, not the API version string.
             stripeEvent = EventUtility.ConstructEvent(
-                json, signature, stripeOptions.Value.WebhookSecret, tolerance: 300, throwOnApiVersionMismatch: false);
+                json, signature, webhookSecret, tolerance: 300, throwOnApiVersionMismatch: false);
         }
         catch (Exception ex)
         {
@@ -151,7 +180,7 @@ public class PaymentsController(
 
         if (stripeEvent.Type == EventTypes.CheckoutSessionCompleted && stripeEvent.Data.Object is Session session)
         {
-            await HandleCheckoutSessionCompletedAsync(session);
+            await HandleCheckoutSessionCompletedAsync(session, restaurantId);
         }
 
         db.ProcessedPaymentEvents.Add(new ProcessedPaymentEvent { Provider = "stripe", EventId = stripeEvent.Id });
@@ -160,7 +189,7 @@ public class PaymentsController(
         return Ok();
     }
 
-    private async Task HandleCheckoutSessionCompletedAsync(Session session)
+    private async Task HandleCheckoutSessionCompletedAsync(Session session, Guid? restaurantId)
     {
         if (!Guid.TryParse(session.Metadata?.GetValueOrDefault("orderId") ?? session.ClientReferenceId, out var orderId))
         {
@@ -179,6 +208,20 @@ public class PaymentsController(
         if (order is null)
         {
             logger.LogWarning("Stripe checkout.session.completed referenced unknown order {OrderId}", orderId);
+            return;
+        }
+
+        // A validly-signed event only proves which Stripe account sent it - make sure that
+        // account is the one this order's restaurant actually takes payments with, so one
+        // restaurant's Stripe account can never mark another restaurant's orders as paid.
+        var accountMatchesOrder = restaurantId.HasValue
+            ? order.RestaurantId == restaurantId.Value
+            : (await stripeAccounts.ForRestaurantAsync(order.RestaurantId)) is { IsRestaurantOwned: false };
+        if (!accountMatchesOrder)
+        {
+            logger.LogWarning(
+                "Stripe checkout.session.completed for order {OrderId} arrived via the wrong account's webhook (route restaurant {RouteRestaurantId})",
+                orderId, restaurantId);
             return;
         }
 

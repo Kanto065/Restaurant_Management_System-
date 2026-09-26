@@ -41,6 +41,10 @@ services:
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
       Stripe__SecretKey: ${STRIPE_SECRET_KEY}
       Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
+      Stripe__WebhookBaseUrl: https://${API_HOST}
+      # Encrypts restaurants' own Stripe keys at rest (base64 of 32 random bytes). Keep a copy
+      # somewhere safe - losing it means every restaurant's keys must be re-entered.
+      Payments__EncryptionKey: ${PAYMENTS_ENCRYPTION_KEY:-}
       Seed__Enabled: ${SEED_ENABLED:-true}
       Seed__Host: ${SEED_HOST:-www.porttennanttandoori.co.uk}
       Seed__AdminHost: ${ADMIN_HOST}

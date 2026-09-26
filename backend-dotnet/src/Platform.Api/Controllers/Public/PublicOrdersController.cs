@@ -6,6 +6,7 @@ using Platform.Api.Contracts;
 using Platform.Application.Common;
 using Platform.Domain.Entities;
 using Platform.Domain.Enums;
+using Platform.Infrastructure.Payments;
 using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers.Public;
@@ -34,7 +35,8 @@ public record TrackOrderDto(
 /// <summary>Anonymous (guest) or customer-authenticated order placement and tracking, host-resolved tenant.</summary>
 [ApiController]
 [Route("api/public/orders")]
-public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenant, IOrderNotifier notifier) : ControllerBase
+public class PublicOrdersController(
+    AppDbContext db, ICurrentTenant currentTenant, IOrderNotifier notifier, IStripeAccountProvider stripeAccounts) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<ApiResponse<CreatedOrderDto>>> Create(CreatePublicOrderRequest request)
@@ -44,6 +46,13 @@ public class PublicOrdersController(AppDbContext db, ICurrentTenant currentTenan
 
         if (request.Items.Count == 0)
             return BadRequest(ApiResponse<CreatedOrderDto>.Fail("Order must contain at least one item.", 400));
+
+        // Refuse up front rather than create an order that can never be paid (checkout-session
+        // would fail) - the storefront hides Card when RestaurantPublicDto.CardPaymentsAvailable is false.
+        if (request.PaymentMethod == PaymentMethod.Card
+            && await stripeAccounts.ForRestaurantAsync(currentTenant.RestaurantId.Value) is null)
+            return BadRequest(ApiResponse<CreatedOrderDto>.Fail(
+                "Card payment isn't available for this restaurant yet. Please choose another payment method.", 400));
 
         Table? table = null;
         if (request.OrderType == OrderType.DineIn)
