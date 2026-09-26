@@ -26,7 +26,9 @@ public class Customer : TenantEntity
 
 public class CustomerAddress : TenantEntity
 {
-    public Guid CustomerId { get; set; }
+    /// <summary>Null for a guest's delivery address - stored against the order only, not saved
+    /// to any account. (Was a required FK, so every guest delivery order failed to save.)</summary>
+    public Guid? CustomerId { get; set; }
     public Customer? Customer { get; set; }
 
     public string? Label { get; set; }

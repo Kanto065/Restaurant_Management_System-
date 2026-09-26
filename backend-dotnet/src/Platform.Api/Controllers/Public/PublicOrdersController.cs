@@ -116,7 +116,7 @@ public class PublicOrdersController(
         {
             var address = new CustomerAddress
             {
-                CustomerId = customerId ?? Guid.Empty,
+                CustomerId = customerId,
                 Line1 = request.DeliveryAddress.Line1,
                 Line2 = request.DeliveryAddress.Line2,
                 City = request.DeliveryAddress.City,
