@@ -79,15 +79,17 @@ public class PublicOrdersController(
         var defaultOrderStatus = await db.OrderStatusDefinitions.Where(d => d.IsDefault).Select(d => d.Name).FirstOrDefaultAsync() ?? "Pending";
         var defaultPaymentStatus = await db.PaymentStatusDefinitions.Where(d => d.IsDefault).Select(d => d.Name).FirstOrDefaultAsync() ?? "Pending";
 
-        // Delivery defaults to 60 minutes, Collection to 20 - a real default set at
-        // creation, not just a suggested value staff sees when they open the time
-        // picker, so the customer sees an estimate immediately and staff always have
-        // a starting value to adjust rather than a blank field.
-        var estimatedMinutes = request.OrderType switch
+        var restaurant = await db.Restaurants.FirstOrDefaultAsync(r => r.Id == currentTenant.RestaurantId);
+
+        // The restaurant's configured default for this order type (admin -> Configurations,
+        // 60/20/20 min out of the box) - a real estimate set at creation, so the customer sees
+        // a time immediately and staff have a starting value to adjust rather than a blank.
+        int? estimatedMinutes = request.OrderType switch
         {
-            OrderType.Delivery => 60,
-            OrderType.Collection => 20,
-            _ => (int?)null,
+            OrderType.Delivery => restaurant?.DeliveryMinutes ?? 60,
+            OrderType.Collection => restaurant?.CollectionMinutes ?? 20,
+            OrderType.DineIn => restaurant?.DineInMinutes ?? 20,
+            _ => null,
         };
 
         var order = new Order
@@ -173,7 +175,6 @@ public class PublicOrdersController(
         order.Subtotal = subtotal;
         order.DeliveryFee = 0; // TODO: compute from DeliveryZone once postcode-distance lookup exists.
 
-        var restaurant = await db.Restaurants.FirstOrDefaultAsync(r => r.Id == currentTenant.RestaurantId);
         order.ProcessingFee = restaurant is null
             ? 0
             : Math.Round(restaurant.ProcessingFeeFlat + subtotal * restaurant.ProcessingFeePercentage / 100m, 2);

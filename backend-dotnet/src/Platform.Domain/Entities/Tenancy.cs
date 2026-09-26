@@ -64,6 +64,12 @@ public class Restaurant : Entity
     /// logins). Platform-controlled from the super admin panel - restaurant staff can't change it.</summary>
     public bool PosEnabled { get; set; } = true;
 
+    /// <summary>Default minutes until an order is ready (collection/dine-in) or delivered, set
+    /// on every new order as its EstimatedReadyAt. Staff can still adjust each order.</summary>
+    public int DeliveryMinutes { get; set; } = 60;
+    public int CollectionMinutes { get; set; } = 20;
+    public int DineInMinutes { get; set; } = 20;
+
     /// <summary>Serialized HomepageContent (hero slides + editable section copy).
     /// Null means "use default hardcoded storefront copy".</summary>
     public string? HomepageContentJson { get; set; }

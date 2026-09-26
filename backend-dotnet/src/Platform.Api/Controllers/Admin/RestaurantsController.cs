@@ -19,6 +19,9 @@ public record RestaurantSettingsDto(
     // Read-only here - switched on/off by the platform in the super admin panel.
     bool PosEnabled);
 
+/// <summary>Default minutes until ready (collection/dine-in) or delivered, per order type.</summary>
+public record OrderTimesDto(int DeliveryMinutes, int CollectionMinutes, int DineInMinutes);
+
 public record UpdateRestaurantSettingsRequest(
     string Name, string? Description, string? LogoUrl, string? HeroImageUrl,
     string ThemeColorPrimary, string ThemeColorSecondary, string? Phone, string? Email,
@@ -97,5 +100,41 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
         await db.SaveChangesAsync();
 
         return await Get();
+    }
+
+    /// <summary>Default preparation/delivery times new orders are stamped with.
+    /// StaffOrDevice so the POS app can show the same defaults.</summary>
+    [HttpGet("order-times")]
+    [Authorize(Policy = "StaffOrDevice")]
+    public async Task<ActionResult<ApiResponse<OrderTimesDto>>> GetOrderTimes()
+    {
+        var times = await db.Restaurants
+            .Where(r => r.Id == currentTenant.RestaurantId)
+            .Select(r => new OrderTimesDto(r.DeliveryMinutes, r.CollectionMinutes, r.DineInMinutes))
+            .FirstOrDefaultAsync();
+
+        return times is null
+            ? NotFound(ApiResponse<OrderTimesDto>.Fail("Restaurant not found.", 404))
+            : Ok(ApiResponse<OrderTimesDto>.Ok(times));
+    }
+
+    [HttpPut("order-times")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<ActionResult<ApiResponse<OrderTimesDto>>> UpdateOrderTimes(OrderTimesDto request)
+    {
+        static bool Valid(int minutes) => minutes is >= 1 and <= 600;
+        if (!Valid(request.DeliveryMinutes) || !Valid(request.CollectionMinutes) || !Valid(request.DineInMinutes))
+            return BadRequest(ApiResponse<OrderTimesDto>.Fail("Times must be between 1 and 600 minutes.", 400));
+
+        var restaurant = await db.Restaurants.FirstOrDefaultAsync(r => r.Id == currentTenant.RestaurantId);
+        if (restaurant is null)
+            return NotFound(ApiResponse<OrderTimesDto>.Fail("Restaurant not found.", 404));
+
+        restaurant.DeliveryMinutes = request.DeliveryMinutes;
+        restaurant.CollectionMinutes = request.CollectionMinutes;
+        restaurant.DineInMinutes = request.DineInMinutes;
+        await db.SaveChangesAsync();
+
+        return await GetOrderTimes();
     }
 }
