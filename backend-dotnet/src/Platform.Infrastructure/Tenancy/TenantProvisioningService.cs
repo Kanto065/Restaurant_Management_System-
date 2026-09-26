@@ -61,6 +61,11 @@ public class TenantProvisioningService(
             Postcode = request.Postcode,
             Phone = request.Phone,
             Email = request.Email,
+            // New restaurants start with ordering off - the menu is browsable, but nothing can be
+            // ordered until the owner switches collection/delivery on in their admin.
+            SupportsCollection = false,
+            SupportsDelivery = false,
+            SupportsDineIn = false,
         };
         db.Restaurants.Add(restaurant);
 
