@@ -86,8 +86,17 @@ services:
     # container below. This keeps the Host header the tenant-resolution
     # middleware sees equal to the customer's actual domain.
 
+  # Star Spice's own storefront (client design). Built from the repo root because it imports
+  # the shared data layer from ../storefront/src.
+  storefront-starspice:
+    build:
+      context: ..
+      dockerfile: storefront-starspice/Dockerfile
+    restart: unless-stopped
+    networks: [internal]
+
   # Platform owner's panel for creating/managing restaurants (superadmin.* host).
-  # Prod only - UAT tenants are managed from here too via the UAT API if ever needed.
+  # UAT has its own copy (uat-superadmin-frontend) against the UAT API.
   superadmin-frontend:
     build:
       context: ../superadmin-frontend
@@ -119,7 +128,16 @@ services:
       # empty, so both MUST be in .env before deploying (hash via `caddy hash-password`).
       SUPERADMIN_BASIC_USER: ${SUPERADMIN_BASIC_USER:?set SUPERADMIN_BASIC_USER in .env}
       SUPERADMIN_BASIC_HASH: ${SUPERADMIN_BASIC_HASH:?set SUPERADMIN_BASIC_HASH in .env}
-    depends_on: [api, admin-frontend, storefront, superadmin-frontend, minio]
+      SUPERADMIN_UAT_HOST: ${SUPERADMIN_UAT_HOST:-superadminuat.porttennanttandoori.co.uk}
+      # Star Spice (second tenant) - storefront, its admin, and their UAT copies.
+      STARSPICE_HOST: ${STARSPICE_HOST:-starspicetumble.co.uk}
+      STARSPICE_ADMIN_HOST: ${STARSPICE_ADMIN_HOST:-admin.starspicetumble.co.uk}
+      STARSPICE_UAT_HOST: ${STARSPICE_UAT_HOST:-uat.starspicetumble.co.uk}
+      STARSPICE_ADMIN_UAT_HOST: ${STARSPICE_ADMIN_UAT_HOST:-adminuat.starspicetumble.co.uk}
+      # Password prompt in front of the Star Spice storefront until the client authorises launch.
+      STARSPICE_PREVIEW_USER: ${STARSPICE_PREVIEW_USER:?set STARSPICE_PREVIEW_USER in .env}
+      STARSPICE_PREVIEW_HASH: ${STARSPICE_PREVIEW_HASH:?set STARSPICE_PREVIEW_HASH in .env}
+    depends_on: [api, admin-frontend, storefront, storefront-starspice, superadmin-frontend, minio]
     # UAT's proxy-facing containers (see deploy/docker-compose.uat.yml) join this
     # SAME "internal" network directly - do not give Caddy a second network to
     # reach them instead. Confirmed live on this VPS: a container attached to

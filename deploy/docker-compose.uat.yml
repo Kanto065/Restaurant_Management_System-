@@ -90,6 +90,25 @@ services:
     # UAT storefront block can split traffic to uat-api/uat-minio while keeping
     # the Host header equal to uat.porttennanttandoori.co.uk for tenant resolution.
 
+  # Star Spice's own storefront (client design). Built from the repo root because it imports
+  # the shared data layer from ../storefront/src.
+  uat-storefront-starspice:
+    build:
+      context: ..
+      dockerfile: storefront-starspice/Dockerfile
+    restart: unless-stopped
+    container_name: uat-storefront-starspice
+    networks: [internal]
+
+  # Super admin panel against the UAT API, so UAT tenants can be managed from a UI too.
+  uat-superadmin-frontend:
+    build:
+      context: ../superadmin-frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    container_name: uat-superadmin-frontend
+    networks: [internal]
+
 networks:
   internal:
     external: true
