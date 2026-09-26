@@ -149,6 +149,20 @@ public class PlatformTenantsController(
         return Ok(ApiResponse<TenantDetailDto>.Ok((await BuildDetailAsync(id))!));
     }
 
+    /// <summary>
+    /// Put a restaurant back on the standard order + payment status lists (what new restaurants
+    /// get), moving any orders on custom statuses to the nearest standard one.
+    /// </summary>
+    [HttpPost("{id:guid}/statuses/reset-to-standard")]
+    public async Task<ActionResult<ApiResponse<StatusDefinitionSeeder.ResetSummary>>> ResetStatuses(Guid id)
+    {
+        if (!await RestaurantExistsAsync(id))
+            return NotFound(ApiResponse<StatusDefinitionSeeder.ResetSummary>.Fail("Restaurant not found.", 404));
+
+        var summary = await StatusDefinitionSeeder.ResetToStandardAsync(db, id, HttpContext.RequestAborted);
+        return Ok(ApiResponse<StatusDefinitionSeeder.ResetSummary>.Ok(summary));
+    }
+
     [HttpPut("{id:guid}/status")]
     public async Task<ActionResult<ApiResponse<TenantDetailDto>>> SetStatus(Guid id, SetTenantStatusRequest request)
     {

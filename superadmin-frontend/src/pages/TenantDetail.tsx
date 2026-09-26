@@ -290,6 +290,40 @@ function FeaturesTab({ tenant }: { tenant: Tenant }) {
             if (checked || window.confirm(`Turn off the POS app for ${tenant.name}? Any paired terminals stop working immediately.`)) setFeatures.mutate(checked);
           }} />
       </div>
+      <ResetStatusesCard tenant={tenant} />
+    </div>
+  );
+}
+
+function ResetStatusesCard({ tenant }: { tenant: Tenant }) {
+  const reset = useMutation({
+    mutationFn: () => api.post<{ ordersRemapped: number; paymentsRemapped: number; removedOrderStatuses: string[]; removedPaymentStatuses: string[] }>(
+      `/api/platform/tenants/${tenant.restaurantId}/statuses/reset-to-standard`),
+    onSuccess: (r) => {
+      const removed = [...r.removedOrderStatuses, ...r.removedPaymentStatuses];
+      toast.success(`Standard statuses restored for ${tenant.name}`, {
+        description: `${r.ordersRemapped + r.paymentsRemapped} order(s) moved to a standard status${removed.length ? `; removed: ${removed.join(', ')}` : ''}.`,
+      });
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+      <div>
+        <p className="font-medium">Order &amp; payment statuses</p>
+        <p className="text-sm text-muted-foreground">
+          Restore the standard lists every restaurant starts with (Pending, Confirmed, Preparing, Ready, Out for delivery, Completed,
+          Cancelled; and Pending, Paid, Refunded…). Orders on a custom status move to the nearest standard one, and the custom
+          statuses are removed. Order history is kept.
+        </p>
+      </div>
+      <Button variant="outline" disabled={reset.isPending} className="shrink-0"
+        onClick={() => {
+          if (window.confirm(`Reset ${tenant.name} to the standard order and payment statuses? Custom statuses will be removed.`)) reset.mutate();
+        }}>
+        {reset.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Reset to standard
+      </Button>
     </div>
   );
 }
