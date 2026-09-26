@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api, type DomainKind, type TenantDetail as Tenant, type TenantStaff } from '@/lib/api';
 import { formatDate } from '@/lib/format';
+import PaymentsTab from '@/pages/PaymentsTab';
 
 function useTenantMutation<TVars>(id: string, fn: (vars: TVars) => Promise<Tenant>, successMessage: string) {
   const queryClient = useQueryClient();
@@ -298,11 +299,7 @@ export default function TenantDetail() {
               <TabsContent value="info"><InfoTab key={tenant.restaurantId} tenant={tenant} /></TabsContent>
               <TabsContent value="domains"><DomainsTab tenant={tenant} /></TabsContent>
               <TabsContent value="staff"><StaffTab tenant={tenant} /></TabsContent>
-              <TabsContent value="stripe">
-                <p className="text-sm text-muted-foreground">
-                  Per-restaurant Stripe keys arrive in the next phase. Until then every restaurant uses the platform's Stripe account.
-                </p>
-              </TabsContent>
+              <TabsContent value="stripe"><PaymentsTab restaurantId={tenant.restaurantId} /></TabsContent>
               <TabsContent value="status"><StatusTab tenant={tenant} /></TabsContent>
             </Tabs>
           </CardContent>

@@ -128,3 +128,16 @@ export interface LoginResponse {
   email: string;
   fullName: string;
 }
+
+export interface PaymentSettings {
+  isEnabled: boolean;
+  useConfigAccount: boolean;
+  publishableKey: string | null;
+  secretKeyLast4: string | null;
+  hasWebhookSecret: boolean;
+  mode: 'test' | 'live' | 'unreadable' | null;
+  activeAccount: 'Restaurant' | 'Config' | 'None';
+  webhookUrl: string;
+  encryptionConfigured: boolean;
+  configAccountAvailable: boolean;
+}
