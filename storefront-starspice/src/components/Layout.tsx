@@ -49,7 +49,7 @@ export default function Layout() {
       <a className="skip" href="#main">Skip to content</a>
       {!orderingOpen && (
         <div className="preview-bar">
-          <b>PRIVATE PREVIEW</b> &nbsp;·&nbsp; Preparing to reopen — orders are not available yet
+          <b>OPENING SOON</b> &nbsp;·&nbsp; Preparing to reopen — orders are not available yet
         </div>
       )}
       <header className="site-header">
@@ -105,7 +105,7 @@ export default function Layout() {
           </div>
           <div className="footer-bottom">
             <span>© {new Date().getFullYear()} Star Spice</span>
-            <span>{orderingOpen ? (restaurant?.phone ?? 'Order online for collection or delivery') : 'Private preview · Not accepting orders'}</span>
+            <span>{orderingOpen ? (restaurant?.phone ?? 'Order online for collection or delivery') : 'Opening soon · Not accepting orders yet'}</span>
           </div>
         </div>
       </footer>
