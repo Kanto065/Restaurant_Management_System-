@@ -72,20 +72,14 @@
 }
 
 # Platform owner's super admin panel. No Domain row points here, so the API resolves no
-# tenant for it and only /api/platform/* (PlatformSuperAdmin tokens) is useful.
-# basic_auth guards the app itself as a second lock in front of its own login, but NOT
-# /api/*: the browser's Basic credentials would share the Authorization header with the
-# app's Bearer token. /api/platform/* is protected by that token (and /api/* is reachable
-# on every tenant host anyway).
+# tenant for it and only /api/platform/* (PlatformSuperAdmin tokens) is useful. Protected by
+# the app's own login (only users flagged IsPlatformSuperAdmin get a platform token).
 {$SUPERADMIN_HOST} {
 	header X-Robots-Tag "noindex, nofollow"
 	handle /api/* {
 		reverse_proxy api:8080
 	}
 	handle {
-		basic_auth {
-			{$SUPERADMIN_BASIC_USER} {$SUPERADMIN_BASIC_HASH}
-		}
 		reverse_proxy superadmin-frontend:80
 	}
 }
@@ -95,10 +89,8 @@
 # resolves the restaurant from each Host (Domain rows created in the super admin panel).
 # ---------------------------------------------------------------------------------------
 
-# Private-preview storefront: the client asked for password protection until they authorise
-# launch (noindex alone isn't private). Only the pages sit behind basic_auth - /api and
-# /uploads don't, because Basic credentials would share the Authorization header with the
-# customer's Bearer token. Headers mirror the client's dist/_headers.
+# Storefront is public ("opening soon"). noindex stays until launch; the other headers mirror
+# the client's dist/_headers.
 (starspice_storefront) {
 	header {
 		X-Robots-Tag "noindex, nofollow"
@@ -113,9 +105,6 @@
 		reverse_proxy {args[1]}:9000
 	}
 	handle {
-		basic_auth {
-			{$STARSPICE_PREVIEW_USER} {$STARSPICE_PREVIEW_HASH}
-		}
 		reverse_proxy {args[2]}:80
 	}
 }
@@ -159,9 +148,6 @@ www.{$STARSPICE_HOST} {
 		reverse_proxy uat-api:8080
 	}
 	handle {
-		basic_auth {
-			{$SUPERADMIN_BASIC_USER} {$SUPERADMIN_BASIC_HASH}
-		}
 		reverse_proxy uat-superadmin-frontend:80
 	}
 }
