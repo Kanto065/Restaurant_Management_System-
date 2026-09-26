@@ -15,7 +15,9 @@ public record RestaurantSettingsDto(
     string AddressLine1, string? AddressLine2, string City, string Postcode, string Country,
     string TimeZone, bool IsActive, bool SupportsDelivery, bool SupportsCollection, bool SupportsDineIn,
     decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit,
-    string Currency, HomepageContent? HomepageContent);
+    string Currency, HomepageContent? HomepageContent,
+    // Read-only here - switched on/off by the platform in the super admin panel.
+    bool PosEnabled);
 
 public record UpdateRestaurantSettingsRequest(
     string Name, string? Description, string? LogoUrl, string? HeroImageUrl,
@@ -53,7 +55,8 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
             restaurant.Currency,
             restaurant.HomepageContentJson is null
                 ? null
-                : JsonSerializer.Deserialize<HomepageContent>(restaurant.HomepageContentJson));
+                : JsonSerializer.Deserialize<HomepageContent>(restaurant.HomepageContentJson),
+            restaurant.PosEnabled);
 
         return Ok(ApiResponse<RestaurantSettingsDto>.Ok(dto));
     }

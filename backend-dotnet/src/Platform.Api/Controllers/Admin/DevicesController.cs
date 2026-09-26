@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Contracts;
+using Platform.Api.Filters;
 using Platform.Application.Common;
 using Platform.Domain.Entities;
 using Platform.Infrastructure.Persistence;
@@ -38,6 +39,7 @@ public class DevicesController(AppDbContext db, ICurrentTenant currentTenant) : 
     }
 
     [HttpPost]
+    [RequirePosEnabled]
     public async Task<ActionResult<ApiResponse<DevicePairedDto>>> Create(CreateDeviceRequest request)
     {
         if (!currentTenant.RestaurantId.HasValue)
@@ -61,6 +63,7 @@ public class DevicesController(AppDbContext db, ICurrentTenant currentTenant) : 
     /// recovered - this issues a new one for the same Device ID instead of forcing a full
     /// delete-and-re-register. Same one-time-reveal contract as Create.</summary>
     [HttpPut("{id:guid}/regenerate-secret")]
+    [RequirePosEnabled]
     public async Task<ActionResult<ApiResponse<DevicePairedDto>>> RegenerateSecret(Guid id)
     {
         var device = await db.Devices.FirstOrDefaultAsync(d => d.Id == id);

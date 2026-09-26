@@ -120,6 +120,12 @@ export interface TenantDetail {
   orderCount: number;
   lastOrderAt: string | null;
   createdAt: string;
+  features: TenantFeatures;
+}
+
+/** Platform-controlled switches (restaurant staff can't change these). */
+export interface TenantFeatures {
+  posEnabled: boolean;
 }
 
 export interface LoginResponse {

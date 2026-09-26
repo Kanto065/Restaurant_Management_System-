@@ -60,6 +60,10 @@ public class Restaurant : Entity
     /// <summary>Loyalty points earned per £1 spent (e.g. 1 = "spend £1, earn 1 point").</summary>
     public decimal LoyaltyPointsPerCurrencyUnit { get; set; } = 1;
 
+    /// <summary>Whether this restaurant may use the POS terminal app (pair devices, device
+    /// logins). Platform-controlled from the super admin panel - restaurant staff can't change it.</summary>
+    public bool PosEnabled { get; set; } = true;
+
     /// <summary>Serialized HomepageContent (hero slides + editable section copy).
     /// Null means "use default hardcoded storefront copy".</summary>
     public string? HomepageContentJson { get; set; }

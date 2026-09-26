@@ -29,6 +29,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { POS_APP_DOWNLOAD_URL, getImageUrl } from '@/config/api';
 import { api } from '@/lib/api';
 import { useBranding } from '@/hooks/useBranding';
+import { usePosEnabled } from '@/hooks/usePosEnabled';
 
 const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
@@ -61,6 +62,8 @@ export function AppSidebar() {
   });
   const logoUrl = restaurant?.data?.logoUrl;
   const { name: restaurantName } = useBranding();
+  const posEnabled = usePosEnabled() === true;
+  const visibleMenuItems = posEnabled ? menuItems : menuItems.filter((item) => item.url !== '/dashboard/devices');
 
   return (
     <Sidebar className={collapsed ? 'w-14' : 'w-64'} collapsible="icon">
@@ -95,7 +98,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {visibleMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -116,12 +119,14 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+        {posEnabled && (
         <Button variant="outline" className={collapsed ? 'w-full justify-center' : 'w-full justify-start'} asChild>
           <a href={POS_APP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
             <Smartphone className="w-4 h-4" />
             {!collapsed && <span>Download POS App</span>}
           </a>
         </Button>
+        )}
         {user && !collapsed && (
           <>
             <div className="flex items-center gap-1">

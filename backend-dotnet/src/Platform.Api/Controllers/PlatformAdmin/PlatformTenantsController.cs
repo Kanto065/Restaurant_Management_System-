@@ -25,7 +25,11 @@ public record TenantDetailDto(
     Guid RestaurantId, Guid OrganizationId, string Name, string Slug, bool IsActive,
     string AddressLine1, string City, string Postcode, string? Phone, string? Email,
     IReadOnlyList<TenantDomainDto> Domains, IReadOnlyList<TenantOwnerDto> Staff,
-    int OrderCount, DateTimeOffset? LastOrderAt, DateTimeOffset CreatedAt);
+    int OrderCount, DateTimeOffset? LastOrderAt, DateTimeOffset CreatedAt,
+    TenantFeaturesDto Features);
+
+/// <summary>Platform-controlled switches per restaurant (restaurant staff can't change these).</summary>
+public record TenantFeaturesDto(bool PosEnabled);
 
 public record CreateTenantRequest(
     string RestaurantName, string Slug, string AddressLine1, string City, string Postcode,
@@ -130,6 +134,21 @@ public class PlatformTenantsController(
     }
 
     /// <summary>Suspend/reactivate. A suspended restaurant's domains answer 503 (TenantResolutionMiddleware).</summary>
+    /// <summary>Switch platform features on/off for a restaurant, e.g. the POS terminal app.
+    /// Turning POS off cuts off its paired terminals immediately (DeviceValidationMiddleware).</summary>
+    [HttpPut("{id:guid}/features")]
+    public async Task<ActionResult<ApiResponse<TenantDetailDto>>> SetFeatures(Guid id, TenantFeaturesDto request)
+    {
+        var restaurant = await db.Restaurants.IgnoreQueryFilters().FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
+        if (restaurant is null)
+            return NotFound(ApiResponse<TenantDetailDto>.Fail("Restaurant not found.", 404));
+
+        restaurant.PosEnabled = request.PosEnabled;
+        await db.SaveChangesAsync();
+
+        return Ok(ApiResponse<TenantDetailDto>.Ok((await BuildDetailAsync(id))!));
+    }
+
     [HttpPut("{id:guid}/status")]
     public async Task<ActionResult<ApiResponse<TenantDetailDto>>> SetStatus(Guid id, SetTenantStatusRequest request)
     {
@@ -288,7 +307,8 @@ public class PlatformTenantsController(
 
         return new TenantDetailDto(
             r.Id, r.OrganizationId, r.Name, r.Slug, r.IsActive, r.AddressLine1, r.City, r.Postcode, r.Phone, r.Email,
-            ToDomainDtos(r.Domains), staff, stats.Count, stats.LastOrderAt, r.CreatedAt);
+            ToDomainDtos(r.Domains), staff, stats.Count, stats.LastOrderAt, r.CreatedAt,
+            new TenantFeaturesDto(r.PosEnabled));
     }
 
     private async Task<Dictionary<Guid, (int Count, DateTimeOffset? LastOrderAt)>> OrderStatsAsync(List<Guid> restaurantIds)

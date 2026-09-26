@@ -27,9 +27,11 @@ public class DeviceValidationMiddleware(RequestDelegate next)
             }
 
             // IgnoreQueryFilters: no tenant context is resolved yet at this point in the pipeline,
-            // and IsDeleted/IsActive are checked explicitly here anyway.
+            // and IsDeleted/IsActive are checked explicitly here anyway. Also cuts off every
+            // terminal of a restaurant the moment POS is disabled for it in the super admin panel.
             var isValid = await db.Devices.IgnoreQueryFilters()
-                .AnyAsync(d => d.Id == deviceId && d.IsActive && !d.IsDeleted, context.RequestAborted);
+                .AnyAsync(d => d.Id == deviceId && d.IsActive && !d.IsDeleted && d.Restaurant!.PosEnabled,
+                    context.RequestAborted);
 
             if (!isValid)
             {

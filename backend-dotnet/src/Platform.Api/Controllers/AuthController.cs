@@ -235,6 +235,9 @@ public class AuthController(
         if (device is null)
             return Unauthorized(ApiResponse<DeviceTokenResponse>.Fail("Invalid device credentials.", 401));
 
+        if (!device.Restaurant!.PosEnabled)
+            return Unauthorized(ApiResponse<DeviceTokenResponse>.Fail("The POS app isn't enabled for this restaurant.", 401));
+
         var hasher = new PasswordHasher<object>();
         var verifyResult = hasher.VerifyHashedPassword(new object(), device.DeviceSecretHash, request.Secret);
         if (verifyResult == PasswordVerificationResult.Failed)

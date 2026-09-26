@@ -269,6 +269,31 @@ function StaffTab({ tenant }: { tenant: Tenant }) {
   );
 }
 
+function FeaturesTab({ tenant }: { tenant: Tenant }) {
+  const setFeatures = useTenantMutation(tenant.restaurantId,
+    (posEnabled: boolean) => api.put<Tenant>(`/api/platform/tenants/${tenant.restaurantId}/features`, { posEnabled }),
+    'Features updated');
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+        <div>
+          <p className="font-medium">POS terminal app</p>
+          <p className="text-sm text-muted-foreground">
+            Lets the restaurant pair Sunmi POS terminals and shows "POS Terminals" and "Download POS App" in its admin.
+            Turning it off signs out any paired terminals straight away. Restaurant staff can't change this.
+          </p>
+        </div>
+        <Switch checked={tenant.features.posEnabled} disabled={setFeatures.isPending}
+          aria-label="POS terminal app"
+          onCheckedChange={(checked) => {
+            if (checked || window.confirm(`Turn off the POS app for ${tenant.name}? Any paired terminals stop working immediately.`)) setFeatures.mutate(checked);
+          }} />
+      </div>
+    </div>
+  );
+}
+
 function StatusTab({ tenant }: { tenant: Tenant }) {
   const setStatus = useTenantMutation(tenant.restaurantId,
     (isActive: boolean) => api.put<Tenant>(`/api/platform/tenants/${tenant.restaurantId}/status`, { isActive }),
@@ -328,12 +353,14 @@ export default function TenantDetail() {
                 <TabsTrigger value="domains">Domains</TabsTrigger>
                 <TabsTrigger value="staff">Owners</TabsTrigger>
                 <TabsTrigger value="stripe">Payments</TabsTrigger>
+                <TabsTrigger value="features">Features</TabsTrigger>
                 <TabsTrigger value="status">Status</TabsTrigger>
               </TabsList>
               <TabsContent value="info"><InfoTab key={tenant.restaurantId} tenant={tenant} /></TabsContent>
               <TabsContent value="domains"><DomainsTab tenant={tenant} /></TabsContent>
               <TabsContent value="staff"><StaffTab tenant={tenant} /></TabsContent>
               <TabsContent value="stripe"><PaymentsTab restaurantId={tenant.restaurantId} /></TabsContent>
+              <TabsContent value="features"><FeaturesTab tenant={tenant} /></TabsContent>
               <TabsContent value="status"><StatusTab tenant={tenant} /></TabsContent>
             </Tabs>
           </CardContent>
