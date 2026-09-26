@@ -1,3 +1,4 @@
+import { formatTimeOfDay } from '../../lib/time';
 import { Link } from 'react-router-dom';
 import { ShoppingBag } from 'lucide-react';
 import { useOrders, useRestaurant } from '../../lib/queries';
@@ -17,7 +18,7 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return formatTimeOfDay(iso);
 }
 
 export default function MyOrders() {

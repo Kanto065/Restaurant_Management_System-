@@ -2,17 +2,8 @@ import { useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useTrackOrder, useRestaurant, useOrderStatuses, useCreateCheckoutSession } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
+import { estimateLabel, formatDateTime, formatTimeOfDay, ORDER_STEP_LABELS } from '../lib/time';
 
-// Nicer wording for the built-in status names; anything else (a custom admin-added status)
-// just displays as-is, since it's already admin-authored plain text.
-const STEP_LABELS: Record<string, string> = {
-  Pending: 'Order Placed',
-  Confirmed: 'Confirmed',
-  Preparing: 'Preparing',
-  Ready: 'Ready',
-  OutForDeliveryOrServed: 'On the Way',
-  Completed: 'Completed',
-};
 
 export default function OrderTracking() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -46,7 +37,7 @@ export default function OrderTracking() {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
       <h1 className="font-display text-2xl sm:text-3xl mb-1">Order #{order.orderNumber}</h1>
-      <p className="text-brand-cream/70 text-sm mb-6">Placed {new Date(order.createdAt).toLocaleString('en-GB')}</p>
+      <p className="text-brand-cream/70 text-sm mb-6">Placed {formatDateTime(order.createdAt)}</p>
 
       {paymentOutcome === 'success' && (
         <div className="mb-6 rounded-lg bg-brand-green/15 border border-brand-green/40 text-brand-green px-4 py-3 text-sm font-medium">
@@ -102,7 +93,7 @@ export default function OrderTracking() {
                 i <= currentIndex ? 'bg-brand-green text-white' : 'bg-brand-cream/10 text-brand-cream/50'
               }`}
             >
-              {STEP_LABELS[step] ?? step}
+              {ORDER_STEP_LABELS[step] ?? step}
             </div>
           ))}
         </div>
@@ -140,7 +131,7 @@ export default function OrderTracking() {
         </div>
         {order.estimatedReadyAt && (
           <p className="mt-3 text-sm text-brand-bg/70">
-            Estimated ready: {new Date(order.estimatedReadyAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+            {estimateLabel(order.orderType)}: {formatTimeOfDay(order.estimatedReadyAt)}
           </p>
         )}
       </div>

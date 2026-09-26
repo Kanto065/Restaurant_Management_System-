@@ -1,16 +1,9 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useCreateCheckoutSession, useOrderStatuses, useRestaurant, useTrackOrder } from '@shared/lib/queries';
+import { estimateLabel, ORDER_STEP_LABELS } from '@shared/lib/time';
 import { formatPrice, formatTimeOfDay, usePageTitle } from '../lib/site';
 
-const STEP_LABELS: Record<string, string> = {
-  Pending: 'Order placed',
-  Confirmed: 'Confirmed',
-  Preparing: 'Being prepared',
-  Ready: 'Ready',
-  OutForDeliveryOrServed: 'On its way',
-  Completed: 'Completed',
-};
 
 export default function OrderTrack() {
   usePageTitle('Your order');
@@ -60,7 +53,7 @@ export default function OrderTrack() {
           Placed {new Date(order.createdAt).toLocaleDateString('en-GB', { dateStyle: 'medium' })}, {formatTimeOfDay(new Date(order.createdAt))} ·{' '}
           {order.orderType === 'Delivery' ? 'Delivery' : 'Collection'}
           {order.estimatedReadyAt && !cancelled && (
-            <> · Estimated {order.orderType === 'Delivery' ? 'delivery' : 'ready'} {formatTimeOfDay(new Date(order.estimatedReadyAt))}</>
+            <> · {estimateLabel(order.orderType)} {formatTimeOfDay(order.estimatedReadyAt)}</>
           )}
         </p>
         {outcome === 'success' && order.paymentStatus === 'Paid' && (
@@ -94,7 +87,7 @@ export default function OrderTrack() {
               <ol className="status-steps">
                 {steps.map((s, i) => (
                   <li key={s} className={i < current ? 'done' : i === current ? 'current' : undefined}>
-                    {STEP_LABELS[s] ?? s}
+                    {ORDER_STEP_LABELS[s] ?? s}
                   </li>
                 ))}
               </ol>

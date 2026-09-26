@@ -42,15 +42,6 @@ export function usePageTitle(page: string | null) {
   }, [page]);
 }
 
-/** "23:00" -> "11pm", "12:30" -> "12:30pm" (UK takeaway style). */
-export function formatClock(hhmm: string): string {
-  const [h, m] = hhmm.split(':').map(Number);
-  const suffix = h >= 12 ? 'pm' : 'am';
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return m ? `${hour12}:${String(m).padStart(2, '0')}${suffix}` : `${hour12}${suffix}`;
-}
 
-/** A Date's time as "7:45pm". */
-export function formatTimeOfDay(date: Date): string {
-  return formatClock(`${date.getHours()}:${date.getMinutes()}`);
-}
+// 12-hour time helpers are shared with the Port Tennant storefront.
+export { formatClock, formatTimeOfDay } from '@shared/lib/time';
