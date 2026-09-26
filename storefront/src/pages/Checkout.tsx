@@ -40,6 +40,13 @@ export default function Checkout() {
   const [showFeeInfo, setShowFeeInfo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Restaurants without a Stripe account take cash only - the API also refuses Card orders then.
+  const cardAvailable = restaurant?.cardPaymentsAvailable !== false;
+  const paymentMethods: PaymentMethod[] = cardAvailable ? ['Card', 'Cash'] : ['Cash'];
+  useEffect(() => {
+    if (!cardAvailable) setPaymentMethod('Cash');
+  }, [cardAvailable]);
+
   // Because you are logged in, we auto-fill the form for you.
   useEffect(() => {
     if (!profile) return;
@@ -304,7 +311,7 @@ export default function Checkout() {
           <div className="bg-brand-cream text-brand-bg rounded-lg p-5">
             <h2 className="font-semibold mb-3">How do you want to pay?</h2>
             <div className="grid grid-cols-2 gap-3">
-              {(['Card', 'Cash'] as PaymentMethod[]).map((method) => (
+              {paymentMethods.map((method) => (
                 <button
                   type="button"
                   key={method}

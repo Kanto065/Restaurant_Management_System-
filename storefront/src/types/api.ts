@@ -58,6 +58,8 @@ export interface RestaurantPublic {
   homepageContent: HomepageContent | null;
   openingHours: OpeningHour[];
   openingHourExceptions: OpeningHourException[];
+  /** False when the restaurant has no Stripe account set up - hide the Card option. */
+  cardPaymentsAvailable: boolean;
 }
 
 export interface Review {
