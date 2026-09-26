@@ -7,7 +7,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -20,9 +19,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { api } from '@/lib/api';
 import { useCurrency, useCurrencyCode } from '@/hooks/useCurrency';
 import { useBranding } from '@/hooks/useBranding';
+import OrderTimeCell from '@/components/OrderTimeCell';
+import { describeCountdown, formatClock, formatDayAndClock, minutesUntil } from '@/lib/time';
 import { statusBadgeColor, paymentStatusBadgeColor } from '@/pages/Configurations';
 import {
-  Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Timer,
+  Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2,
   RefreshCw, UtensilsCrossed, User, Phone, Mail, Search, MoreVertical, ArrowRight, Check, Pencil, Trash2,
   ChevronLeft, ChevronRight, Printer,
 } from 'lucide-react';
@@ -60,11 +61,7 @@ interface PaymentStatusDef { id: string; name: string; displayOrder: number }
 
 const PAGE_SIZE = 25;
 
-const formatTime = (date: string) =>
-  new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
-
-const formatTimeOnly = (date: string) =>
-  new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+const formatTime = (date: string) => formatDayAndClock(date);
 
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
@@ -103,7 +100,7 @@ function openReceiptPrintWindow(order: OrderDetail, formatCurrency: (amount: num
 <body>
   <h1>${escapeHtml(restaurantName)}</h1>
   <div class="muted">Order #${escapeHtml(order.orderNumber)} &middot; ${escapeHtml(order.orderType)}</div>
-  <div class="muted">${new Date(order.createdAt).toLocaleString('en-GB')}</div>
+  <div class="muted">${new Date(order.createdAt).toLocaleDateString('en-GB')} ${formatClock(order.createdAt)}</div>
   <div class="muted">${escapeHtml(order.customerName ?? 'Walk-in')}${order.customerPhone ? ` &middot; ${escapeHtml(order.customerPhone)}` : ''}</div>
   <table>${itemsHtml}</table>
   <table class="totals">
@@ -445,7 +442,7 @@ const Orders = () => {
                   <div
                     key={order.id}
                     onClick={() => openOrder(order.id)}
-                    className="grid grid-cols-1 lg:grid-cols-[70px_1fr_100px_90px_100px_220px_190px_36px_36px_36px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center cursor-pointer"
+                    className="grid grid-cols-1 lg:grid-cols-[70px_1fr_100px_90px_130px_220px_190px_36px_36px_36px] gap-3 px-4 py-3 hover:bg-muted/30 transition-colors items-center cursor-pointer"
                   >
                     <div>
                       <span className="font-mono font-semibold text-sm">#{order.orderNumber}</span>
@@ -463,13 +460,11 @@ const Orders = () => {
 
                     <div className="font-medium">{formatCurrency(order.totalAmount)}</div>
 
-                    <div className="flex items-center gap-1.5 min-w-0" onClick={(e) => e.stopPropagation()}>
-                      {order.estimatedReadyAt && (
-                        <span className="text-sm text-muted-foreground truncate">{formatTimeOnly(order.estimatedReadyAt)}</span>
-                      )}
-                      <EstimatedTimeButton
+                    <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
+                      <OrderTimeCell
                         orderType={order.orderType}
-                        currentEstimatedReadyAt={order.estimatedReadyAt}
+                        estimatedReadyAt={order.estimatedReadyAt}
+                        finished={order.status === doneS || order.status === 'Cancelled'}
                         onSet={(minutes) => timeMutation.mutate({ orderId: order.id, minutes })}
                         pending={timeMutation.isPending}
                       />
@@ -608,7 +603,7 @@ const Orders = () => {
                   <div className="space-y-1"><p className="text-sm font-medium">Order Number</p><p className="text-sm text-muted-foreground font-mono">#{selectedOrder.orderNumber}</p></div>
                   <div className="space-y-1"><p className="text-sm font-medium">Created</p><p className="text-sm text-muted-foreground">{formatTime(selectedOrder.createdAt)}</p></div>
                   <div className="space-y-1"><p className="text-sm font-medium">Status</p><Badge variant="outline" className={statusColors(selectedOrder.status)}>{selectedOrder.status}</Badge></div>
-                  <div className="space-y-1"><p className="text-sm font-medium">Estimated Ready</p><p className="text-sm text-muted-foreground">{selectedOrder.estimatedReadyAt ? formatTime(selectedOrder.estimatedReadyAt) : 'Not set'}</p></div>
+                  <div className="space-y-1"><p className="text-sm font-medium">Estimated Ready</p><p className="text-sm text-muted-foreground">{selectedOrder.estimatedReadyAt ? `${formatTime(selectedOrder.estimatedReadyAt)} (${describeCountdown(minutesUntil(selectedOrder.estimatedReadyAt))})` : 'Not set'}</p></div>
                 </div>
                 <Separator />
                 {(selectedOrder.customerName || selectedOrder.customerPhone || selectedOrder.customerEmail) && (
@@ -780,61 +775,5 @@ const Orders = () => {
     </div>
   );
 };
-
-const DEFAULT_ESTIMATED_MINUTES: Partial<Record<OrderType, string>> = {
-  Delivery: '60',
-  Collection: '20',
-};
-
-function EstimatedTimeButton({
-  orderType, currentEstimatedReadyAt, onSet, pending,
-}: { orderType: OrderType; currentEstimatedReadyAt?: string | null; onSet: (minutes: number) => void; pending: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [minutes, setMinutes] = useState('');
-
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) {
-          // Reopening to edit an already-set time seeds the recomputed
-          // "minutes from now" to reach it, not the flat order-type default -
-          // otherwise editing looked like it silently reset to 60/20.
-          if (currentEstimatedReadyAt) {
-            const diffMinutes = Math.round((new Date(currentEstimatedReadyAt).getTime() - Date.now()) / 60000);
-            setMinutes(diffMinutes > 0 ? String(diffMinutes) : '0');
-          } else {
-            setMinutes(DEFAULT_ESTIMATED_MINUTES[orderType] ?? '');
-          }
-        }
-      }}
-    >
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full justify-start">
-          <Timer className="w-3.5 h-3.5 mr-1.5" />Time
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-56" align="start">
-        <Label htmlFor="est-minutes" className="text-xs text-muted-foreground">Minutes from now</Label>
-        <div className="flex items-center gap-2 mt-1.5">
-          <Input
-            id="est-minutes" type="number" min="0" value={minutes}
-            onChange={(e) => setMinutes(e.target.value)}
-            placeholder="e.g. 15"
-            className="h-8"
-          />
-          <Button
-            size="icon" className="h-8 w-8 shrink-0"
-            disabled={!minutes || pending}
-            onClick={() => { onSet(parseInt(minutes, 10)); setOpen(false); setMinutes(''); }}
-          >
-            <Check className="w-4 h-4" />
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 export default Orders;

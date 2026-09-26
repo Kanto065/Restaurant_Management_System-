@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, GripVertical, Loader2, Settings2 } from 'lucide-react';
+import { Plus, Edit, Trash2, GripVertical, Loader2, Settings2, Clock } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -16,6 +16,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
+import { ORDER_TIMES_KEY, useOrderTimes, type OrderTimes } from '@/hooks/useOrderTimes';
 
 interface OrderStatusDef { id: string; name: string; displayOrder: number; countsAsPending: boolean; countsAsCompleted: boolean; isDefault: boolean }
 interface PaymentStatusDef { id: string; name: string; displayOrder: number; isDefault: boolean }
@@ -47,6 +48,60 @@ export const paymentStatusBadgeColor = (name: string, displayOrder: number) =>
   PAYMENT_STATUS_COLORS[name.toLowerCase().replace(/\s+/g, '')] ?? statusBadgeColor(displayOrder);
 
 // --- Order status editor ---------------------------------------------------
+
+/** Default minutes each new order is given (shown to the customer and on the Orders list). */
+function OrderTimesEditor() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const current = useOrderTimes();
+  const [form, setForm] = useState<OrderTimes>({ deliveryMinutes: 60, collectionMinutes: 20, dineInMinutes: 20 });
+  useEffect(() => { if (current) setForm(current); }, [current]);
+
+  const save = useMutation({
+    mutationFn: () => api.put<OrderTimes>('/api/admin/restaurant/order-times', form),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ORDER_TIMES_KEY });
+      toast({ title: 'Saved', description: 'New orders will use these times.' });
+    },
+    onError: (error: Error) => toast({ variant: 'destructive', title: 'Error', description: error.message }),
+  });
+
+  const fields: { key: keyof OrderTimes; label: string; hint: string }[] = [
+    { key: 'deliveryMinutes', label: 'Delivery', hint: 'Minutes until delivered' },
+    { key: 'collectionMinutes', label: 'Collection', hint: 'Minutes until ready to collect' },
+    { key: 'dineInMinutes', label: 'Dine-in', hint: 'Minutes until served' },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5" />Order times</CardTitle>
+        <CardDescription>
+          Each new order gets this estimated time automatically. Customers see it on their order page, and you can still change any single order from the Orders list.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form className="grid gap-4 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto] sm:items-end"
+          onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
+          {fields.map((field) => (
+            <div key={field.key} className="space-y-1.5">
+              <Label htmlFor={field.key}>{field.label}</Label>
+              <div className="relative">
+                <Input id={field.key} type="number" min={1} max={600} required value={form[field.key]} className="pr-12"
+                  onChange={(e) => setForm((f) => ({ ...f, [field.key]: parseInt(e.target.value || '0', 10) }))} />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">min</span>
+              </div>
+              <p className="text-xs text-muted-foreground">{field.hint}</p>
+            </div>
+          ))}
+          <Button type="submit" disabled={save.isPending} className="sm:mb-6">
+            {save.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
 
 function OrderStatusEditor() {
   const { toast } = useToast();
@@ -401,8 +456,9 @@ export default function Configurations() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2"><Settings2 className="w-7 h-7" />Configurations</h1>
-        <p className="text-muted-foreground">Manage the order and payment status workflows used across Orders and the POS app</p>
+        <p className="text-muted-foreground">Order times, and the order and payment status workflows used across Orders and the POS app</p>
       </div>
+      <OrderTimesEditor />
       <OrderStatusEditor />
       <PaymentStatusEditor />
     </div>
