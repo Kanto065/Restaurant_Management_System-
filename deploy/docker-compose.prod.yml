@@ -100,6 +100,20 @@ services:
       STOREFRONT_UAT_HOST: ${STOREFRONT_UAT_HOST}
       ADMIN_UAT_HOST: ${ADMIN_UAT_HOST}
       API_UAT_HOST: ${API_UAT_HOST}
+      SUPERADMIN_HOST: ${SUPERADMIN_HOST:-superadmin.porttennanttandoori.co.uk}
+      SUPERADMIN_UAT_HOST: ${SUPERADMIN_UAT_HOST:-superadminuat.porttennanttandoori.co.uk}
+      # basic_auth in front of the super admin panels - Caddy refuses to start if a hash is
+      # empty, so these MUST be in .env before deploying (hash via `caddy hash-password`).
+      SUPERADMIN_BASIC_USER: ${SUPERADMIN_BASIC_USER:?set SUPERADMIN_BASIC_USER in .env}
+      SUPERADMIN_BASIC_HASH: ${SUPERADMIN_BASIC_HASH:?set SUPERADMIN_BASIC_HASH in .env}
+      # Star Spice (second tenant) - storefront, its admin, and their UAT copies.
+      STARSPICE_HOST: ${STARSPICE_HOST:-starspicetumble.co.uk}
+      STARSPICE_ADMIN_HOST: ${STARSPICE_ADMIN_HOST:-admin.starspicetumble.co.uk}
+      STARSPICE_UAT_HOST: ${STARSPICE_UAT_HOST:-uat.starspicetumble.co.uk}
+      STARSPICE_ADMIN_UAT_HOST: ${STARSPICE_ADMIN_UAT_HOST:-adminuat.starspicetumble.co.uk}
+      # Password prompt in front of the Star Spice storefront until the client authorises launch.
+      STARSPICE_PREVIEW_USER: ${STARSPICE_PREVIEW_USER:?set STARSPICE_PREVIEW_USER in .env}
+      STARSPICE_PREVIEW_HASH: ${STARSPICE_PREVIEW_HASH:?set STARSPICE_PREVIEW_HASH in .env}
     depends_on: [api, admin-frontend, storefront, minio]
     # UAT's proxy-facing containers (see deploy/docker-compose.uat.yml) join this
     # SAME "internal" network directly - do not give Caddy a second network to

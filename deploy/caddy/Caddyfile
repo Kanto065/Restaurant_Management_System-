@@ -71,6 +71,101 @@
 	}
 }
 
+# Platform owner's super admin panel. No Domain row points here, so the API resolves no
+# tenant for it and only /api/platform/* (PlatformSuperAdmin tokens) is useful.
+# basic_auth guards the app itself as a second lock in front of its own login, but NOT
+# /api/*: the browser's Basic credentials would share the Authorization header with the
+# app's Bearer token. /api/platform/* is protected by that token (and /api/* is reachable
+# on every tenant host anyway).
+{$SUPERADMIN_HOST} {
+	header X-Robots-Tag "noindex, nofollow"
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+	handle {
+		basic_auth {
+			{$SUPERADMIN_BASIC_USER} {$SUPERADMIN_BASIC_HASH}
+		}
+		reverse_proxy superadmin-frontend:80
+	}
+}
+
+# ---------------------------------------------------------------------------------------
+# Star Spice (second tenant, starspicetumble.co.uk). Same API/MinIO as Port Tennant - the API
+# resolves the restaurant from each Host (Domain rows created in the super admin panel).
+# ---------------------------------------------------------------------------------------
+
+# Private-preview storefront: the client asked for password protection until they authorise
+# launch (noindex alone isn't private). Only the pages sit behind basic_auth - /api and
+# /uploads don't, because Basic credentials would share the Authorization header with the
+# customer's Bearer token. Headers mirror the client's dist/_headers.
+(starspice_storefront) {
+	header {
+		X-Robots-Tag "noindex, nofollow"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	handle /api/* {
+		reverse_proxy {args[0]}:8080
+	}
+	handle /uploads/* {
+		reverse_proxy {args[1]}:9000
+	}
+	handle {
+		basic_auth {
+			{$STARSPICE_PREVIEW_USER} {$STARSPICE_PREVIEW_HASH}
+		}
+		reverse_proxy {args[2]}:80
+	}
+}
+
+(tenant_admin) {
+	handle /api/* {
+		reverse_proxy {args[0]}:8080
+	}
+	handle /uploads/* {
+		reverse_proxy {args[1]}:9000
+	}
+	handle {
+		reverse_proxy {args[2]}:80
+	}
+}
+
+{$STARSPICE_HOST} {
+	import starspice_storefront api minio storefront-starspice
+}
+
+www.{$STARSPICE_HOST} {
+	redir https://{$STARSPICE_HOST}{uri} permanent
+}
+
+{$STARSPICE_ADMIN_HOST} {
+	import tenant_admin api minio admin-frontend
+}
+
+{$STARSPICE_UAT_HOST} {
+	import starspice_storefront uat-api uat-minio uat-storefront-starspice
+}
+
+{$STARSPICE_ADMIN_UAT_HOST} {
+	import tenant_admin uat-api uat-minio uat-admin-frontend
+}
+
+# UAT copy of the super admin panel (talks to the UAT API only).
+{$SUPERADMIN_UAT_HOST} {
+	header X-Robots-Tag "noindex, nofollow"
+	handle /api/* {
+		reverse_proxy uat-api:8080
+	}
+	handle {
+		basic_auth {
+			{$SUPERADMIN_BASIC_USER} {$SUPERADMIN_BASIC_HASH}
+		}
+		reverse_proxy uat-superadmin-frontend:80
+	}
+}
+
 # UAT - fully separate Postgres/MinIO/api/admin-frontend/storefront stack
 # (docker-compose.uat.yml), reached over the shared "edge" external network since
 # this Caddy instance is the only thing on the VPS allowed to bind 80/443. See
