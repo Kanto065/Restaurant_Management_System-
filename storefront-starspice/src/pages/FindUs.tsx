@@ -94,7 +94,6 @@ export default function FindUs() {
             {orderingOpen ? 'Order online' : 'Explore the sample menu'} <span className="arrow" aria-hidden="true">↗</span>
           </Link>
         </div>
-        {!orderingOpen && <p className="small">We’re opening soon. Business details and the final menu are still being confirmed.</p>}
       </section>
     </>
   );

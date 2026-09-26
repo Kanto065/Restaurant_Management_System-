@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useRestaurant } from '@shared/lib/queries';
 import { customerAuth } from '@shared/lib/api';
 import { useCartStore } from '@shared/store/cart';
-import { isOrderingOpen } from '../lib/site';
+import { confirmed, isOrderingOpen } from '../lib/site';
 
 const MOBILE = '(max-width: 760px)';
 
@@ -47,11 +47,6 @@ export default function Layout() {
   return (
     <>
       <a className="skip" href="#main">Skip to content</a>
-      {!orderingOpen && (
-        <div className="preview-bar">
-          <b>OPENING SOON</b> &nbsp;·&nbsp; Preparing to reopen — orders are not available yet
-        </div>
-      )}
       <header className="site-header">
         <div className="wrap nav-row">
           <Brand />
@@ -105,7 +100,7 @@ export default function Layout() {
           </div>
           <div className="footer-bottom">
             <span>© {new Date().getFullYear()} Star Spice</span>
-            <span>{orderingOpen ? (restaurant?.phone ?? 'Order online for collection or delivery') : 'Opening soon · Not accepting orders yet'}</span>
+            <span>{confirmed(restaurant?.phone) ?? (orderingOpen ? 'Order online for collection or delivery' : 'Tumble, Carmarthenshire')}</span>
           </div>
         </div>
       </footer>
