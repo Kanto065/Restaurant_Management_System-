@@ -43,6 +43,8 @@ public record AddOwnerRequest(string Email, string FullName, string Password);
 
 public record ResetPasswordRequest(string Password);
 
+public record UpdateStaffRequest(string Email, string FullName);
+
 /// <summary>
 /// Super admin panel: create and manage restaurants (tenants). No tenant is resolved on the
 /// superadmin host, so every tenant-scoped query here uses IgnoreQueryFilters() and filters by
@@ -214,6 +216,49 @@ public class PlatformTenantsController(
             return BadRequest(ApiResponse<object>.Fail(string.Join("; ", result.Errors.Select(e => e.Description)), 400));
 
         return Ok(ApiResponse<object>.Ok(new { }));
+    }
+
+    /// <summary>
+    /// Change a staff member's login email (their UserName) and name. The login is per person,
+    /// so if they also work at another restaurant the new email applies there too.
+    /// </summary>
+    [HttpPut("{id:guid}/staff/{userId:guid}")]
+    public async Task<ActionResult<ApiResponse<TenantDetailDto>>> UpdateStaff(Guid id, Guid userId, UpdateStaffRequest request)
+    {
+        var isStaffHere = await db.RestaurantStaff.IgnoreQueryFilters()
+            .AnyAsync(s => s.RestaurantId == id && s.UserId == userId && !s.IsDeleted);
+        if (!isStaffHere)
+            return NotFound(ApiResponse<TenantDetailDto>.Fail("Staff member not found for this restaurant.", 404));
+
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+            return NotFound(ApiResponse<TenantDetailDto>.Fail("User not found.", 404));
+
+        var email = request.Email.Trim();
+        if (!string.Equals(user.UserName, email, StringComparison.OrdinalIgnoreCase))
+        {
+            if (await userManager.FindByNameAsync(email) is not null)
+                return BadRequest(ApiResponse<TenantDetailDto>.Fail($"{email} is already used by another login.", 400));
+
+            var oldEmail = user.Email;
+            var renamed = await userManager.SetUserNameAsync(user, email);
+            if (!renamed.Succeeded)
+                return BadRequest(ApiResponse<TenantDetailDto>.Fail(string.Join("; ", renamed.Errors.Select(e => e.Description)), 400));
+            await userManager.SetEmailAsync(user, email);
+            user.EmailConfirmed = true;
+
+            // Keep the organization's contact in step when it was this owner's address.
+            var organization = await db.Restaurants.IgnoreQueryFilters()
+                .Where(r => r.Id == id).Select(r => r.Organization).FirstAsync();
+            if (organization is not null && string.Equals(organization.BillingEmail, oldEmail, StringComparison.OrdinalIgnoreCase))
+                organization.BillingEmail = email;
+        }
+
+        user.FullName = request.FullName.Trim();
+        await userManager.UpdateAsync(user);
+        await db.SaveChangesAsync();
+
+        return Ok(ApiResponse<TenantDetailDto>.Ok((await BuildDetailAsync(id))!));
     }
 
     private Task<bool> RestaurantExistsAsync(Guid id) =>

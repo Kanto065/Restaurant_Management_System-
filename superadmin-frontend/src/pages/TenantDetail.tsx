@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, KeyRound, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -162,6 +162,11 @@ function StaffTab({ tenant }: { tenant: Tenant }) {
     onSuccess: () => { toast.success(`Password reset for ${resetFor!.email}`); setResetFor(null); setNewPassword(''); },
     onError: (err) => toast.error((err as Error).message),
   });
+  const [editFor, setEditFor] = useState<TenantStaff | null>(null);
+  const [edit, setEdit] = useState({ email: '', fullName: '' });
+  const update = useTenantMutation(id,
+    () => api.put<Tenant>(`/api/platform/tenants/${id}/staff/${editFor!.userId}`, edit), 'Login details updated');
+  useEffect(() => { if (update.isSuccess) setEditFor(null); }, [update.isSuccess]);
 
   useEffect(() => { if (addOwner.isSuccess) setOwner({ fullName: '', email: '', password: '' }); }, [addOwner.isSuccess]);
 
@@ -182,7 +187,10 @@ function StaffTab({ tenant }: { tenant: Tenant }) {
               <TableCell>{s.fullName}{!s.isActive && <Badge variant="secondary" className="ml-2">Inactive</Badge>}</TableCell>
               <TableCell>{s.email}</TableCell>
               <TableCell>{s.role}</TableCell>
-              <TableCell className="text-right">
+              <TableCell className="space-x-2 whitespace-nowrap text-right">
+                <Button variant="outline" size="sm" onClick={() => { update.reset(); setEdit({ email: s.email, fullName: s.fullName }); setEditFor(s); }}>
+                  <Pencil className="mr-2 h-4 w-4" />Edit
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => setResetFor(s)}>
                   <KeyRound className="mr-2 h-4 w-4" />Reset password
                 </Button>
@@ -213,6 +221,32 @@ function StaffTab({ tenant }: { tenant: Tenant }) {
       <p className="text-xs text-muted-foreground">
         Other staff (managers, kitchen) are added by the owner from the restaurant's admin dashboard.
       </p>
+
+      <Dialog open={editFor !== null} onOpenChange={(open) => { if (!open) setEditFor(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit login</DialogTitle>
+            <DialogDescription>
+              The email is what they sign in to the admin with. Their password doesn't change.
+            </DialogDescription>
+          </DialogHeader>
+          <form id="edit-form" onSubmit={(e) => { e.preventDefault(); update.mutate(undefined); }} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="editEmail">Email (login)</Label>
+              <Input id="editEmail" type="email" value={edit.email} required onChange={(e) => setEdit((x) => ({ ...x, email: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="editName">Name</Label>
+              <Input id="editName" value={edit.fullName} required onChange={(e) => setEdit((x) => ({ ...x, fullName: e.target.value }))} />
+            </div>
+          </form>
+          <DialogFooter>
+            <Button type="submit" form="edit-form" disabled={update.isPending}>
+              {update.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={resetFor !== null} onOpenChange={(open) => { if (!open) { setResetFor(null); setNewPassword(''); } }}>
         <DialogContent>
