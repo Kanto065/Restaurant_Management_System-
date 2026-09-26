@@ -1,10 +1,10 @@
 name: my_pos
 description: "My POS"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
-  sdk: ^3.13.1
+  sdk: ^3.13.0
 
 dependencies:
   flutter:
@@ -22,6 +22,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  # Only used by the test-side printer simulator to render receipt_simulation.png.
+  image: ^3.3.0
 
 # flutter_star_prnt 2.4.1 (pulled in transitively by flutter_pos_printer_platform)
 # calls ViewConfiguration(size: ...), a Flutter API removed in current Flutter SDKs.
