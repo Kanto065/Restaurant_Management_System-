@@ -268,7 +268,8 @@ public class AccountController(AppDbContext db, UserManager<AppUser> userManager
             order.Items.Select(i => new Admin.OrderItemDto(
                 i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.SpecialInstructions, i.LineTotal,
                 i.Modifiers.Select(m => new Admin.OrderItemModifierDto(m.Id, m.NameSnapshot, m.PriceDeltaSnapshot)).ToList())).ToList(),
-            order.StatusHistory.OrderBy(h => h.Timestamp).Select(h => new Admin.OrderStatusHistoryDto(h.Status, h.Note, h.Timestamp)).ToList());
+            order.StatusHistory.OrderBy(h => h.Timestamp).Select(h => new Admin.OrderStatusHistoryDto(h.Status, h.Note, h.Timestamp)).ToList(),
+            order.EstimatedMinutes);
 
         return Ok(ApiResponse<Admin.OrderDetailDto>.Ok(dto));
     }

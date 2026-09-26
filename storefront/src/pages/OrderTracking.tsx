@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useTrackOrder, useRestaurant, useOrderStatuses, useCreateCheckoutSession } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
-import { estimateLabel, formatDateTime, formatTimeOfDay, ORDER_STEP_LABELS } from '../lib/time';
+import { estimateLabel, formatDateTime, formatTimeOfDay, ORDER_STEP_LABELS, pendingEstimateText } from '../lib/time';
 
 
 export default function OrderTracking() {
@@ -129,11 +129,15 @@ export default function OrderTracking() {
           <span>Total</span>
           <span>{currency}{order.totalAmount.toFixed(2)}</span>
         </div>
-        {order.estimatedReadyAt && (
+        {order.estimatedReadyAt ? (
           <p className="mt-3 text-sm text-brand-bg/70">
             {estimateLabel(order.orderType)}: {formatTimeOfDay(order.estimatedReadyAt)}
           </p>
-        )}
+        ) : order.estimatedMinutes && order.status !== 'Cancelled' ? (
+          <p className="mt-3 text-sm text-brand-bg/70">
+            {estimateLabel(order.orderType)}: {pendingEstimateText(order.estimatedMinutes)}
+          </p>
+        ) : null}
       </div>
 
       <Link to="/menu" className="inline-block mt-6 text-brand-mint underline text-sm">

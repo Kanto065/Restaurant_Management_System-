@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useCreateCheckoutSession, useOrderStatuses, useRestaurant, useTrackOrder } from '@shared/lib/queries';
-import { estimateLabel, ORDER_STEP_LABELS } from '@shared/lib/time';
+import { estimateLabel, ORDER_STEP_LABELS, pendingEstimateText } from '@shared/lib/time';
 import { formatPrice, formatTimeOfDay, usePageTitle } from '../lib/site';
 
 
@@ -52,8 +52,11 @@ export default function OrderTrack() {
         <p>
           Placed {new Date(order.createdAt).toLocaleDateString('en-GB', { dateStyle: 'medium' })}, {formatTimeOfDay(new Date(order.createdAt))} ·{' '}
           {order.orderType === 'Delivery' ? 'Delivery' : 'Collection'}
-          {order.estimatedReadyAt && !cancelled && (
+          {!cancelled && order.estimatedReadyAt && (
             <> · {estimateLabel(order.orderType)} {formatTimeOfDay(order.estimatedReadyAt)}</>
+          )}
+          {!cancelled && !order.estimatedReadyAt && order.estimatedMinutes && (
+            <> · {estimateLabel(order.orderType)} {pendingEstimateText(order.estimatedMinutes)}</>
           )}
         </p>
         {outcome === 'success' && order.paymentStatus === 'Paid' && (

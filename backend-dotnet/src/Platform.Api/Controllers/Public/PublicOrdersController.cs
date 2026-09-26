@@ -30,7 +30,9 @@ public record TrackOrderItemDto(
 public record TrackOrderDto(
     Guid Id, string OrderNumber, OrderType OrderType, string Status, string PaymentStatus, PaymentMethod PaymentMethod,
     decimal TotalAmount, DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt, string? SpecialRequests,
-    List<TrackOrderItemDto> Items);
+    List<TrackOrderItemDto> Items,
+    // Planned minutes, shown as "about 20 min after we confirm" until EstimatedReadyAt is set.
+    int? EstimatedMinutes);
 
 /// <summary>Anonymous (guest) or customer-authenticated order placement and tracking, host-resolved tenant.</summary>
 [ApiController]
@@ -104,7 +106,9 @@ public class PublicOrdersController(
             Source = OrderSource.Web,
             Status = defaultOrderStatus,
             PaymentStatus = defaultPaymentStatus,
-            EstimatedReadyAt = estimatedMinutes.HasValue ? DateTimeOffset.UtcNow.AddMinutes(estimatedMinutes.Value) : null,
+            // Only the planned duration for now - the clock starts when the restaurant confirms
+            // the order (Admin OrdersController.UpdateStatus sets EstimatedReadyAt then).
+            EstimatedMinutes = estimatedMinutes,
         };
 
         var customerId = await TryResolveAuthenticatedCustomerAsync();
@@ -283,7 +287,8 @@ public class PublicOrdersController(
             order.EstimatedReadyAt, order.CreatedAt, order.SpecialRequests,
             order.Items.Select(i => new TrackOrderItemDto(
                 i.NameSnapshot, i.Quantity, i.LineTotal, i.SpecialInstructions,
-                i.Modifiers.Select(m => new TrackOrderModifierDto(m.NameSnapshot, m.PriceDeltaSnapshot)).ToList())).ToList());
+                i.Modifiers.Select(m => new TrackOrderModifierDto(m.NameSnapshot, m.PriceDeltaSnapshot)).ToList())).ToList(),
+            order.EstimatedMinutes);
 
         return Ok(ApiResponse<TrackOrderDto>.Ok(dto));
     }

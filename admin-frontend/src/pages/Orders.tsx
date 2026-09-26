@@ -43,6 +43,7 @@ interface OrderListItem {
   id: string; orderNumber: string; orderType: OrderType; status: OrderStatus; paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod; totalAmount: number; customerName: string | null; createdAt: string;
   estimatedReadyAt: string | null;
+  estimatedMinutes?: number | null;
 }
 
 interface OrderItem { id: string; nameSnapshot: string; unitPriceSnapshot: number; quantity: number; lineTotal: number; specialInstructions: string | null }
@@ -464,6 +465,7 @@ const Orders = () => {
                       <OrderTimeCell
                         orderType={order.orderType}
                         estimatedReadyAt={order.estimatedReadyAt}
+                        estimatedMinutes={order.estimatedMinutes ?? null}
                         finished={order.status === doneS || order.status === 'Cancelled'}
                         onSet={(minutes) => timeMutation.mutate({ orderId: order.id, minutes })}
                         pending={timeMutation.isPending}
@@ -603,7 +605,7 @@ const Orders = () => {
                   <div className="space-y-1"><p className="text-sm font-medium">Order Number</p><p className="text-sm text-muted-foreground font-mono">#{selectedOrder.orderNumber}</p></div>
                   <div className="space-y-1"><p className="text-sm font-medium">Created</p><p className="text-sm text-muted-foreground">{formatTime(selectedOrder.createdAt)}</p></div>
                   <div className="space-y-1"><p className="text-sm font-medium">Status</p><Badge variant="outline" className={statusColors(selectedOrder.status)}>{selectedOrder.status}</Badge></div>
-                  <div className="space-y-1"><p className="text-sm font-medium">Estimated Ready</p><p className="text-sm text-muted-foreground">{selectedOrder.estimatedReadyAt ? `${formatTime(selectedOrder.estimatedReadyAt)} (${describeCountdown(minutesUntil(selectedOrder.estimatedReadyAt))})` : 'Not set'}</p></div>
+                  <div className="space-y-1"><p className="text-sm font-medium">Estimated Ready</p><p className="text-sm text-muted-foreground">{selectedOrder.estimatedReadyAt ? `${formatTime(selectedOrder.estimatedReadyAt)} (${describeCountdown(minutesUntil(selectedOrder.estimatedReadyAt))})` : selectedOrder.estimatedMinutes ? `${selectedOrder.estimatedMinutes} min, starts when confirmed` : 'Not set'}</p></div>
                 </div>
                 <Separator />
                 {(selectedOrder.customerName || selectedOrder.customerPhone || selectedOrder.customerEmail) && (

@@ -11,12 +11,14 @@ const LABELS: Record<string, string> = { Delivery: 'Deliver by', Collection: 'Re
 
 /**
  * The order list's "time" column: when the order is due (12-hour clock) and a live countdown,
- * coloured by urgency. Clicking opens a small editor to set minutes-from-now, with quick
- * +/- buttons and a preview of the resulting clock time.
+ * coloured by urgency. Until the order is confirmed the clock hasn't started, so it shows the
+ * planned minutes instead ("20 min, starts when confirmed"). Clicking opens a small editor with
+ * quick +/- buttons and a preview of the resulting clock time.
  */
-export default function OrderTimeCell({ orderType, estimatedReadyAt, finished, onSet, pending }: {
+export default function OrderTimeCell({ orderType, estimatedReadyAt, estimatedMinutes, finished, onSet, pending }: {
   orderType: string;
   estimatedReadyAt: string | null;
+  estimatedMinutes: number | null;
   finished: boolean;
   onSet: (minutesFromNow: number) => void;
   pending: boolean;
@@ -27,6 +29,7 @@ export default function OrderTimeCell({ orderType, estimatedReadyAt, finished, o
   const [minutes, setMinutes] = useState(0);
 
   const remaining = estimatedReadyAt ? minutesUntil(estimatedReadyAt, now) : null;
+  const notStarted = !estimatedReadyAt && estimatedMinutes !== null;
   const tone = finished || remaining === null
     ? 'border-border bg-muted/40 text-muted-foreground'
     : remaining < 0
@@ -40,12 +43,12 @@ export default function OrderTimeCell({ orderType, estimatedReadyAt, finished, o
     if (next) {
       // Editing starts from the order's current time (as minutes from now), or the
       // restaurant's default for this order type when none is set yet.
-      setMinutes(remaining !== null && remaining > 0 ? remaining : defaultMinutesFor(orderType, times));
+      setMinutes(remaining !== null && remaining > 0 ? remaining : estimatedMinutes ?? defaultMinutesFor(orderType, times));
     }
   }
 
   const clamp = (m: number) => Math.max(0, Math.min(600, m));
-  const preview = formatClock(new Date(now + minutes * 60000));
+  const preview = notStarted ? `${minutes} min after confirming` : formatClock(new Date(now + minutes * 60000));
 
   return (
     <Popover open={open} onOpenChange={openEditor}>
@@ -65,6 +68,11 @@ export default function OrderTimeCell({ orderType, estimatedReadyAt, finished, o
                 <span className="block text-xs font-medium">{describeCountdown(remaining)}</span>
               )}
             </>
+          ) : notStarted ? (
+            <>
+              <span className="block text-base font-semibold leading-tight">{estimatedMinutes} min</span>
+              <span className="block text-xs font-medium">starts when confirmed</span>
+            </>
           ) : (
             <span className="flex items-center gap-1 text-sm font-medium"><Clock className="h-3.5 w-3.5" />Set time</span>
           )}
@@ -79,7 +87,7 @@ export default function OrderTimeCell({ orderType, estimatedReadyAt, finished, o
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="order-minutes" className="text-xs">Minutes from now</Label>
+            <Label htmlFor="order-minutes" className="text-xs">{notStarted ? 'Minutes after the order is confirmed' : 'Minutes from now'}</Label>
             <div className="flex items-center gap-2">
               <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="5 minutes less"
                 onClick={() => setMinutes((m) => clamp(m - 5))}><Minus className="h-4 w-4" /></Button>
@@ -101,7 +109,7 @@ export default function OrderTimeCell({ orderType, estimatedReadyAt, finished, o
           </div>
           <Button type="button" className="w-full" disabled={pending}
             onClick={() => { onSet(minutes); setOpen(false); }}>
-            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Set to {preview}
+            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{notStarted ? `Set to ${minutes} min` : `Set to ${preview}`}
           </Button>
         </div>
       </PopoverContent>

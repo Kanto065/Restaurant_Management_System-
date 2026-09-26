@@ -12,7 +12,7 @@ namespace Platform.Api.Controllers.Admin;
 public record OrderListItemDto(
     Guid Id, string OrderNumber, OrderType OrderType, string Status, string PaymentStatus,
     PaymentMethod PaymentMethod, decimal TotalAmount, string? CustomerName, DateTimeOffset CreatedAt, int ItemCount,
-    DateTimeOffset? EstimatedReadyAt);
+    DateTimeOffset? EstimatedReadyAt, int? EstimatedMinutes);
 
 public record OrderStatusHistoryDto(string Status, string? Note, DateTimeOffset Timestamp);
 
@@ -24,7 +24,8 @@ public record OrderDetailDto(
     decimal DiscountAmount, decimal TotalAmount, string? CustomerName, string? CustomerPhone,
     string? CustomerEmail, string? SpecialRequests, OrderDeliveryAddressDto? DeliveryAddress,
     DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt,
-    List<OrderItemDto> Items, List<OrderStatusHistoryDto> StatusHistory);
+    List<OrderItemDto> Items, List<OrderStatusHistoryDto> StatusHistory,
+    int? EstimatedMinutes);
 
 public record OrderItemModifierDto(Guid Id, string NameSnapshot, decimal PriceDeltaSnapshot);
 
@@ -85,7 +86,7 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
             .Take(pageSize)
             .Select(o => new OrderListItemDto(
                 o.Id, o.OrderNumber, o.OrderType, o.Status, o.PaymentStatus, o.PaymentMethod, o.TotalAmount, o.CustomerName, o.CreatedAt, o.Items.Count,
-                o.EstimatedReadyAt))
+                o.EstimatedReadyAt, o.EstimatedMinutes))
             .ToListAsync();
 
         return Ok(ApiResponse<OrderListPageDto>.Ok(new OrderListPageDto(orders, totalCount)));
@@ -122,6 +123,17 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
         if (order is null)
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
+        // Confirming starts the clock: the first move off the starting status (to anything but
+        // Cancelled) sets the ready/delivery time from the order's planned minutes. Statuses are
+        // admin-configurable, so "starting status" is the one marked default, not a fixed name.
+        var startingStatus = await db.OrderStatusDefinitions.Where(d => d.IsDefault).Select(d => d.Name).FirstOrDefaultAsync() ?? "Pending";
+        var startsClock = order.EstimatedReadyAt is null
+            && order.EstimatedMinutes.HasValue
+            && !string.Equals(request.Status, startingStatus, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(request.Status, "Cancelled", StringComparison.OrdinalIgnoreCase);
+        if (startsClock)
+            order.EstimatedReadyAt = DateTimeOffset.UtcNow.AddMinutes(order.EstimatedMinutes!.Value);
+
         order.Status = request.Status;
 
         var historyEntry = new OrderStatusHistory
@@ -137,6 +149,8 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
 
         await db.SaveChangesAsync();
         await notifier.OrderStatusChangedAsync(currentTenant.RestaurantId!.Value, order.Id, order.Status);
+        if (startsClock)
+            await notifier.EstimatedTimeChangedAsync(currentTenant.RestaurantId!.Value, order.Id, order.EstimatedReadyAt);
 
         return Ok(ApiResponse<OrderDetailDto>.Ok(ToDetailDto(order)));
     }
@@ -148,7 +162,14 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
         if (order is null)
             return NotFound(ApiResponse<OrderDetailDto>.Fail("Order not found.", 404));
 
-        order.EstimatedReadyAt = DateTimeOffset.UtcNow.AddMinutes(request.EstimatedMinutesFromNow);
+        if (request.EstimatedMinutesFromNow is < 0 or > 600)
+            return BadRequest(ApiResponse<OrderDetailDto>.Fail("Time must be between 0 and 600 minutes.", 400));
+
+        // Not confirmed yet (clock not started): change the planned minutes, which will count
+        // from confirmation. Already running: move the actual ready/delivery time.
+        order.EstimatedMinutes = request.EstimatedMinutesFromNow;
+        if (order.EstimatedReadyAt is not null)
+            order.EstimatedReadyAt = DateTimeOffset.UtcNow.AddMinutes(request.EstimatedMinutesFromNow);
         await db.SaveChangesAsync();
         await notifier.EstimatedTimeChangedAsync(currentTenant.RestaurantId!.Value, order.Id, order.EstimatedReadyAt);
 
@@ -208,5 +229,6 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
         o.Items.Select(i => new OrderItemDto(
             i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.SpecialInstructions, i.LineTotal,
             i.Modifiers.Select(m => new OrderItemModifierDto(m.Id, m.NameSnapshot, m.PriceDeltaSnapshot)).ToList())).ToList(),
-        o.StatusHistory.OrderBy(h => h.Timestamp).Select(h => new OrderStatusHistoryDto(h.Status, h.Note, h.Timestamp)).ToList());
+        o.StatusHistory.OrderBy(h => h.Timestamp).Select(h => new OrderStatusHistoryDto(h.Status, h.Note, h.Timestamp)).ToList(),
+        o.EstimatedMinutes);
 }

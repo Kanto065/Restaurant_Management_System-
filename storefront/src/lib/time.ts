@@ -33,6 +33,11 @@ export const ORDER_STEP_LABELS: Record<string, string> = {
   Completed: 'Completed',
 };
 
+/** Until the restaurant confirms, only the planned minutes are known. */
+export function pendingEstimateText(minutes: number): string {
+  return `about ${minutes} min after the restaurant confirms your order`;
+}
+
 /** "Estimated delivery" / "Estimated ready" etc. for the tracking page. */
 export function estimateLabel(orderType: string): string {
   if (orderType === 'Delivery') return 'Estimated delivery';

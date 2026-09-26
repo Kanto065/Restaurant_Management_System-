@@ -207,6 +207,8 @@ export interface TrackOrder {
   paymentMethod: PaymentMethod;
   totalAmount: number;
   estimatedReadyAt: string | null;
+  /** Planned minutes - the clock starts when the restaurant confirms the order. */
+  estimatedMinutes: number | null;
   createdAt: string;
   specialRequests: string | null;
   items: {

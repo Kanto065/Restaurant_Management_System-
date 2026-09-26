@@ -50,6 +50,11 @@ public class Order : TenantEntity
     /// <summary>Name of an OrderStatusDefinition row, not an enum - see StatusDefinitions.cs.</summary>
     public string Status { get; set; } = default!;
     public DateTimeOffset? EstimatedReadyAt { get; set; }
+
+    /// <summary>Planned minutes until ready/delivered, from the restaurant's default for the order
+    /// type (staff can change it). The clock only starts when the order is confirmed - i.e. first
+    /// moved off the starting status - which is when EstimatedReadyAt gets set.</summary>
+    public int? EstimatedMinutes { get; set; }
     public string? SpecialRequests { get; set; }
     public OrderSource Source { get; set; } = OrderSource.Web;
     // IsDeleted/CreatedBy/UpdatedBy come from Entity - AppDbContext stamps CreatedBy/UpdatedBy
