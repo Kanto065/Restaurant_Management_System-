@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useRestaurant } from '@shared/lib/queries';
-import { confirmed, isOrderingOpen, sortedOpeningHours, usePageTitle } from '../lib/site';
+import { confirmed, formatClock, isOrderingOpen, sortedOpeningHours, usePageTitle } from '../lib/site';
 
 export default function FindUs() {
   usePageTitle('Find us');
@@ -54,7 +54,7 @@ export default function FindUs() {
                       {hours.map((h) => (
                         <tr key={h.dayOfWeek}>
                           <th scope="row">{h.dayOfWeek}</th>
-                          <td>{h.isClosed || !h.openTime || !h.closeTime ? 'Closed' : `${h.openTime} – ${h.closeTime}`}</td>
+                          <td>{h.isClosed || !h.openTime || !h.closeTime ? 'Closed' : `${formatClock(h.openTime)} – ${formatClock(h.closeTime)}`}</td>
                         </tr>
                       ))}
                     </tbody>

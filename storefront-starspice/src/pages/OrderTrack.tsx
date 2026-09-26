@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useCreateCheckoutSession, useOrderStatuses, useRestaurant, useTrackOrder } from '@shared/lib/queries';
-import { formatPrice, usePageTitle } from '../lib/site';
+import { formatPrice, formatTimeOfDay, usePageTitle } from '../lib/site';
 
 const STEP_LABELS: Record<string, string> = {
   Pending: 'Order placed',
@@ -57,10 +57,10 @@ export default function OrderTrack() {
         <p className="eyebrow">ORDER #{order.orderNumber}</p>
         <h1>{cancelled ? 'Order cancelled.' : 'Thank you.'}</h1>
         <p>
-          Placed {new Date(order.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })} ·{' '}
+          Placed {new Date(order.createdAt).toLocaleDateString('en-GB', { dateStyle: 'medium' })}, {formatTimeOfDay(new Date(order.createdAt))} ·{' '}
           {order.orderType === 'Delivery' ? 'Delivery' : 'Collection'}
           {order.estimatedReadyAt && !cancelled && (
-            <> · Estimated {order.orderType === 'Delivery' ? 'delivery' : 'ready'} {new Date(order.estimatedReadyAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</>
+            <> · Estimated {order.orderType === 'Delivery' ? 'delivery' : 'ready'} {formatTimeOfDay(new Date(order.estimatedReadyAt))}</>
           )}
         </p>
         {outcome === 'success' && order.paymentStatus === 'Paid' && (
