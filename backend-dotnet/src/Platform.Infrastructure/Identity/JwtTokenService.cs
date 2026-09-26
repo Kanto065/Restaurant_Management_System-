@@ -56,6 +56,18 @@ public class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenService
         return CreateToken(claims, TimeSpan.FromMinutes(_options.DeviceAccessTokenMinutes));
     }
 
+    public string CreatePlatformAccessToken(Guid userId, string email, TimeSpan lifetime)
+    {
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(JwtRegisteredClaimNames.Email, email),
+            new("token_type", "platform"),
+        };
+
+        return CreateToken(claims, lifetime);
+    }
+
     public string GenerateRefreshToken()
     {
         var bytes = RandomNumberGenerator.GetBytes(64);

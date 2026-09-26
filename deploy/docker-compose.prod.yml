@@ -41,10 +41,17 @@ services:
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
       Stripe__SecretKey: ${STRIPE_SECRET_KEY}
       Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
+      Stripe__WebhookBaseUrl: https://${API_HOST}
+      # Encrypts restaurants' own Stripe keys at rest (base64 of 32 random bytes). Keep a copy
+      # somewhere safe - losing it means every restaurant's keys must be re-entered.
+      Payments__EncryptionKey: ${PAYMENTS_ENCRYPTION_KEY:-}
       Seed__Enabled: ${SEED_ENABLED:-true}
       Seed__Host: ${SEED_HOST:-www.porttennanttandoori.co.uk}
+      Seed__AdminHost: ${ADMIN_HOST}
       Seed__OwnerEmail: ${SEED_OWNER_EMAIL}
       Seed__OwnerPassword: ${SEED_OWNER_PASSWORD}
+      PlatformAdmin__Email: ${PLATFORM_ADMIN_EMAIL:-}
+      PlatformAdmin__Password: ${PLATFORM_ADMIN_PASSWORD:-}
       Cors__AllowedOrigins__0: https://${SEED_HOST:-www.porttennanttandoori.co.uk}
       Cors__AllowedOrigins__1: https://${ADMIN_HOST}
       Storage__Provider: S3
@@ -65,8 +72,6 @@ services:
     build:
       context: ../admin-frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: https://${API_HOST}
     restart: unless-stopped
     networks: [internal]
 
@@ -80,6 +85,24 @@ services:
     # OWN origin (the tenant's branded domain), which Caddy splits to the api
     # container below. This keeps the Host header the tenant-resolution
     # middleware sees equal to the customer's actual domain.
+
+  # Star Spice's own storefront (client design). Built from the repo root because it imports
+  # the shared data layer from ../storefront/src.
+  storefront-starspice:
+    build:
+      context: ..
+      dockerfile: storefront-starspice/Dockerfile
+    restart: unless-stopped
+    networks: [internal]
+
+  # Platform owner's panel for creating/managing restaurants (superadmin.* host).
+  # UAT has its own copy (uat-superadmin-frontend) against the UAT API.
+  superadmin-frontend:
+    build:
+      context: ../superadmin-frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [internal]
 
   caddy:
     image: caddy:2-alpine
@@ -107,7 +130,7 @@ services:
       STARSPICE_ADMIN_HOST: ${STARSPICE_ADMIN_HOST:-admin.starspicetumble.co.uk}
       STARSPICE_UAT_HOST: ${STARSPICE_UAT_HOST:-uat.starspicetumble.co.uk}
       STARSPICE_ADMIN_UAT_HOST: ${STARSPICE_ADMIN_UAT_HOST:-adminuat.starspicetumble.co.uk}
-    depends_on: [api, admin-frontend, storefront, minio]
+    depends_on: [api, admin-frontend, storefront, storefront-starspice, superadmin-frontend, minio]
     # UAT's proxy-facing containers (see deploy/docker-compose.uat.yml) join this
     # SAME "internal" network directly - do not give Caddy a second network to
     # reach them instead. Confirmed live on this VPS: a container attached to

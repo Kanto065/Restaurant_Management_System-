@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Platform.Api.Contracts;
+using Platform.Api.Filters;
 using Platform.Application.Common;
 using Platform.Domain.Entities;
 using Platform.Infrastructure.Identity;
@@ -13,6 +14,9 @@ using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers;
 
+// Staff/device login and refresh run on the platform API host with no tenant; the customer
+// endpoints check the host-resolved tenant themselves.
+[AllowUnresolvedTenant]
 [ApiController]
 [Route("api/auth")]
 public class AuthController(
@@ -67,7 +71,8 @@ public class AuthController(
     [HttpPost("staff/login")]
     public async Task<ActionResult<ApiResponse<TokenResponse>>> StaffLogin(StaffLoginRequest request)
     {
-        var user = await userManager.FindByEmailAsync(request.Email);
+        // Staff UserName is their email; customer usernames are restaurant-scoped so never match here.
+        var user = await userManager.FindByNameAsync(request.Email);
         if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
             return Unauthorized(ApiResponse<TokenResponse>.Fail("Invalid email or password.", 401));
 
@@ -80,9 +85,17 @@ public class AuthController(
         if (staffRows.Count == 0)
             return Unauthorized(ApiResponse<TokenResponse>.Fail("This account has no active restaurant access.", 401));
 
-        var active = request.RestaurantId.HasValue
-            ? staffRows.FirstOrDefault(s => s.RestaurantId == request.RestaurantId.Value)
+        // On a restaurant's own admin domain, only that restaurant can be signed into - a Star Spice
+        // owner gets "Invalid email or password"-equivalent treatment on Port Tennant's admin.
+        // Unresolved hosts (the platform API host, used by older admin builds and the POS) keep the
+        // pick-by-request behaviour.
+        var wanted = currentTenant.RestaurantId ?? request.RestaurantId;
+        var active = wanted.HasValue
+            ? staffRows.FirstOrDefault(s => s.RestaurantId == wanted.Value)
             : staffRows[0];
+
+        if (active is null && currentTenant.IsResolved)
+            return Unauthorized(ApiResponse<TokenResponse>.Fail("Invalid email or password.", 401));
 
         if (active is null)
             return Unauthorized(ApiResponse<TokenResponse>.Fail("No access to the requested restaurant.", 401));
@@ -94,7 +107,7 @@ public class AuthController(
         var accessToken = tokenService.CreateStaffAccessToken(
             user.Id, user.Email!, restaurantClaims, active.RestaurantId, active.Restaurant!.OrganizationId);
 
-        var tokens = await IssueRefreshTokenAsync(user.Id, accessToken);
+        var tokens = await IssueRefreshTokenAsync(user.Id, accessToken, active.RestaurantId);
         return Ok(ApiResponse<TokenResponse>.Ok(tokens));
     }
 
@@ -124,7 +137,7 @@ public class AuthController(
         var accessToken = tokenService.CreateStaffAccessToken(
             userId, user!.Email!, restaurantClaims, active.RestaurantId, active.Restaurant!.OrganizationId);
 
-        var tokens = await IssueRefreshTokenAsync(userId, accessToken);
+        var tokens = await IssueRefreshTokenAsync(userId, accessToken, active.RestaurantId);
         return Ok(ApiResponse<TokenResponse>.Ok(tokens));
     }
 
@@ -136,11 +149,17 @@ public class AuthController(
 
         var restaurantId = currentTenant.RestaurantId.Value;
 
-        var existing = await db.Customers.FirstOrDefaultAsync(c => c.Email == request.Email);
+        // Scoped to this restaurant only - an account at another restaurant doesn't block (or reveal) anything.
+        var existing = await userManager.FindByNameAsync(AppUser.CustomerUserName(restaurantId, request.Email));
         if (existing is not null)
             return Conflict(ApiResponse<TokenResponse>.Fail("An account with this email already exists.", 409));
 
-        var user = new AppUser { UserName = request.Email, Email = request.Email, FullName = request.FullName };
+        var user = new AppUser
+        {
+            UserName = AppUser.CustomerUserName(restaurantId, request.Email),
+            Email = request.Email,
+            FullName = request.FullName,
+        };
         var createResult = await userManager.CreateAsync(user, request.Password);
         if (!createResult.Succeeded)
         {
@@ -181,7 +200,7 @@ public class AuthController(
         }
 
         var accessToken = tokenService.CreateCustomerAccessToken(user.Id, customer.Id, restaurantId);
-        var tokens = await IssueRefreshTokenAsync(user.Id, accessToken);
+        var tokens = await IssueRefreshTokenAsync(user.Id, accessToken, restaurantId);
         return Ok(ApiResponse<TokenResponse>.Ok(tokens, statusCode: 201));
     }
 
@@ -191,7 +210,7 @@ public class AuthController(
         if (!currentTenant.RestaurantId.HasValue)
             return BadRequest(ApiResponse<TokenResponse>.Fail("Could not resolve restaurant from this domain.", 400));
 
-        var user = await userManager.FindByEmailAsync(request.Email);
+        var user = await userManager.FindByNameAsync(AppUser.CustomerUserName(currentTenant.RestaurantId.Value, request.Email));
         if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
             return Unauthorized(ApiResponse<TokenResponse>.Fail("Invalid email or password.", 401));
 
@@ -201,7 +220,7 @@ public class AuthController(
             return Unauthorized(ApiResponse<TokenResponse>.Fail("No customer account for this restaurant.", 401));
 
         var accessToken = tokenService.CreateCustomerAccessToken(user.Id, customer.Id, currentTenant.RestaurantId.Value);
-        var tokens = await IssueRefreshTokenAsync(user.Id, accessToken);
+        var tokens = await IssueRefreshTokenAsync(user.Id, accessToken, currentTenant.RestaurantId.Value);
         return Ok(ApiResponse<TokenResponse>.Ok(tokens));
     }
 
@@ -253,27 +272,40 @@ public class AuthController(
             .ToListAsync();
 
         string accessToken;
+        Guid restaurantId;
         if (staffRows.Count > 0)
         {
-            var active = staffRows[0];
+            // Stay on the restaurant the session was issued for; only legacy tokens (no
+            // RestaurantId) fall back to the first one. Lost access to it = sign in again.
+            var active = stored.RestaurantId.HasValue
+                ? staffRows.FirstOrDefault(s => s.RestaurantId == stored.RestaurantId.Value)
+                : staffRows[0];
+            if (active is null)
+                return Unauthorized(ApiResponse<TokenResponse>.Fail("No access to this restaurant any more.", 401));
+
             var restaurantClaims = staffRows.Select(s => new StaffRestaurantClaim(s.RestaurantId, s.Role)).ToList();
             accessToken = tokenService.CreateStaffAccessToken(
                 user.Id, user.Email!, restaurantClaims, active.RestaurantId, active.Restaurant!.OrganizationId);
+            restaurantId = active.RestaurantId;
         }
         else
         {
-            var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.IdentityUserId == user.Id);
+            var customer = await db.Customers.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(c => c.IdentityUserId == user.Id
+                    && (!stored.RestaurantId.HasValue || c.RestaurantId == stored.RestaurantId.Value));
             if (customer is null)
                 return Unauthorized(ApiResponse<TokenResponse>.Fail("No account found for this token.", 401));
 
             accessToken = tokenService.CreateCustomerAccessToken(user.Id, customer.Id, customer.RestaurantId);
+            restaurantId = customer.RestaurantId;
         }
 
-        var tokens = await IssueRefreshTokenAsync(user.Id, accessToken, replacesHash: hash);
+        var tokens = await IssueRefreshTokenAsync(user.Id, accessToken, restaurantId, replacesHash: hash);
         return Ok(ApiResponse<TokenResponse>.Ok(tokens));
     }
 
-    private async Task<TokenResponse> IssueRefreshTokenAsync(Guid userId, string accessToken, string? replacesHash = null)
+    private async Task<TokenResponse> IssueRefreshTokenAsync(
+        Guid userId, string accessToken, Guid restaurantId, string? replacesHash = null)
     {
         var refreshToken = tokenService.GenerateRefreshToken();
         var refreshTokenHash = tokenService.HashRefreshToken(refreshToken);
@@ -281,6 +313,7 @@ public class AuthController(
         db.RefreshTokens.Add(new RefreshToken
         {
             UserId = userId,
+            RestaurantId = restaurantId,
             TokenHash = refreshTokenHash,
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
         });

@@ -1,11 +1,12 @@
 /**
  * API Configuration
- * Base URL comes from the environment (VITE_API_BASE_URL) so the same build
- * can point at local/staging/production backends without a code change.
+ * Deployed builds call the API same-origin ('' -> /api/..., proxied by Caddy on each admin
+ * host), so one build serves every restaurant's admin domain and the backend resolves the
+ * restaurant from the Host header. VITE_API_BASE_URL is only set for local dev.
  */
 
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000',
+  BASE_URL: import.meta.env.VITE_API_BASE_URL ?? '',
 } as const;
 
 export const API_BASE_URL = API_CONFIG.BASE_URL;

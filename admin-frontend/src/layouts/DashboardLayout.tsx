@@ -5,9 +5,11 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { useOrderEvents } from '@/hooks/useOrderEvents';
 import { Loader2 } from 'lucide-react';
+import { useBranding } from '@/hooks/useBranding';
 
 const DashboardLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { name: restaurantName } = useBranding();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,7 +46,7 @@ const DashboardLayout = () => {
               trigger lives inside that closed sheet - unreachable without this bar. */}
           <div className="md:hidden flex items-center gap-3 border-b bg-background px-4 py-3 sticky top-0 z-10">
             <SidebarTrigger />
-            <span className="font-semibold truncate">Port Tennant Tandoori</span>
+            <span className="font-semibold truncate">{restaurantName}</span>
           </div>
           <div className="flex-1 p-6 bg-muted/30">
             <Outlet />

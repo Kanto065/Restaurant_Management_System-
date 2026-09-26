@@ -21,7 +21,10 @@ public class TenantDomainResolver(AppDbContext db, IMemoryCache cache) : ITenant
         var result = await db.Domains
             .IgnoreQueryFilters()
             .Where(d => d.Host == normalizedHost)
-            .Select(d => new ResolvedTenant(d.RestaurantId, d.Restaurant!.OrganizationId, d.Restaurant.Slug))
+            .Where(d => !d.IsDeleted)
+            .Select(d => new ResolvedTenant(
+                d.RestaurantId, d.Restaurant!.OrganizationId, d.Restaurant.Slug,
+                d.Restaurant.IsActive && d.Restaurant.Organization!.IsActive))
             .FirstOrDefaultAsync(ct);
 
         cache.Set(cacheKey, result, CacheTtl);

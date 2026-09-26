@@ -5,6 +5,7 @@ using Platform.Api.Contracts;
 using Platform.Application.Common;
 using Platform.Application.Homepage;
 using Platform.Domain.Enums;
+using Platform.Infrastructure.Payments;
 using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers.Public;
@@ -19,14 +20,18 @@ public record RestaurantPublicDto(
     bool SupportsDelivery, bool SupportsCollection, bool SupportsDineIn,
     decimal ProcessingFeeFlat, decimal ProcessingFeePercentage, decimal LoyaltyPointsPerCurrencyUnit,
     string Currency, HomepageContent? HomepageContent,
-    List<OpeningHourDto> OpeningHours, List<OpeningHourExceptionDto> OpeningHourExceptions);
+    List<OpeningHourDto> OpeningHours, List<OpeningHourExceptionDto> OpeningHourExceptions,
+    bool CardPaymentsAvailable);
+
+/// <param name="StorefrontUrl">https URL of the primary storefront domain, for admin QR codes/links.</param>
+public record RestaurantBrandingDto(string Name, string? LogoUrl, string? StorefrontUrl);
 
 public record DeliveryZoneDto(Guid Id, string Name, double MaxMileage, decimal DeliveryFee, decimal MinimumOrderAmount);
 
 /// <summary>Anonymous, host-resolved storefront endpoints — restaurant profile, hours, delivery pricing.</summary>
 [ApiController]
 [Route("api/public")]
-public class PublicRestaurantController(AppDbContext db, ICurrentTenant currentTenant) : ControllerBase
+public class PublicRestaurantController(AppDbContext db, ICurrentTenant currentTenant, IStripeAccountProvider stripeAccounts) : ControllerBase
 {
     [HttpGet("restaurant")]
     public async Task<ActionResult<ApiResponse<RestaurantPublicDto>>> GetRestaurant()
@@ -67,13 +72,43 @@ public class PublicRestaurantController(AppDbContext db, ICurrentTenant currentT
                 .ToList(),
             exceptions
                 .Select(e => new OpeningHourExceptionDto(e.Date, e.OpenTime?.ToString("HH:mm"), e.CloseTime?.ToString("HH:mm"), e.IsClosed, e.Note))
-                .ToList());
+                .ToList(),
+            await stripeAccounts.ForRestaurantAsync(restaurant.Id) is not null);
 
         return Ok(ApiResponse<RestaurantPublicDto>.Ok(dto));
     }
 
     /// <summary>Ordered list of this restaurant's order status names, for the customer-facing
     /// order tracking progress stepper - statuses are admin-configurable, not a fixed enum.</summary>
+    /// <summary>
+    /// Minimal, anonymous identity of the host's restaurant - lets the shared admin dashboard
+    /// build show the right name on its login page and build storefront links, per domain.
+    /// </summary>
+    [HttpGet("branding")]
+    public async Task<ActionResult<ApiResponse<RestaurantBrandingDto>>> GetBranding()
+    {
+        var restaurant = await db.Restaurants
+            .Where(r => r.Id == currentTenant.RestaurantId)
+            .Select(r => new
+            {
+                r.Name,
+                r.LogoUrl,
+                StorefrontHost = r.Domains
+                    .Where(d => d.Kind == DomainKind.Storefront && !d.IsDeleted)
+                    .OrderByDescending(d => d.IsPrimary)
+                    .Select(d => d.Host)
+                    .FirstOrDefault(),
+            })
+            .FirstOrDefaultAsync();
+
+        if (restaurant is null)
+            return NotFound(ApiResponse<RestaurantBrandingDto>.Fail("Restaurant not found.", 404));
+
+        return Ok(ApiResponse<RestaurantBrandingDto>.Ok(new RestaurantBrandingDto(
+            restaurant.Name, restaurant.LogoUrl,
+            restaurant.StorefrontHost is null ? null : $"https://{restaurant.StorefrontHost}")));
+    }
+
     [HttpGet("order-statuses")]
     public async Task<ActionResult<ApiResponse<List<string>>>> GetOrderStatuses()
     {

@@ -84,3 +84,11 @@ public enum ModifierGroupType
     Modifier,
     Variation
 }
+
+/// <summary>What a RestaurantDomain serves. Both kinds resolve the tenant from the Host header;
+/// the kind tells the super admin panel (and Caddy config) which app sits on that host.</summary>
+public enum DomainKind
+{
+    Storefront,
+    Admin
+}

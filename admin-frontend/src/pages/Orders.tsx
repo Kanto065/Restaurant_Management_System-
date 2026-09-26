@@ -19,6 +19,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { api } from '@/lib/api';
 import { useCurrency, useCurrencyCode } from '@/hooks/useCurrency';
+import { useBranding } from '@/hooks/useBranding';
 import { statusBadgeColor, paymentStatusBadgeColor } from '@/pages/Configurations';
 import {
   Loader2, ShoppingCart, DollarSign, PoundSterling, Euro, IndianRupee, Clock, CheckCircle2, Timer,
@@ -71,7 +72,7 @@ const escapeHtml = (value: string) =>
 /** Opens a receipt-shaped print window for one order and immediately triggers the browser's
  * print dialog - no PDF/print library needed, this is exactly what a manual Ctrl+P of a
  * print-only page would do, just without navigating the admin dashboard away from itself. */
-function openReceiptPrintWindow(order: OrderDetail, formatCurrency: (amount: number) => string) {
+function openReceiptPrintWindow(order: OrderDetail, formatCurrency: (amount: number) => string, restaurantName: string) {
   const win = window.open('', '_blank', 'width=380,height=600');
   if (!win) return;
 
@@ -100,7 +101,7 @@ function openReceiptPrintWindow(order: OrderDetail, formatCurrency: (amount: num
 </style>
 </head>
 <body>
-  <h1>Port Tennant Tandoori</h1>
+  <h1>${escapeHtml(restaurantName)}</h1>
   <div class="muted">Order #${escapeHtml(order.orderNumber)} &middot; ${escapeHtml(order.orderType)}</div>
   <div class="muted">${new Date(order.createdAt).toLocaleString('en-GB')}</div>
   <div class="muted">${escapeHtml(order.customerName ?? 'Walk-in')}${order.customerPhone ? ` &middot; ${escapeHtml(order.customerPhone)}` : ''}</div>
@@ -126,6 +127,7 @@ function openReceiptPrintWindow(order: OrderDetail, formatCurrency: (amount: num
 const Orders = () => {
   const { toast } = useToast();
   const currency = useCurrency();
+  const { name: restaurantName } = useBranding();
   const currencyCode = useCurrencyCode();
   const CurrencyIcon = CURRENCY_ICONS[currencyCode] ?? DollarSign;
   const formatCurrency = (amount: number) => `${currency}${amount.toFixed(2)}`;
@@ -281,7 +283,7 @@ const Orders = () => {
         setPrintLoading(null);
       }
     }
-    if (full) openReceiptPrintWindow(full, formatCurrency);
+    if (full) openReceiptPrintWindow(full, formatCurrency, restaurantName);
   };
 
   const quickStatusMutation = useMutation({

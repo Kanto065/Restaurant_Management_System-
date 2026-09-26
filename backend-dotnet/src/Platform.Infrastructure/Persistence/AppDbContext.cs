@@ -48,6 +48,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
     public DbSet<OrderStatusDefinition> OrderStatusDefinitions => Set<OrderStatusDefinition>();
     public DbSet<PaymentStatusDefinition> PaymentStatusDefinitions => Set<PaymentStatusDefinition>();
     public DbSet<ProcessedPaymentEvent> ProcessedPaymentEvents => Set<ProcessedPaymentEvent>();
+    public DbSet<RestaurantPaymentSettings> RestaurantPaymentSettings => Set<RestaurantPaymentSettings>();
 
     // Customer / loyalty
     public DbSet<Customer> Customers => Set<Customer>();
@@ -127,6 +128,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
         builder.Entity<Table>().HasIndex(t => t.QrToken).IsUnique();
         builder.Entity<Customer>().HasIndex(c => new { c.RestaurantId, c.Email }).IsUnique();
         builder.Entity<ProcessedPaymentEvent>().HasIndex(e => new { e.Provider, e.EventId }).IsUnique();
+        builder.Entity<RestaurantPaymentSettings>().HasIndex(s => s.RestaurantId).IsUnique();
         builder.Entity<Voucher>().HasIndex(v => new { v.RestaurantId, v.Code }).IsUnique();
         builder.Entity<CustomerFavoriteMenuItem>().HasIndex(f => new { f.CustomerId, f.MenuItemId }).IsUnique();
         builder.Entity<OpeningHourException>().HasIndex(e => new { e.RestaurantId, e.Date }).IsUnique();

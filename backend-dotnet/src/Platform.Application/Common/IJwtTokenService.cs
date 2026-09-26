@@ -17,6 +17,9 @@ public interface IJwtTokenService
 
     string CreateDeviceAccessToken(Guid deviceId, Guid restaurantId, Guid organizationId);
 
+    /// <summary>Super admin panel token - carries no restaurant, only usable on /api/platform/*.</summary>
+    string CreatePlatformAccessToken(Guid userId, string email, TimeSpan lifetime);
+
     string GenerateRefreshToken();
 
     string HashRefreshToken(string refreshToken);

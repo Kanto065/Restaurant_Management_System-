@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
+using Platform.Api.Filters;
 using Platform.Infrastructure;
 using Platform.Infrastructure.Identity;
 using Platform.Infrastructure.Multitenancy;
@@ -14,7 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((context, config) =>
     config.ReadFrom.Configuration(context.Configuration).WriteTo.Console());
 
-builder.Services.AddControllers().AddJsonOptions(options =>
+builder.Services.AddControllers(options => options.Filters.Add<RequireTenantFilter>()).AddJsonOptions(options =>
 {
     // Without this, enums (OrderStatus, PaymentMethod, ...) serialize as raw integers -
     // admin-frontend and storefront both already assume string values (e.g. "Pending"), so
@@ -72,6 +73,10 @@ if (builder.Configuration.GetValue("Seed:Enabled", true))
     var seedOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<SeedOptions>>().Value;
     await DbSeeder.SeedFirstTenantAsync(app.Services, seedOptions);
 }
+
+// Super admin panel login - independent of Seed:Enabled (no-op unless PlatformAdmin:Email is set).
+await PlatformAdminSeeder.EnsureAsync(app.Services,
+    builder.Configuration.GetSection(PlatformAdminOptions.SectionName).Get<PlatformAdminOptions>() ?? new());
 
 if (app.Environment.IsDevelopment())
 {

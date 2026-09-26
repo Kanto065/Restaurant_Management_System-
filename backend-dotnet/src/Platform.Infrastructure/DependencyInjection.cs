@@ -12,6 +12,7 @@ using Platform.Infrastructure.Payments;
 using Platform.Infrastructure.Persistence;
 using Platform.Infrastructure.Realtime;
 using Platform.Infrastructure.Storage;
+using Platform.Infrastructure.Tenancy;
 using Stripe;
 
 namespace Platform.Infrastructure;
@@ -27,13 +28,16 @@ public static class DependencyInjection
 
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddScoped<ITenantDomainResolver, TenantDomainResolver>();
+        services.AddScoped<TenantProvisioningService>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentActor, CurrentActor>();
 
         services.AddIdentityCore<AppUser>(o =>
             {
                 o.Password.RequiredLength = 8;
-                o.User.RequireUniqueEmail = true;
+                // Not unique: a customer can hold separate accounts at different restaurants
+                // (see AppUser.CustomerUserName). Look users up by UserName, never FindByEmail.
+                o.User.RequireUniqueEmail = false;
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<AppDbContext>()
@@ -91,6 +95,7 @@ public static class DependencyInjection
         services.AddAuthorizationBuilder()
             .AddPolicy("StaffOnly", p => p.RequireClaim("token_type", "staff"))
             .AddPolicy("CustomerOnly", p => p.RequireClaim("token_type", "customer"))
+            .AddPolicy("PlatformSuperAdmin", p => p.RequireClaim("token_type", "platform"))
             .AddPolicy("PosDeviceOnly", p => p.RequireClaim("token_type", "device").RequireClaim("scope", "pos"))
             // Orders endpoints POS terminals need directly (list/read/update status) - staff
             // dashboard and paired Sunmi devices both allowed, nothing else.
@@ -101,8 +106,9 @@ public static class DependencyInjection
         services.AddScoped<IOrderNotifier, OrderNotifier>();
 
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
-        services.AddSingleton(sp =>
-            new StripeClient(sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StripeOptions>>().Value.SecretKey));
+        services.Configure<PaymentsOptions>(configuration.GetSection(PaymentsOptions.SectionName));
+        services.AddSingleton<ISecretProtector, AesGcmSecretProtector>();
+        services.AddScoped<IStripeAccountProvider, StripeAccountProvider>();
 
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
         var storageProvider = configuration.GetSection(StorageOptions.SectionName)["Provider"];

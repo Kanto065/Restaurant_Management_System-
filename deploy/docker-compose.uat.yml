@@ -50,10 +50,17 @@ services:
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
       Stripe__SecretKey: ${STRIPE_SECRET_KEY}
       Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
+      Stripe__WebhookBaseUrl: https://${API_HOST}
+      # Encrypts restaurants' own Stripe keys at rest (base64 of 32 random bytes). Keep a copy
+      # somewhere safe - losing it means every restaurant's keys must be re-entered.
+      Payments__EncryptionKey: ${PAYMENTS_ENCRYPTION_KEY:-}
       Seed__Enabled: ${SEED_ENABLED:-true}
       Seed__Host: ${SEED_HOST:-uat.porttennanttandoori.co.uk}
+      Seed__AdminHost: ${ADMIN_HOST}
       Seed__OwnerEmail: ${SEED_OWNER_EMAIL}
       Seed__OwnerPassword: ${SEED_OWNER_PASSWORD}
+      PlatformAdmin__Email: ${PLATFORM_ADMIN_EMAIL:-}
+      PlatformAdmin__Password: ${PLATFORM_ADMIN_PASSWORD:-}
       Cors__AllowedOrigins__0: https://${SEED_HOST:-uat.porttennanttandoori.co.uk}
       Cors__AllowedOrigins__1: https://${ADMIN_HOST}
       Storage__Provider: S3
@@ -68,8 +75,6 @@ services:
     build:
       context: ../admin-frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: https://${API_HOST}
     restart: unless-stopped
     container_name: uat-admin-frontend
     networks: [internal]
@@ -84,6 +89,25 @@ services:
     # Same as prod - calls /api and /uploads on its own origin, so Caddy's
     # UAT storefront block can split traffic to uat-api/uat-minio while keeping
     # the Host header equal to uat.porttennanttandoori.co.uk for tenant resolution.
+
+  # Star Spice's own storefront (client design). Built from the repo root because it imports
+  # the shared data layer from ../storefront/src.
+  uat-storefront-starspice:
+    build:
+      context: ..
+      dockerfile: storefront-starspice/Dockerfile
+    restart: unless-stopped
+    container_name: uat-storefront-starspice
+    networks: [internal]
+
+  # Super admin panel against the UAT API, so UAT tenants can be managed from a UI too.
+  uat-superadmin-frontend:
+    build:
+      context: ../superadmin-frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    container_name: uat-superadmin-frontend
+    networks: [internal]
 
 networks:
   internal:

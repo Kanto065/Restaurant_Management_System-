@@ -1719,6 +1719,9 @@ namespace Platform.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsPrimary")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("RestaurantId")
                         .HasColumnType("uuid");
 
@@ -1742,6 +1745,56 @@ namespace Platform.Infrastructure.Persistence.Migrations
                     b.HasIndex("RestaurantId");
 
                     b.ToTable("Domains");
+                });
+
+            modelBuilder.Entity("Platform.Domain.Entities.RestaurantPaymentSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("StripePublishableKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripeSecretKeyEncrypted")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripeSecretKeyLast4")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripeWebhookSecretEncrypted")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("UseConfigAccount")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId")
+                        .IsUnique();
+
+                    b.ToTable("RestaurantPaymentSettings");
                 });
 
             modelBuilder.Entity("Platform.Domain.Entities.RestaurantStaff", b =>
@@ -2092,6 +2145,9 @@ namespace Platform.Infrastructure.Persistence.Migrations
                     b.Property<string>("ReplacedByTokenHash")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("RestaurantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -2389,6 +2445,17 @@ namespace Platform.Infrastructure.Persistence.Migrations
                 {
                     b.HasOne("Platform.Domain.Entities.Restaurant", "Restaurant")
                         .WithMany("Domains")
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Restaurant");
+                });
+
+            modelBuilder.Entity("Platform.Domain.Entities.RestaurantPaymentSettings", b =>
+                {
+                    b.HasOne("Platform.Domain.Entities.Restaurant", "Restaurant")
+                        .WithMany()
                         .HasForeignKey("RestaurantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
