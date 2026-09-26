@@ -81,3 +81,24 @@ jobs:
       # Includes a tsc type-check (see package.json "build").
       - run: npm run build
       - run: npm run lint
+
+  storefront-starspice:
+    name: Star Spice storefront build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: storefront-starspice
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: storefront-starspice/package-lock.json
+
+      # Only this app's dependencies are installed - the shared ../storefront/src code must
+      # resolve its packages from here (vite dedupe + tsconfig paths), same as the Docker build.
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint

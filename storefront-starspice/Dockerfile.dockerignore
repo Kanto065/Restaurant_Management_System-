@@ -1,0 +1,6 @@
+# Context is the repo root - only send what this image needs.
+*
+!storefront/src
+!storefront-starspice
+storefront-starspice/node_modules
+storefront-starspice/dist
