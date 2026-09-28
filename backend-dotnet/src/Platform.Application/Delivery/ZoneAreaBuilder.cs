@@ -100,7 +100,7 @@ public static class ZoneAreaBuilder
         // 3. Trace each zone's squares into rings.
         foreach (var id in targets.SelectMany(t => t.ZoneIds).Distinct())
         {
-            var rings = Trace(zoneOf, id, cols, rows)
+            var rings = Trace((x, y) => zoneOf[x, y] == id, cols, rows)
                 .Select(loop => Smooth(loop, smoothMetres / cellMetres))
                 .Where(loop => loop.Count >= 3 && Math.Abs(SignedArea(loop)) >= 2) // drop specks under 2 squares
                 .Select(loop => (IReadOnlyList<GeoPoint>)loop.Select(p => proj.ToGeo(minX + p.X * cellMetres, minY + p.Y * cellMetres)).ToList())
@@ -108,6 +108,48 @@ public static class ZoneAreaBuilder
             if (rings.Count > 0) result[id] = rings;
         }
         return result;
+    }
+
+    /// <summary>A real postcode inside a zone and its driving distance from the restaurant.</summary>
+    public readonly record struct RoadSample(GeoPoint Point, double RoadMiles);
+
+    /// <summary>
+    /// Cuts the parts of a zone that are further by road than its stated miles. Every square of
+    /// the zone takes the road distance of its nearest postcode; squares over the limit (plus a
+    /// small tolerance) are removed. Only ever removes ground.
+    /// </summary>
+    /// <returns>Null when nothing needs cutting (leave the zone as it is); otherwise the trimmed
+    /// rings, which may be empty if every part of the zone is too far.</returns>
+    public static List<IReadOnlyList<GeoPoint>>? TrimToRoadMiles(
+        GeoPoint origin, IReadOnlyList<IReadOnlyList<GeoPoint>> rings, IReadOnlyList<RoadSample> samples,
+        double limitMiles, double toleranceMiles = 0.05, double cellMetres = 40, double smoothMetres = 12)
+    {
+        if (samples.Count == 0 || !samples.Any(s => s.RoadMiles > limitMiles + toleranceMiles)) return null;
+
+        var proj = new LocalProjection(origin);
+        var area = new ProjectedArea(rings.Select(r => r.Select(proj.ToXY).ToArray()).ToArray());
+        var pts = samples.Select(s => (XY: proj.ToXY(s.Point), s.RoadMiles)).ToArray();
+        double minX = area.MinX, minY = area.MinY;
+        int cols = (int)Math.Ceiling((area.MaxX - minX) / cellMetres) + 1, rows = (int)Math.Ceiling((area.MaxY - minY) / cellMetres) + 1;
+
+        var keep = new bool[cols, rows];
+        var removed = 0;
+        for (var cx = 0; cx < cols; cx++)
+        for (var cy = 0; cy < rows; cy++)
+        {
+            double x = minX + (cx + 0.5) * cellMetres, y = minY + (cy + 0.5) * cellMetres;
+            if (!area.Contains(x, y)) continue;
+            var nearest = pts.MinBy(p => (p.XY.X - x) * (p.XY.X - x) + (p.XY.Y - y) * (p.XY.Y - y));
+            if (nearest.RoadMiles <= limitMiles + toleranceMiles) keep[cx, cy] = true;
+            else removed++;
+        }
+        if (removed == 0) return null;
+
+        return Trace((x, y) => keep[x, y], cols, rows)
+            .Select(loop => Smooth(loop, smoothMetres / cellMetres))
+            .Where(loop => loop.Count >= 3 && Math.Abs(SignedArea(loop)) >= 2)
+            .Select(loop => (IReadOnlyList<GeoPoint>)loop.Select(p => proj.ToGeo(minX + p.X * cellMetres, minY + p.Y * cellMetres)).ToList())
+            .ToList();
     }
 
     /// <summary>For checking zones: finds the most specific reference containing a point (the
@@ -143,9 +185,9 @@ public static class ZoneAreaBuilder
 
     private readonly record struct Pt(double X, double Y);
 
-    private static List<List<Pt>> Trace(Guid?[,] zoneOf, Guid id, int cols, int rows)
+    private static List<List<Pt>> Trace(Func<int, int, bool> inside, int cols, int rows)
     {
-        bool In(int x, int y) => x >= 0 && y >= 0 && x < cols && y < rows && zoneOf[x, y] == id;
+        bool In(int x, int y) => x >= 0 && y >= 0 && x < cols && y < rows && inside(x, y);
 
         // Directed edges with the zone on the left (anticlockwise around each square).
         var outgoing = new Dictionary<(int, int), List<(int, int)>>();

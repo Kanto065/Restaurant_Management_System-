@@ -195,6 +195,18 @@ public class DeliveryZonesController(
         return Ok(ApiResponse<AutoDrawOutcome>.Ok(outcome));
     }
 
+    /// <summary>Cuts zones back to their stated miles by road ("up to 2 miles"). Slow: one
+    /// routing request per ~100 postcodes, a second apart.</summary>
+    [HttpPost("trim-to-miles")]
+    public async Task<ActionResult<ApiResponse<TrimOutcome>>> TrimToMiles(AutoDrawRequest request, CancellationToken ct)
+    {
+        if (!currentTenant.RestaurantId.HasValue)
+            return BadRequest(ApiResponse<TrimOutcome>.Fail("Restaurant not found.", 400));
+        var outcome = await zoneTools.TrimToStatedMilesAsync(
+            currentTenant.RestaurantId.Value, request.ZoneIds, request.KeepZoneIds ?? [], ct);
+        return Ok(ApiResponse<TrimOutcome>.Ok(outcome));
+    }
+
     [HttpPost("{id:guid}/restore-previous")]
     public async Task<ActionResult<ApiResponse<DeliveryZoneDto>>> RestorePrevious(Guid id, CancellationToken ct)
     {

@@ -111,6 +111,36 @@ public class ZoneAreaBuilderTests
     }
 
     [Fact]
+    public void Trim_CutsOnlyTheGroundBeyondTheStatedRoadMiles()
+    {
+        IReadOnlyList<IReadOnlyList<GeoPoint>> zone = [Box(51.615, -3.945, 51.630, -3.905)];
+        // Postcodes on the west side are 1.2 road miles away, the east side 2.6 - limit is 2.
+        var samples = new List<ZoneAreaBuilder.RoadSample>();
+        for (var lat = 51.616; lat < 51.630; lat += 0.002)
+        {
+            samples.Add(new(new GeoPoint(lat, -3.940), 1.2));
+            samples.Add(new(new GeoPoint(lat, -3.910), 2.6));
+        }
+
+        var trimmed = ZoneAreaBuilder.TrimToRoadMiles(Restaurant, zone, samples, limitMiles: 2);
+
+        Assert.NotNull(trimmed);
+        Assert.True(DeliveryPricing.Contains(trimmed, new GeoPoint(51.622, -3.940)));
+        Assert.False(DeliveryPricing.Contains(trimmed, new GeoPoint(51.622, -3.910)));
+        Assert.False(DeliveryPricing.Contains(trimmed, new GeoPoint(51.640, -3.940)), "never adds ground");
+    }
+
+    [Fact]
+    public void Trim_LeavesAZoneAlone_WhenEverythingIsWithinItsMiles()
+    {
+        IReadOnlyList<IReadOnlyList<GeoPoint>> zone = [Box(51.615, -3.945, 51.630, -3.905)];
+        var samples = new List<ZoneAreaBuilder.RoadSample> { new(new GeoPoint(51.62, -3.93), 1.9), new(new GeoPoint(51.62, -3.91), 2.04) };
+
+        Assert.Null(ZoneAreaBuilder.TrimToRoadMiles(Restaurant, zone, samples, limitMiles: 2));
+        Assert.Null(ZoneAreaBuilder.TrimToRoadMiles(Restaurant, zone, [], limitMiles: 2));
+    }
+
+    [Fact]
     public void AreaIndex_PicksTheMostSpecificArea()
     {
         var index = new ZoneAreaBuilder.AreaIndex(

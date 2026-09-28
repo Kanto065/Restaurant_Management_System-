@@ -20,12 +20,20 @@ public record ZoneCheckReport(List<ZoneCheckResult> Zones, bool ServiceProblem);
 
 public record AutoDrawOutcome(List<string> Drawn, List<string> NotFound, List<string> Kept, bool ServiceProblem);
 
+/// <param name="Postcodes">Postcodes the zone charged before trimming (with a road distance).</param>
+/// <param name="TooFar">...of which were further by road than the zone's stated miles.</param>
+/// <param name="Outcome">"trimmed", "already within", "no stated miles", "no postcodes" or "all too far".</param>
+public record ZoneTrimResult(string Name, double StatedMiles, int Postcodes, int TooFar, double FurthestRoadMiles, string Outcome);
+
+public record TrimOutcome(List<ZoneTrimResult> Zones, bool ServiceProblem);
+
 /// <summary>
 /// "Check zones" and "Auto-draw from name": both look up where each zone's named area really is
 /// (NamedAreaLookup), then either compare the real postcodes there with what the drawn shapes
 /// charge them, or draw the shapes from those areas (ZoneAreaBuilder).
 /// </summary>
-public class ZoneToolsService(AppDbContext db, DeliveryQuoteService quotes, NamedAreaLookup areas, PostcodeGrid postcodeGrid)
+public class ZoneToolsService(
+    AppDbContext db, DeliveryQuoteService quotes, NamedAreaLookup areas, PostcodeGrid postcodeGrid, IRoadDistance roads)
 {
     public async Task<ZoneCheckReport> CheckAsync(Guid restaurantId, CancellationToken ct = default)
     {
@@ -139,6 +147,62 @@ public class ZoneToolsService(AppDbContext db, DeliveryQuoteService quotes, Name
         notFound.AddRange(zones.Where(z => redrawIds.Contains(z.Id) && !built.ContainsKey(z.Id)).Select(z => z.Name.Trim()));
         return new AutoDrawOutcome(drawn, notFound.Distinct().ToList(),
             kept.Where(z => !notFound.Contains(z.Name.Trim())).Select(z => z.Name.Trim()).Distinct().ToList(), serviceProblem);
+    }
+
+    /// <summary>
+    /// Cuts each zone back to its stated miles by road ("up to 2 miles"): the parts whose
+    /// nearest postcodes are further by road are removed, so those addresses pay the "anywhere
+    /// else" price (or get no delivery beyond the limit). Zones in <paramref name="keepZoneIds"/>
+    /// and zones without stated miles are left alone. Old shapes are kept for "Restore previous area".
+    /// </summary>
+    public async Task<TrimOutcome> TrimToStatedMilesAsync(
+        Guid restaurantId, IReadOnlyCollection<Guid>? zoneIds, IReadOnlyCollection<Guid> keepZoneIds, CancellationToken ct = default)
+    {
+        var restaurant = await db.Restaurants.FirstAsync(r => r.Id == restaurantId, ct);
+        var origin = await quotes.RestaurantLocationAsync(restaurant, ct);
+        var zones = await db.DeliveryZones.Where(z => z.RestaurantId == restaurantId && z.IsActive).ToListAsync(ct);
+        if (origin is null) return new TrimOutcome([], true);
+
+        var shapes = zones.Select(ToShape).Where(z => z.IsDrawn).ToList();
+        var targets = zones
+            .Where(z => (zoneIds is null || zoneIds.Contains(z.Id)) && !keepZoneIds.Contains(z.Id) && shapes.Any(s => s.Id == z.Id))
+            .OrderBy(z => z.DeliveryFee).ThenBy(z => z.Name)
+            .ToList();
+
+        var results = new List<ZoneTrimResult>();
+        var serviceProblem = false;
+        foreach (var zone in targets)
+        {
+            var name = zone.Name.Trim();
+            if (zone.MaxMileage <= 0) { results.Add(new(name, 0, 0, 0, 0, "no stated miles")); continue; }
+
+            // The postcodes this zone actually charges (the cheaper zone wins where shapes overlap).
+            var rings = shapes.First(s => s.Id == zone.Id).Rings;
+            var all = rings.SelectMany(r => r).ToList();
+            var inBox = await postcodeGrid.InBoxAsync(all.Min(p => p.Latitude), all.Min(p => p.Longitude),
+                all.Max(p => p.Latitude), all.Max(p => p.Longitude), ct);
+            if (inBox is null) { serviceProblem = true; continue; }
+            var charged = inBox.Where(p => DeliveryPricing.ZoneAt(shapes, p.Point)?.Id == zone.Id).ToList();
+            if (charged.Count == 0) { results.Add(new(name, zone.MaxMileage, 0, 0, 0, "no postcodes")); continue; }
+
+            var road = await roads.FromAsync(origin.Value, charged.Select(p => p.Point).ToList(), ct);
+            if (road is null) { serviceProblem = true; continue; }
+            var samples = charged.Zip(road)
+                .Where(x => x.Second is not null)
+                .Select(x => new ZoneAreaBuilder.RoadSample(x.First.Point, x.Second!.Value))
+                .ToList();
+            var tooFar = samples.Count(s => s.RoadMiles > zone.MaxMileage + 0.05);
+            var furthest = samples.Count > 0 ? Math.Round(samples.Max(s => s.RoadMiles), 2) : 0;
+
+            var trimmed = ZoneAreaBuilder.TrimToRoadMiles(origin.Value, rings, samples, zone.MaxMileage);
+            if (trimmed is null) { results.Add(new(name, zone.MaxMileage, samples.Count, tooFar, furthest, "already within")); continue; }
+
+            zone.PreviousBoundaryJson = zone.BoundaryJson;
+            zone.BoundaryJson = trimmed.Count == 0 ? null : DeliveryPricing.SerializeRings(trimmed);
+            results.Add(new(name, zone.MaxMileage, samples.Count, tooFar, furthest, trimmed.Count == 0 ? "all too far" : "trimmed"));
+        }
+        await db.SaveChangesAsync(ct);
+        return new TrimOutcome(results, serviceProblem);
     }
 
     /// <summary>Undo the last automatic redraw of one zone. False when there's nothing to restore.</summary>

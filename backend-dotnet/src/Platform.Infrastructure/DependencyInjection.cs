@@ -131,6 +131,12 @@ public static class DependencyInjection
             c.BaseAddress = new Uri(configuration["Postcodes:BaseUrl"] ?? "https://api.postcodes.io/");
             c.Timeout = TimeSpan.FromSeconds(8);
         });
+        services.AddHttpClient<IRoadDistance, OsrmRoadDistance>(c =>
+        {
+            c.BaseAddress = new Uri(configuration["Osrm:BaseUrl"] ?? "https://router.project-osrm.org/");
+            c.Timeout = TimeSpan.FromSeconds(30);
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("RestaurantPlatform-DeliveryZones/1.0 (+https://www.porttennanttandoori.co.uk)");
+        });
         services.AddScoped<NamedAreaLookup>();
         services.AddScoped<ZoneToolsService>();
 
