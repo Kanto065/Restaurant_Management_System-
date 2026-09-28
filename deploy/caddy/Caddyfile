@@ -96,7 +96,10 @@
 		X-Robots-Tag "noindex, nofollow"
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
-		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# geolocation=(self): checkout's "Use my location" fills in the delivery postcode.
+		# The client's original headers blocked it outright; still no camera/microphone,
+		# and no location for embedded frames (e.g. the Find us map).
+		Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
 	}
 	handle /api/* {
 		reverse_proxy {args[0]}:8080
