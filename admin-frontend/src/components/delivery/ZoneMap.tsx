@@ -59,6 +59,7 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
   const pinLayerRef = useRef<L.LayerGroup | null>(null);
   const polygonsRef = useRef(new Map<string, L.Polygon>());
   const editLayerRef = useRef<L.Polygon | null>(null);
+  const fittedToZonesRef = useRef(false);
   // Latest callbacks, so the map's own event handlers never go stale.
   const onDrawnRef = useRef(onDrawn);
   const onSelectRef = useRef(onSelect);
@@ -160,6 +161,15 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
         polygon.bringToFront();
         editLayerRef.current = polygon;
       }
+    }
+
+    // First time there are areas to show, zoom to them - the whole 5-mile circle makes a
+    // town's worth of zones too small to work with.
+    if (!fittedToZonesRef.current && polygonsRef.current.size > 0) {
+      const bounds = L.latLngBounds([]);
+      polygonsRef.current.forEach((p) => bounds.extend(p.getBounds()));
+      map.fitBounds(bounds, { padding: [20, 20] });
+      fittedToZonesRef.current = true;
     }
   }, [zones, selectedId, editingId]);
 
