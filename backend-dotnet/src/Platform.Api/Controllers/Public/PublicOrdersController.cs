@@ -6,6 +6,7 @@ using Platform.Api.Contracts;
 using Platform.Application.Common;
 using Platform.Domain.Entities;
 using Platform.Domain.Enums;
+using Platform.Infrastructure.Delivery;
 using Platform.Infrastructure.Payments;
 using Platform.Infrastructure.Persistence;
 
@@ -38,7 +39,8 @@ public record TrackOrderDto(
 [ApiController]
 [Route("api/public/orders")]
 public class PublicOrdersController(
-    AppDbContext db, ICurrentTenant currentTenant, IOrderNotifier notifier, IStripeAccountProvider stripeAccounts) : ControllerBase
+    AppDbContext db, ICurrentTenant currentTenant, IOrderNotifier notifier, IStripeAccountProvider stripeAccounts,
+    DeliveryQuoteService deliveryQuotes) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<ApiResponse<CreatedOrderDto>>> Create(CreatePublicOrderRequest request)
@@ -69,6 +71,16 @@ public class PublicOrdersController(
 
         if (request.OrderType == OrderType.Delivery && request.DeliveryAddress is null)
             return BadRequest(ApiResponse<CreatedOrderDto>.Fail("Delivery orders require a delivery address.", 400));
+
+        // Priced here, before anything is added to the context: the quote service may save the
+        // restaurant's map position on first use, which must not also flush a half-built order.
+        DeliveryCheck? delivery = null;
+        if (request.OrderType == OrderType.Delivery)
+        {
+            delivery = await deliveryQuotes.CheckPostcodeAsync(currentTenant.RestaurantId.Value, request.DeliveryAddress!.Postcode);
+            if (!delivery.CanDeliver)
+                return BadRequest(ApiResponse<CreatedOrderDto>.Fail(delivery.Problem ?? "We can't deliver to this address.", 400));
+        }
 
         // Never trust client-submitted prices - recompute every line from the current
         // MenuItem/ModifierOption rows, scoped to this tenant by the query filter.
@@ -126,7 +138,9 @@ public class PublicOrdersController(
                 Line1 = request.DeliveryAddress.Line1,
                 Line2 = request.DeliveryAddress.Line2,
                 City = request.DeliveryAddress.City,
-                Postcode = request.DeliveryAddress.Postcode,
+                Postcode = delivery?.Postcode ?? request.DeliveryAddress.Postcode,
+                Latitude = delivery?.Point?.Latitude,
+                Longitude = delivery?.Point?.Longitude,
             };
             // Guest delivery addresses aren't linked to a Customer row (CustomerId stays empty
             // for guests) - stored denormalized against the order for the driver, not reused.
@@ -177,7 +191,8 @@ public class PublicOrdersController(
         }
 
         order.Subtotal = subtotal;
-        order.DeliveryFee = 0; // TODO: compute from DeliveryZone once postcode-distance lookup exists.
+        order.DeliveryFee = delivery?.Quote!.DeliveryFee ?? 0;
+        order.DeliveryZoneName = delivery?.Quote!.ZoneName;
 
         order.ProcessingFee = restaurant is null
             ? 0
@@ -202,6 +217,17 @@ public class PublicOrdersController(
             order.VoucherId = voucher.Id;
             order.VoucherCodeSnapshot = voucher.Code;
             voucher.TimesRedeemed += 1;
+        }
+
+        // Same rule as the reference site: the minimum is on the food, after any voucher discount,
+        // not counting delivery or processing fees (loyalty points are a way of paying, so they
+        // don't count against it either).
+        if (delivery is not null && order.Subtotal - order.DiscountAmount < delivery.Quote!.MinimumOrderAmount)
+        {
+            var symbol = restaurant?.Currency switch { "EUR" => "€", "USD" => "$", _ => "£" };
+            var minimum = delivery.Quote.MinimumOrderAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+            return BadRequest(ApiResponse<CreatedOrderDto>.Fail(
+                $"The minimum order for delivery to {delivery.Postcode} is {symbol}{minimum} of food, after discounts.", 400));
         }
 
         var loyaltyPointsRedeemed = 0;

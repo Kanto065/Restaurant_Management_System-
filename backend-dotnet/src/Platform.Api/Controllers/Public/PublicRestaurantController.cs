@@ -121,7 +121,7 @@ public class PublicRestaurantController(AppDbContext db, ICurrentTenant currentT
     {
         var zones = await db.DeliveryZones
             .Where(z => z.IsActive)
-            .OrderBy(z => z.MaxMileage)
+            .OrderBy(z => z.DeliveryFee).ThenBy(z => z.Name)
             .Select(z => new DeliveryZoneDto(z.Id, z.Name, z.MaxMileage, z.DeliveryFee, z.MinimumOrderAmount))
             .ToListAsync();
 

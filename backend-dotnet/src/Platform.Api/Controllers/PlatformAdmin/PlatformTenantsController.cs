@@ -125,7 +125,13 @@ public class PlatformTenantsController(
         restaurant.Name = request.Name;
         restaurant.AddressLine1 = request.AddressLine1;
         restaurant.City = request.City;
-        restaurant.Postcode = request.Postcode;
+        if (!string.Equals(restaurant.Postcode?.Trim(), request.Postcode?.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            // Forget the old map position - delivery pricing looks the new postcode up when next needed.
+            restaurant.Latitude = null;
+            restaurant.Longitude = null;
+        }
+        restaurant.Postcode = request.Postcode!;
         restaurant.Phone = request.Phone;
         restaurant.Email = request.Email;
         await db.SaveChangesAsync();

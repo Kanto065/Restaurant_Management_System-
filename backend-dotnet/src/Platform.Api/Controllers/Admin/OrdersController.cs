@@ -25,7 +25,9 @@ public record OrderDetailDto(
     string? CustomerEmail, string? SpecialRequests, OrderDeliveryAddressDto? DeliveryAddress,
     DateTimeOffset? EstimatedReadyAt, DateTimeOffset CreatedAt,
     List<OrderItemDto> Items, List<OrderStatusHistoryDto> StatusHistory,
-    int? EstimatedMinutes);
+    int? EstimatedMinutes,
+    // Which delivery zone priced it ("Hafod", or "Anywhere else"); null for non-delivery/older orders.
+    string? DeliveryZoneName);
 
 public record OrderItemModifierDto(Guid Id, string NameSnapshot, decimal PriceDeltaSnapshot);
 
@@ -230,5 +232,6 @@ public class OrdersController(AppDbContext db, ICurrentTenant currentTenant, IOr
             i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.SpecialInstructions, i.LineTotal,
             i.Modifiers.Select(m => new OrderItemModifierDto(m.Id, m.NameSnapshot, m.PriceDeltaSnapshot)).ToList())).ToList(),
         o.StatusHistory.OrderBy(h => h.Timestamp).Select(h => new OrderStatusHistoryDto(h.Status, h.Note, h.Timestamp)).ToList(),
-        o.EstimatedMinutes);
+        o.EstimatedMinutes,
+        o.DeliveryZoneName);
 }

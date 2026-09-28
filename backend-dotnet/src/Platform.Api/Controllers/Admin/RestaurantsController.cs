@@ -83,7 +83,14 @@ public class RestaurantsController(AppDbContext db, ICurrentTenant currentTenant
         restaurant.AddressLine1 = request.AddressLine1;
         restaurant.AddressLine2 = request.AddressLine2;
         restaurant.City = request.City;
-        restaurant.Postcode = request.Postcode;
+        if (!string.Equals(restaurant.Postcode?.Trim(), request.Postcode?.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            // Moved (or corrected) - forget the old map position; the delivery pricing looks
+            // the new postcode up the next time it's needed.
+            restaurant.Latitude = null;
+            restaurant.Longitude = null;
+        }
+        restaurant.Postcode = request.Postcode!;
         restaurant.Country = request.Country;
         restaurant.TimeZone = request.TimeZone;
         restaurant.SupportsDelivery = request.SupportsDelivery;
