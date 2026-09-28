@@ -20,13 +20,15 @@ import {
 } from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/hooks/useCurrency';
-import { areasOverlap, pointInArea, ZONE_COLOURS, type LatLng, type Rings } from '@/lib/geo';
+import { areasOverlap, bounds, pointInArea, ZONE_COLOURS, type LatLng, type Rings } from '@/lib/geo';
 import ZoneMap, { type MapView, type MapZone, type PostcodeDot, type TestPin, type ZoneMapHandle } from '@/components/delivery/ZoneMap';
 import ZoneToolsPanel, { type ZoneCheckResult } from '@/components/delivery/ZoneToolsPanel';
 
 interface DeliveryZone {
   id: string;
   name: string;
+  /** The owner's "up to X miles" for this zone - only used by "Trim to stated miles". */
+  maxMileage: number;
   deliveryFee: number;
   minimumOrderAmount: number;
   isActive: boolean;
@@ -78,6 +80,7 @@ function milesBetween(a: LatLng, b: LatLng) {
 
 type ZonePayload = {
   name: string;
+  maxMileage: number;
   deliveryFee: number;
   minimumOrderAmount: number;
   isActive: boolean;
@@ -85,10 +88,11 @@ type ZonePayload = {
   colour: string;
 };
 
-type FormState = { name: string; deliveryFee: string; minimumOrderAmount: string; isActive: boolean; colour: string };
+type FormState = { name: string; deliveryFee: string; minimumOrderAmount: string; maxMileage: string; isActive: boolean; colour: string };
 
 const toPayload = (z: DeliveryZone, overrides: Partial<ZonePayload> = {}): ZonePayload => ({
   name: z.name,
+  maxMileage: z.maxMileage,
   deliveryFee: z.deliveryFee,
   minimumOrderAmount: z.minimumOrderAmount,
   isActive: z.isActive,
@@ -108,7 +112,7 @@ const DeliveryZones = () => {
   const [editingShapeId, setEditingShapeId] = useState<string | null>(null);
   const [drawingForId, setDrawingForId] = useState<string | null>(null);
   const [dialogZone, setDialogZone] = useState<DeliveryZone | 'new' | null>(null);
-  const [form, setForm] = useState<FormState>({ name: '', deliveryFee: '', minimumOrderAmount: '15', isActive: true, colour: ZONE_COLOURS[0] });
+  const [form, setForm] = useState<FormState>({ name: '', deliveryFee: '', minimumOrderAmount: '15', maxMileage: '', isActive: true, colour: ZONE_COLOURS[0] });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [testPostcode, setTestPostcode] = useState('');
   const [testResult, setTestResult] = useState<DeliveryTest | null>(null);
@@ -140,7 +144,11 @@ const DeliveryZones = () => {
     retry: false,
   });
   const settings = settingsQuery.data?.data;
-  const activeZones = zones.filter((z) => z.isActive);
+  // Memoised: the warnings below (overlap sampling) and the dot colouring key off it, and this
+  // page re-renders on every pan/zoom.
+  const activeZones = useMemo(() => zones.filter((z) => z.isActive), [zones]);
+  // Each zone's bounding box, to skip the full shape test for postcodes nowhere near it.
+  const zoneBoxes = useMemo(() => new Map(activeZones.filter((z) => z.boundary).map((z) => [z.id, bounds(z.boundary!)])), [activeZones]);
   const highestFee = activeZones.length ? Math.max(...activeZones.map((z) => z.deliveryFee)) : null;
   const highestMin = activeZones.length ? Math.max(...activeZones.map((z) => z.minimumOrderAmount)) : null;
   const outsideFee = settings?.outsideZoneDeliveryFee ?? highestFee;
@@ -255,7 +263,10 @@ const DeliveryZones = () => {
       return { postcode: p.postcode, lat: p.latitude, lng: p.longitude, colour: '#111827', label: `${p.postcode} · no delivery (too far)` };
     }
     const zone = activeZones
-      .filter((z) => z.boundary && pointInArea(point, z.boundary))
+      .filter((z) => {
+        const box = zoneBoxes.get(z.id);
+        return !!box && point[0] >= box.s && point[0] <= box.n && point[1] >= box.w && point[1] <= box.e && pointInArea(point, z.boundary!);
+      })
       .sort((a, b) => a.deliveryFee - b.deliveryFee || a.minimumOrderAmount - b.minimumOrderAmount)[0];
     return zone
       ? { postcode: p.postcode, lat: p.latitude, lng: p.longitude, colour: zone.colour, label: `${p.postcode} · ${zone.name} ${money(zone.deliveryFee)}` }
@@ -297,14 +308,14 @@ const DeliveryZones = () => {
   // ---- actions ----
   const openNew = () => {
     setForm({
-      name: '', deliveryFee: '', minimumOrderAmount: String(highestMin ?? 15), isActive: true,
+      name: '', deliveryFee: '', minimumOrderAmount: String(highestMin ?? 15), maxMileage: '', isActive: true,
       colour: ZONE_COLOURS[zones.length % ZONE_COLOURS.length],
     });
     setDialogZone('new');
   };
 
   const openEdit = (z: DeliveryZone) => {
-    setForm({ name: z.name, deliveryFee: z.deliveryFee.toString(), minimumOrderAmount: z.minimumOrderAmount.toString(), isActive: z.isActive, colour: z.colour });
+    setForm({ name: z.name, deliveryFee: z.deliveryFee.toString(), minimumOrderAmount: z.minimumOrderAmount.toString(), maxMileage: z.maxMileage > 0 ? z.maxMileage.toString() : '', isActive: z.isActive, colour: z.colour });
     setDialogZone(z);
   };
 
@@ -316,7 +327,7 @@ const DeliveryZones = () => {
       return;
     }
     const fields = {
-      name: form.name.trim(), deliveryFee: fee, minimumOrderAmount: parseFloat(form.minimumOrderAmount) || 0,
+      name: form.name.trim(), deliveryFee: fee, minimumOrderAmount: parseFloat(form.minimumOrderAmount) || 0, maxMileage: parseFloat(form.maxMileage) || 0,
       isActive: form.isActive, colour: form.colour,
     };
     if (dialogZone === 'new') {
@@ -692,6 +703,14 @@ const DeliveryZones = () => {
                 <Label htmlFor="minimumOrderAmount">Minimum order ({currency})</Label>
                 <Input id="minimumOrderAmount" type="number" step="0.01" min="0" value={form.minimumOrderAmount} onChange={(e) => setForm((f) => ({ ...f, minimumOrderAmount: e.target.value }))} disabled={isSaving} />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="maxMileage">Up to (miles by road) - optional</Label>
+              <Input id="maxMileage" type="number" step="0.1" min="0" value={form.maxMileage} placeholder="e.g. 2"
+                onChange={(e) => setForm((f) => ({ ...f, maxMileage: e.target.value }))} disabled={isSaving} />
+              <p className="text-xs text-muted-foreground">
+                Pricing goes by the area you draw. This is only used by "Trim to stated miles", which cuts off parts of the area that are further by road.
+              </p>
             </div>
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">

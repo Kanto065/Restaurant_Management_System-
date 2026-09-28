@@ -99,7 +99,10 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
   const dotLayerRef = useRef<L.LayerGroup | null>(null);
   const highlightLayerRef = useRef<L.LayerGroup | null>(null);
   const dotRendererRef = useRef<L.Canvas | null>(null);
-  const [zoom, setZoom] = useState(0);
+  // Only whether labels are written out - not the zoom itself - so zooming doesn't re-render
+  // the map layers unless it crosses that line.
+  const [labelZoom, setLabelZoom] = useState(false);
+  const dotMarkersRef = useRef(new Map<string, { marker: L.CircleMarker; key: string }>());
   const polygonsRef = useRef(new Map<string, L.Polygon>());
   const editLayerRef = useRef<L.Polygon | null>(null);
   const fittedToZonesRef = useRef(false);
@@ -147,7 +150,7 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
 
     map.on('moveend', () => {
       const b = map.getBounds();
-      setZoom(map.getZoom());
+      setLabelZoom(map.getZoom() >= LABEL_ZOOM);
       onViewChangeRef.current({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast(), zoom: map.getZoom() });
     });
     map.on('click', (e: L.LeafletMouseEvent) => {
@@ -215,6 +218,9 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
         fillColor: zone.colour,
         fillOpacity: zone.isActive ? (selected ? 0.4 : 0.22) : 0.06,
         dashArray: zone.isActive ? undefined : '4 6',
+        // Auto-drawn areas have thousands of corners; let Leaflet drop the ones too close
+        // together to see at the current zoom (drawing only - the saved shape is untouched).
+        smoothFactor: 2,
       });
       polygon.bindTooltip(zone.isActive ? zone.label : `${zone.label} (switched off)`, {
         sticky: !selected, permanent: selected, direction: 'center', className: 'zone-label',
@@ -257,17 +263,26 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
     }
   }, [drawing]);
 
-  // Postcode dots.
+  // Postcode dots. Updated in place - only dots that appear, disappear or change colour/label
+  // are touched - so panning around street level stays smooth with hundreds on screen.
   useEffect(() => {
     const map = mapRef.current;
     const group = dotLayerRef.current;
     if (!map || !group) return;
-    group.clearLayers();
-    const bounds = map.getBounds();
+    const bounds = map.getBounds().pad(0.25); // a margin, so small pans don't churn the edges
     const inView = postcodeDots.filter((d) => bounds.contains([d.lat, d.lng]));
-    const labelled = zoom >= LABEL_ZOOM && inView.length <= MAX_LABELS;
+    const labelled = labelZoom && inView.length <= MAX_LABELS;
+    const markers = dotMarkersRef.current;
+    const wanted = new Set<string>();
+
     for (const dot of inView) {
-      L.circleMarker([dot.lat, dot.lng], {
+      wanted.add(dot.postcode);
+      const key = `${dot.colour}|${dot.label}|${labelled}`;
+      const existing = markers.get(dot.postcode);
+      if (existing?.key === key) continue;
+      if (existing) group.removeLayer(existing.marker);
+
+      const marker = L.circleMarker([dot.lat, dot.lng], {
         renderer: dotRendererRef.current ?? undefined,
         radius: labelled ? 5 : 4, color: '#fff', weight: 1.5, fillColor: dot.colour, fillOpacity: 1,
       })
@@ -280,8 +295,16 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
           if (!busyRef.current) onMapClickRef.current(dot.lat, dot.lng);
         })
         .addTo(group);
+      markers.set(dot.postcode, { marker, key });
     }
-  }, [postcodeDots, zoom]);
+
+    for (const [postcode, { marker }] of markers) {
+      if (!wanted.has(postcode)) {
+        group.removeLayer(marker);
+        markers.delete(postcode);
+      }
+    }
+  }, [postcodeDots, labelZoom]);
 
   // Highlighted postcodes (zone check results): big red-ringed dots, shown at any zoom.
   useEffect(() => {

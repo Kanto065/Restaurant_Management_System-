@@ -7,7 +7,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ClipboardCheck, Loader2, MapPin, Wand2 } from 'lucide-react';
+import { ClipboardCheck, Loader2, MapPin, Ruler, Wand2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { LatLng } from '@/lib/geo';
 
@@ -41,8 +41,22 @@ interface AutoDrawOutcome {
   serviceProblem: boolean;
 }
 
+interface ZoneTrimResult {
+  name: string;
+  statedMiles: number;
+  postcodes: number;
+  tooFar: number;
+  furthestRoadMiles: number;
+  outcome: string;
+}
+
+interface TrimOutcome {
+  zones: ZoneTrimResult[];
+  serviceProblem: boolean;
+}
+
 interface Props {
-  zones: { id: string; name: string; deliveryFee: number }[];
+  zones: { id: string; name: string; deliveryFee: number; maxMileage: number }[];
   money: (n: number) => string;
   /** Show a zone's wrongly charged postcodes on the map (null clears). */
   onShowMisses: (result: ZoneCheckResult | null) => void;
@@ -62,11 +76,13 @@ export default function ZoneToolsPanel({ zones, money, onShowMisses, shownName }
   const queryClient = useQueryClient();
   const [report, setReport] = useState<ZoneCheckReport | null>(null);
   const [redrawOpen, setRedrawOpen] = useState(false);
+  const [mode, setMode] = useState<'redraw' | 'trim'>('redraw');
+  const [trimResult, setTrimResult] = useState<TrimOutcome | null>(null);
   const [redrawIds, setRedrawIds] = useState<Set<string>>(new Set());
 
   const check = useMutation({
     mutationFn: () => api.get<ZoneCheckReport>('/api/admin/delivery-zones/check'),
-    onSuccess: (res) => setReport(res.data ?? null),
+    onSuccess: (res) => { setReport(res.data ?? null); setTrimResult(null); },
     onError: (e: Error) => toast({ title: "Couldn't check the zones", description: e.message, variant: 'destructive' }),
   });
 
@@ -91,10 +107,30 @@ export default function ZoneToolsPanel({ zones, money, onShowMisses, shownName }
     onError: (e: Error) => toast({ title: "Couldn't redraw the zones", description: e.message, variant: 'destructive' }),
   });
 
-  const openRedraw = () => {
-    setRedrawIds(new Set(zones.map((z) => z.id)));
+  const trim = useMutation({
+    mutationFn: (keepIds: string[]) =>
+      api.post<TrimOutcome>('/api/admin/delivery-zones/trim-to-miles', { zoneIds: null, keepZoneIds: keepIds }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'delivery-zones'] });
+      setRedrawOpen(false);
+      onShowMisses(null);
+      setReport(null);
+      setTrimResult(res.data ?? null);
+      const trimmed = res.data?.zones.filter((z) => z.outcome === 'trimmed' || z.outcome === 'all too far').length ?? 0;
+      toast({
+        title: trimmed ? `Trimmed ${trimmed} zone${trimmed === 1 ? '' : 's'} to their stated miles` : 'Every zone was already within its miles',
+        description: 'Each trimmed zone keeps its old area: edit the zone and click "Restore previous area" to undo.',
+      });
+    },
+    onError: (e: Error) => toast({ title: "Couldn't trim the zones", description: e.message, variant: 'destructive' }),
+  });
+
+  const openDialog = (which: 'redraw' | 'trim') => {
+    setMode(which);
+    setRedrawIds(new Set(zones.filter((z) => which === 'redraw' || z.maxMileage > 0).map((z) => z.id)));
     setRedrawOpen(true);
   };
+  const busy = check.isPending || redraw.isPending || trim.isPending;
   const toggle = (id: string, on: boolean) =>
     setRedrawIds((prev) => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next; });
 
@@ -108,15 +144,42 @@ export default function ZoneToolsPanel({ zones, money, onShowMisses, shownName }
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="secondary" onClick={() => check.mutate()} disabled={check.isPending || redraw.isPending}>
+          <Button size="sm" variant="secondary" onClick={() => check.mutate()} disabled={busy}>
             {check.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ClipboardCheck className="w-4 h-4 mr-2" />}
             {check.isPending ? 'Checking...' : 'Check zones'}
           </Button>
-          <Button size="sm" variant="outline" onClick={openRedraw} disabled={check.isPending || redraw.isPending || zones.length === 0}>
+          <Button size="sm" variant="outline" onClick={() => openDialog('redraw')} disabled={busy || zones.length === 0}>
             <Wand2 className="w-4 h-4 mr-2" />Redraw from names
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => openDialog('trim')} disabled={busy || zones.length === 0}>
+            <Ruler className="w-4 h-4 mr-2" />Trim to stated miles
           </Button>
         </div>
         {check.isPending && <p className="text-xs text-muted-foreground">The first check looks up every area name, which can take up to a minute.</p>}
+        {trim.isPending && <p className="text-xs text-muted-foreground">Measuring road distances for every postcode - this takes a minute or two.</p>}
+
+        {trimResult && !report && (
+          <div className="divide-y rounded-md border max-h-[45vh] overflow-y-auto text-sm">
+            {trimResult.serviceProblem && (
+              <p className="px-3 py-2 text-xs text-amber-600">The routing service didn't answer for some zones - try again in a minute.</p>
+            )}
+            {trimResult.zones.map((z) => (
+              <div key={z.name + z.statedMiles} className="px-3 py-2">
+                <div className="flex justify-between gap-2">
+                  <span className="font-medium">
+                    {z.name}{z.statedMiles > 0 && <span className="text-muted-foreground font-normal"> · up to {z.statedMiles} mi</span>}
+                  </span>
+                  <span className={z.outcome === 'trimmed' || z.outcome === 'all too far' ? 'text-amber-600' : 'text-green-600'}>{z.outcome}</span>
+                </div>
+                {z.postcodes > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {z.tooFar} of {z.postcodes} postcodes were further by road (furthest {z.furthestRoadMiles.toFixed(1)} mi)
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {report && (
           <div className="space-y-1.5">
@@ -169,13 +232,15 @@ export default function ZoneToolsPanel({ zones, money, onShowMisses, shownName }
         )}
       </CardContent>
 
-      <Dialog open={redrawOpen} onOpenChange={(open) => !redraw.isPending && setRedrawOpen(open)}>
+      <Dialog open={redrawOpen} onOpenChange={(open) => !busy && setRedrawOpen(open)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Redraw zones from their names</DialogTitle>
+            <DialogTitle>{mode === 'redraw' ? 'Redraw zones from their names' : 'Trim zones to their stated miles'}</DialogTitle>
             <DialogDescription>
-              Each ticked zone is redrawn from where that area really is. Unticked zones are left exactly as they are, and the
-              new areas won't cover them. Every redrawn zone keeps its current area as a backup you can restore.
+              {mode === 'redraw'
+                ? "Each ticked zone is redrawn from where that area really is. Unticked zones are left exactly as they are, and the new areas won't cover them."
+                : 'Parts of each ticked zone that are further by road than its "up to" miles are cut out - those addresses then pay the "anywhere else" price. Unticked zones are left as they are.'}
+              {' '}Every changed zone keeps its current area as a backup you can restore.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[50vh] overflow-y-auto divide-y rounded-md border">
@@ -183,21 +248,26 @@ export default function ZoneToolsPanel({ zones, money, onShowMisses, shownName }
               <label key={z.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer">
                 <Checkbox checked={redrawIds.has(z.id)} onCheckedChange={(v) => toggle(z.id, v === true)} />
                 <span className="flex-1">{z.name}</span>
-                <span className="text-muted-foreground">{money(z.deliveryFee)}</span>
+                <span className="text-muted-foreground">
+                  {mode === 'trim' && (z.maxMileage > 0 ? `up to ${z.maxMileage} mi · ` : 'no miles set · ')}{money(z.deliveryFee)}
+                </span>
               </label>
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            Names that can't be found are left as they are. This can take up to a minute.
+            {mode === 'redraw' ? "Names that can't be found are left as they are. This can take up to a minute." : 'Zones with no stated miles are skipped. This takes a minute or two.'}
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRedrawOpen(false)} disabled={redraw.isPending}>Cancel</Button>
+            <Button variant="outline" onClick={() => setRedrawOpen(false)} disabled={busy}>Cancel</Button>
             <Button
-              onClick={() => redraw.mutate(zones.filter((z) => !redrawIds.has(z.id)).map((z) => z.id))}
-              disabled={redraw.isPending || redrawIds.size === 0}
+              onClick={() => {
+                const keep = zones.filter((z) => !redrawIds.has(z.id)).map((z) => z.id);
+                if (mode === 'redraw') redraw.mutate(keep); else trim.mutate(keep);
+              }}
+              disabled={busy || redrawIds.size === 0}
             >
-              {redraw.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Redraw {redrawIds.size} zone{redrawIds.size === 1 ? '' : 's'}
+              {busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {mode === 'redraw' ? 'Redraw' : 'Trim'} {redrawIds.size} zone{redrawIds.size === 1 ? '' : 's'}
             </Button>
           </DialogFooter>
         </DialogContent>
