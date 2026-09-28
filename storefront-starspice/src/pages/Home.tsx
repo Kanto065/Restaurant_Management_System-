@@ -40,7 +40,7 @@ export default function Home() {
               <Link className="button" to="/menu">
                 {orderingOpen ? 'Order online' : 'Explore the menu'} <span className="arrow" aria-hidden="true">↗</span>
               </Link>
-              <Link className="text-link" to="/story">Our story <span aria-hidden="true">→</span></Link>
+              <Link className="text-link" to="/gallery">Gallery <span aria-hidden="true">→</span></Link>
             </div>
             {!orderingOpen && <p className="hero-note">Reopening date to be announced.</p>}
           </div>
@@ -67,7 +67,7 @@ export default function Home() {
           <div className="prose">
             <p className="lead">You may know us as Cymru Balti. We’re preparing for our next chapter as Star Spice.</p>
             <p>Our plans bring Indian and Bangladeshi cooking together here in Tumble. The new menu is taking shape, and we’ll share our reopening details when they’re ready.</p>
-            <Link className="text-link" to="/story">Get to know Star Spice <span aria-hidden="true">→</span></Link>
+            <Link className="text-link" to="/gallery">See our gallery <span aria-hidden="true">→</span></Link>
           </div>
         </div>
       </section>

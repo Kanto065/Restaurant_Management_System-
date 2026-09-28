@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Menu from './pages/Menu';
-import Story from './pages/Story';
+import Gallery from './pages/Gallery';
+import BasketPage from './pages/BasketPage';
 import FindUs from './pages/FindUs';
 import Checkout from './pages/Checkout';
 import OrderTrack from './pages/OrderTrack';
@@ -25,7 +26,10 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="menu" element={<Menu />} />
-          <Route path="story" element={<Story />} />
+          <Route path="gallery" element={<Gallery />} />
+          {/* "Our story" was replaced by the Gallery at the client's request; keep old links working. */}
+          <Route path="story" element={<Navigate to="/gallery" replace />} />
+          <Route path="basket" element={<BasketPage />} />
           <Route path="find-us" element={<FindUs />} />
           <Route path="checkout" element={<Checkout />} />
           <Route path="order/:orderId/track" element={<OrderTrack />} />

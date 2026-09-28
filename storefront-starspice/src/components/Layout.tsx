@@ -7,11 +7,12 @@ import { confirmed, isOrderingOpen } from '../lib/site';
 
 const MOBILE = '(max-width: 760px)';
 
+/** A plain link, not a router Link: the client wants the logo to reload the site (on the home page). */
 function Brand() {
   return (
-    <Link className="brand" to="/" aria-label="Star Spice home">
+    <a className="brand" href="/" aria-label="Star Spice home">
       <img src="/assets/logo-original.png" alt="Star Spice" width={1536} height={1024} />
-    </Link>
+    </a>
   );
 }
 
@@ -57,7 +58,7 @@ export default function Layout() {
           <nav className="nav-links" id="main-nav" aria-label="Main navigation" hidden={isMobile && !navOpen}>
             <NavLink to="/" end className={navLink}>Home</NavLink>
             <NavLink to="/menu" className={navLink}>{orderingOpen ? 'Order online' : 'The menu'}</NavLink>
-            <NavLink to="/story" className={navLink}>Our story</NavLink>
+            <NavLink to="/gallery" className={navLink}>Gallery</NavLink>
             <NavLink to="/find-us" className={navLink}>Find us</NavLink>
             {orderingOpen && isMobile && (
               <NavLink to={customerAuth.isLoggedIn() ? '/account' : '/sign-in'} className={navLink}>
@@ -71,7 +72,7 @@ export default function Layout() {
               <Link className="account-link" to={customerAuth.isLoggedIn() ? '/account' : '/sign-in'}>
                 {customerAuth.isLoggedIn() ? 'My account' : 'Sign in'}
               </Link>
-              <Link className="basket-link" to="/menu" aria-label={`Basket, ${itemCount} items`}>
+              <Link className="basket-link" to="/basket" aria-label={`Basket, ${itemCount} items`}>
                 Basket <b>{itemCount}</b>
               </Link>
             </div>
@@ -87,14 +88,14 @@ export default function Layout() {
         <div className="wrap">
           <div className="footer-top">
             <div>
-              <Link className="brand" style={{ display: 'block' }} to="/" aria-label="Star Spice home">
+              <a className="brand" style={{ display: 'block' }} href="/" aria-label="Star Spice home">
                 <img src="/assets/logo-original.png" alt="Star Spice" width={1536} height={1024} loading="lazy" />
-              </Link>
+              </a>
               <p>Indian &amp; Bangladeshi takeaway<br />Tumble, Carmarthenshire</p>
             </div>
             <nav className="footer-nav" aria-label="Footer navigation">
               <Link to="/menu">The menu</Link>
-              <Link to="/story">Our story</Link>
+              <Link to="/gallery">Gallery</Link>
               <Link to="/find-us">Find us</Link>
             </nav>
           </div>
