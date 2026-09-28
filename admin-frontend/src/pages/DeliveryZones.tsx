@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -20,8 +20,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/hooks/useCurrency';
-import { polygonsOverlap, ZONE_COLOURS, type LatLng } from '@/lib/geo';
-import ZoneMap, { type MapZone, type TestPin, type ZoneMapHandle } from '@/components/delivery/ZoneMap';
+import { pointInPolygon, polygonsOverlap, ZONE_COLOURS, type LatLng } from '@/lib/geo';
+import ZoneMap, { type MapView, type MapZone, type PostcodeDot, type TestPin, type ZoneMapHandle } from '@/components/delivery/ZoneMap';
 
 interface DeliveryZone {
   id: string;
@@ -55,6 +55,22 @@ interface DeliveryTest {
   latitude: number | null;
   longitude: number | null;
   distanceMiles: number | null;
+}
+
+interface MapPostcode {
+  postcode: string;
+  latitude: number;
+  longitude: number;
+}
+
+/** Postcode dots appear from this zoom in (about 3 km across) - further out there'd be thousands. */
+const POSTCODE_ZOOM = 15;
+
+function milesBetween(a: LatLng, b: LatLng) {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const h = Math.sin(rad(b[0] - a[0]) / 2) ** 2
+    + Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(rad(b[1] - a[1]) / 2) ** 2;
+  return 2 * 3958.8 * Math.asin(Math.sqrt(h));
 }
 
 type ZonePayload = {
@@ -94,6 +110,7 @@ const DeliveryZones = () => {
   const [testPostcode, setTestPostcode] = useState('');
   const [testResult, setTestResult] = useState<DeliveryTest | null>(null);
   const [settingsForm, setSettingsForm] = useState<{ miles: string; fee: string; min: string } | null>(null);
+  const [view, setView] = useState<MapView | null>(null);
 
   const zonesQuery = useQuery({
     queryKey: ['admin', 'delivery-zones'],
@@ -105,6 +122,19 @@ const DeliveryZones = () => {
   });
 
   const zones = useMemo(() => zonesQuery.data?.data ?? [], [zonesQuery.data]);
+
+  // Real postcodes in view (zoomed in only), so the owner can see what each shape covers.
+  const showPostcodes = !!view && view.zoom >= POSTCODE_ZOOM;
+  const viewKey = view ? [view.south, view.west, view.north, view.east].map((n) => n.toFixed(3)).join(',') : '';
+  const postcodesQuery = useQuery({
+    queryKey: ['admin', 'map-postcodes', viewKey],
+    queryFn: () => api.get<MapPostcode[]>(
+      `/api/admin/delivery-zones/postcodes?south=${view!.south}&west=${view!.west}&north=${view!.north}&east=${view!.east}`),
+    enabled: showPostcodes,
+    placeholderData: keepPreviousData,
+    staleTime: 60 * 60 * 1000,
+    retry: false,
+  });
   const settings = settingsQuery.data?.data;
   const activeZones = zones.filter((z) => z.isActive);
   const highestFee = activeZones.length ? Math.max(...activeZones.map((z) => z.deliveryFee)) : null;
@@ -159,8 +189,14 @@ const DeliveryZones = () => {
   });
 
   const testMutation = useMutation({
-    mutationFn: (postcode: string) => api.get<DeliveryTest>(`/api/admin/delivery-zones/test?postcode=${encodeURIComponent(postcode)}`),
-    onSuccess: (res) => setTestResult(res.data ?? null),
+    mutationFn: (where: string | { lat: number; lng: number }) => api.get<DeliveryTest>(
+      typeof where === 'string'
+        ? `/api/admin/delivery-zones/test?postcode=${encodeURIComponent(where)}`
+        : `/api/admin/delivery-zones/test?lat=${where.lat}&lng=${where.lng}`),
+    onSuccess: (res) => {
+      setTestResult(res.data ?? null);
+      if (res.data?.quote.postcode) setTestPostcode(res.data.quote.postcode);
+    },
     onError,
   });
 
@@ -200,6 +236,24 @@ const DeliveryZones = () => {
     }
     return list;
   }, [settings, activeZones]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Each postcode dot takes the colour of the zone that would price it - the same rules as
+  // checkout (cheapest zone wins; grey = "anywhere else"; black = beyond the delivery limit).
+  const restaurantPoint: LatLng | null = settings?.restaurantLatitude != null && settings?.restaurantLongitude != null
+    ? [settings.restaurantLatitude, settings.restaurantLongitude] : null;
+  const postcodeDots: PostcodeDot[] = !showPostcodes || !restaurantPoint ? [] : (postcodesQuery.data?.data ?? []).map((p) => {
+    const point: LatLng = [p.latitude, p.longitude];
+    if (milesBetween(restaurantPoint, point) > (settings?.maxDeliveryMiles ?? 5)) {
+      return { postcode: p.postcode, lat: p.latitude, lng: p.longitude, colour: '#111827', label: `${p.postcode} · no delivery (too far)` };
+    }
+    const zone = activeZones
+      .filter((z) => z.boundary && pointInPolygon(point, z.boundary))
+      .sort((a, b) => a.deliveryFee - b.deliveryFee || a.minimumOrderAmount - b.minimumOrderAmount)[0];
+    return zone
+      ? { postcode: p.postcode, lat: p.latitude, lng: p.longitude, colour: zone.colour, label: `${p.postcode} · ${zone.name} ${money(zone.deliveryFee)}` }
+      : { postcode: p.postcode, lat: p.latitude, lng: p.longitude, colour: '#9ca3af',
+          label: `${p.postcode} · anywhere else ${outsideFee !== null ? money(outsideFee) : ''}` };
+  });
 
   const mapZones: MapZone[] = zones.map((z) => ({
     id: z.id, name: z.name, colour: z.colour, isActive: z.isActive, boundary: z.boundary,
@@ -359,13 +413,33 @@ const DeliveryZones = () => {
                 editingId={editingShapeId}
                 drawing={!!drawingForId}
                 testPin={testPin}
+                postcodeDots={postcodeDots}
                 onSelect={selectZone}
                 onDrawn={handleDrawn}
+                onViewChange={setView}
+                onMapClick={(lat, lng) => testMutation.mutate({ lat, lng })}
               />
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
                 <MapPin className="w-10 h-10 mb-3" />
                 <p>The map appears once your restaurant's postcode can be found. Check it in Restaurant Info.</p>
+              </div>
+            )}
+
+            {hasLocation && !drawingZone && !editingZone && (
+              <div className="absolute bottom-3 left-3 z-[1000] rounded-md bg-background/90 border shadow px-2.5 py-1.5 text-xs flex items-center gap-2">
+                {!showPostcodes ? (
+                  <span>Zoom in to see postcodes. Click anywhere to check its price.</span>
+                ) : postcodesQuery.isFetching ? (
+                  <span className="flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" />Loading postcodes...</span>
+                ) : postcodesQuery.isError ? (
+                  <span className="text-destructive">Couldn't load postcodes just now.</span>
+                ) : (
+                  <span>
+                    {postcodeDots.length} postcodes · dot colour = the zone that prices it
+                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-400 align-middle mx-1" />anywhere else
+                  </span>
+                )}
               </div>
             )}
 
@@ -400,7 +474,7 @@ const DeliveryZones = () => {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Test a postcode</CardTitle>
-              <CardDescription>See exactly what a customer there would pay.</CardDescription>
+              <CardDescription>See exactly what a customer there would pay - or click anywhere on the map.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <form onSubmit={runTest} className="flex gap-2">

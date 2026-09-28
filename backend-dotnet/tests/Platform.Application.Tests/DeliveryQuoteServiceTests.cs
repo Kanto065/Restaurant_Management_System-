@@ -32,6 +32,9 @@ public class DeliveryQuoteServiceTests
 
         public Task<PostcodeLookupResult> NearestAsync(GeoPoint point, CancellationToken ct = default) =>
             Task.FromResult(new PostcodeLookupResult(PostcodeLookupStatus.Found, new PostcodeLocation("SA1 2AB", point)));
+
+        public Task<List<PostcodeLocation>?> AroundAsync(IReadOnlyList<GeoPoint> points, int radiusMetres, CancellationToken ct = default) =>
+            Task.FromResult<List<PostcodeLocation>?>(known.Select(k => new PostcodeLocation(k.Key, k.Value)).ToList());
     }
 
     private static readonly Dictionary<string, GeoPoint> Swansea = new()

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 import 'leaflet/dist/leaflet.css';
@@ -21,6 +21,23 @@ export interface TestPin {
   ok: boolean;
 }
 
+/** A real postcode shown as a dot, coloured by the zone that would price it. */
+export interface PostcodeDot {
+  postcode: string;
+  lat: number;
+  lng: number;
+  colour: string;
+  label: string; // e.g. "SA1 2DZ · Hafod £2.00"
+}
+
+export interface MapView {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+  zoom: number;
+}
+
 export interface ZoneMapHandle {
   /** The corners of the shape being edited, or null when nothing is being edited. */
   editedBoundary: () => LatLng[] | null;
@@ -37,9 +54,17 @@ interface Props {
   /** True while the owner is drawing a brand-new shape (click corners, click the first to finish). */
   drawing: boolean;
   testPin: TestPin | null;
+  postcodeDots: PostcodeDot[];
   onSelect: (id: string) => void;
   onDrawn: (boundary: LatLng[]) => void;
+  /** After every pan/zoom - the page fetches postcodes for the visible area. */
+  onViewChange: (view: MapView) => void;
+  /** A click on the map (not while drawing or editing) - "what would this spot pay?". */
+  onMapClick: (lat: number, lng: number) => void;
 }
+
+/** Postcode labels are written out (not just on hover) from this zoom in. */
+const LABEL_ZOOM = 17;
 
 const METRES_PER_MILE = 1609.344;
 
@@ -49,7 +74,7 @@ function ringOf(layer: L.Polygon): LatLng[] {
 }
 
 const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
-  { centre, maxMiles, zones, selectedId, editingId, drawing, testPin, onSelect, onDrawn },
+  { centre, maxMiles, zones, selectedId, editingId, drawing, testPin, postcodeDots, onSelect, onDrawn, onViewChange, onMapClick },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,14 +82,22 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
   const zoneLayerRef = useRef<L.LayerGroup | null>(null);
   const baseLayerRef = useRef<L.LayerGroup | null>(null);
   const pinLayerRef = useRef<L.LayerGroup | null>(null);
+  const dotLayerRef = useRef<L.LayerGroup | null>(null);
+  const [zoom, setZoom] = useState(0);
   const polygonsRef = useRef(new Map<string, L.Polygon>());
   const editLayerRef = useRef<L.Polygon | null>(null);
   const fittedToZonesRef = useRef(false);
   // Latest callbacks, so the map's own event handlers never go stale.
   const onDrawnRef = useRef(onDrawn);
   const onSelectRef = useRef(onSelect);
+  const onViewChangeRef = useRef(onViewChange);
+  const onMapClickRef = useRef(onMapClick);
+  const busyRef = useRef(false); // drawing or editing - map clicks belong to that
   onDrawnRef.current = onDrawn;
   onSelectRef.current = onSelect;
+  onViewChangeRef.current = onViewChange;
+  onMapClickRef.current = onMapClick;
+  busyRef.current = drawing || editingId !== null;
 
   useImperativeHandle(ref, () => ({
     editedBoundary: () => (editLayerRef.current ? ringOf(editLayerRef.current) : null),
@@ -86,6 +119,18 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
     baseLayerRef.current = L.layerGroup().addTo(map);
     zoneLayerRef.current = L.layerGroup().addTo(map);
     pinLayerRef.current = L.layerGroup().addTo(map);
+    // Own pane above the zone shapes (which are redrawn often) so dots stay on top.
+    map.createPane('postcodes').style.zIndex = '450';
+    dotLayerRef.current = L.layerGroup().addTo(map);
+
+    map.on('moveend', () => {
+      const b = map.getBounds();
+      setZoom(map.getZoom());
+      onViewChangeRef.current({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast(), zoom: map.getZoom() });
+    });
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      if (!busyRef.current) onMapClickRef.current(e.latlng.lat, e.latlng.lng);
+    });
 
     map.on('pm:create', (e: { layer: L.Layer }) => {
       const layer = e.layer as L.Polygon;
@@ -189,6 +234,28 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
       map.pm.disableDraw();
     }
   }, [drawing]);
+
+  // Postcode dots.
+  useEffect(() => {
+    const group = dotLayerRef.current;
+    if (!group) return;
+    group.clearLayers();
+    const labelled = zoom >= LABEL_ZOOM;
+    for (const dot of postcodeDots) {
+      L.circleMarker([dot.lat, dot.lng], {
+        pane: 'postcodes', radius: labelled ? 5 : 4, color: '#fff', weight: 1.5, fillColor: dot.colour, fillOpacity: 1,
+      })
+        .bindTooltip(labelled ? dot.postcode : dot.label, {
+          permanent: labelled, direction: labelled ? 'right' : 'top', offset: labelled ? [4, 0] : [0, -4],
+          className: labelled ? 'postcode-label' : '',
+        })
+        .on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          if (!busyRef.current) onMapClickRef.current(dot.lat, dot.lng);
+        })
+        .addTo(group);
+    }
+  }, [postcodeDots, zoom]);
 
   // "Test a postcode" pin.
   useEffect(() => {

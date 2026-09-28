@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Platform.Api.Contracts;
 using Platform.Api.Controllers.Public;
 using Platform.Application.Common;
@@ -27,13 +28,16 @@ public record DeliverySettingsDto(
 
 public record UpdateDeliverySettingsRequest(double MaxDeliveryMiles, decimal? OutsideZoneDeliveryFee, decimal? OutsideZoneMinimumOrder);
 
+public record MapPostcodeDto(string Postcode, double Latitude, double Longitude);
+
 /// <summary>The admin "Test a postcode" result: the storefront quote plus where it landed on the map.</summary>
 public record DeliveryTestDto(DeliveryQuoteDto Quote, double? Latitude, double? Longitude, double? DistanceMiles);
 
 [ApiController]
 [Route("api/admin/delivery-zones")]
 [Authorize(Policy = "StaffOnly")]
-public class DeliveryZonesController(AppDbContext db, ICurrentTenant currentTenant, DeliveryQuoteService quotes) : ControllerBase
+public class DeliveryZonesController(
+    AppDbContext db, ICurrentTenant currentTenant, DeliveryQuoteService quotes, IPostcodeLookup postcodes, IMemoryCache cache) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ApiResponse<List<DeliveryZoneDto>>>> List()
@@ -120,16 +124,78 @@ public class DeliveryZonesController(AppDbContext db, ICurrentTenant currentTena
         return await GetSettings(ct);
     }
 
-    /// <summary>"Test a postcode": exactly what a customer at that postcode would be charged.</summary>
+    /// <summary>"Test a postcode": exactly what a customer at that postcode would be charged.
+    /// Also takes a map point (lat/lng) - a click on the admin map - priced as its nearest postcode.</summary>
     [HttpGet("test")]
-    public async Task<ActionResult<ApiResponse<DeliveryTestDto>>> Test([FromQuery] string postcode, CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<DeliveryTestDto>>> Test(
+        [FromQuery] string? postcode, [FromQuery] double? lat, [FromQuery] double? lng, CancellationToken ct)
     {
-        if (!currentTenant.RestaurantId.HasValue || string.IsNullOrWhiteSpace(postcode))
-            return BadRequest(ApiResponse<DeliveryTestDto>.Fail("Enter a postcode to test.", 400));
+        if (!currentTenant.RestaurantId.HasValue)
+            return BadRequest(ApiResponse<DeliveryTestDto>.Fail("Restaurant not found.", 400));
 
-        var check = await quotes.CheckPostcodeAsync(currentTenant.RestaurantId.Value, postcode, ct);
+        DeliveryCheck check;
+        if (!string.IsNullOrWhiteSpace(postcode))
+            check = await quotes.CheckPostcodeAsync(currentTenant.RestaurantId.Value, postcode, ct);
+        else if (lat is { } la && lng is { } ln)
+            check = await quotes.CheckPointAsync(currentTenant.RestaurantId.Value, new GeoPoint(la, ln), ct);
+        else
+            return BadRequest(ApiResponse<DeliveryTestDto>.Fail("Enter a postcode to test.", 400));
         return Ok(ApiResponse<DeliveryTestDto>.Ok(new DeliveryTestDto(
             PublicDeliveryController.ToDto(check), check.Point?.Latitude, check.Point?.Longitude, check.Quote?.DistanceMiles)));
+    }
+
+    /// <summary>
+    /// Real postcodes inside a small map area, so the owner can see what a shape covers while
+    /// drawing. Only for zoomed-in views (about 3.5 km across at most) - postcodes.io is asked
+    /// about a ~250 m grid of points and each answer is cached for a day.
+    /// </summary>
+    [HttpGet("postcodes")]
+    public async Task<ActionResult<ApiResponse<List<MapPostcodeDto>>>> Postcodes(
+        [FromQuery] double south, [FromQuery] double west, [FromQuery] double north, [FromQuery] double east,
+        CancellationToken ct)
+    {
+        if (north <= south || east <= west || north - south > 0.032 || east - west > 0.052)
+            return BadRequest(ApiResponse<List<MapPostcodeDto>>.Fail("Zoom in further to see postcodes.", 400));
+
+        // Snap to a fixed grid so panning around reuses cached cells.
+        const double latStep = 0.0025, lngStep = 0.004;
+        var cells = new List<GeoPoint>();
+        for (var la = Math.Floor(south / latStep) * latStep; la <= north + latStep / 2; la += latStep)
+            for (var ln = Math.Floor(west / lngStep) * lngStep; ln <= east + lngStep / 2; ln += lngStep)
+                cells.Add(new GeoPoint(Math.Round(la, 4), Math.Round(ln, 4)));
+
+        var found = new Dictionary<string, MapPostcodeDto>();
+        var missing = new List<GeoPoint>();
+        foreach (var cell in cells)
+        {
+            if (cache.TryGetValue($"postcode-cell:{cell.Latitude}:{cell.Longitude}", out List<MapPostcodeDto>? hit) && hit is not null)
+                foreach (var p in hit) found.TryAdd(p.Postcode, p);
+            else
+                missing.Add(cell);
+        }
+
+        if (missing.Count > 0)
+        {
+            var fetched = await postcodes.AroundAsync(missing, 250, ct);
+            if (fetched is null)
+                return StatusCode(503, ApiResponse<List<MapPostcodeDto>>.Fail("The postcode service isn't answering just now.", 503));
+
+            var all = fetched.Select(p => new MapPostcodeDto(p.Postcode, p.Point.Latitude, p.Point.Longitude)).ToList();
+            foreach (var cell in missing)
+            {
+                // A postcode belongs to the grid cell it sits in, so each cell caches its own.
+                var inCell = all.Where(p => p.Latitude >= cell.Latitude - latStep / 2 && p.Latitude < cell.Latitude + latStep / 2
+                                            && p.Longitude >= cell.Longitude - lngStep / 2 && p.Longitude < cell.Longitude + lngStep / 2).ToList();
+                cache.Set($"postcode-cell:{cell.Latitude}:{cell.Longitude}", inCell, TimeSpan.FromHours(24));
+            }
+            foreach (var p in all) found.TryAdd(p.Postcode, p);
+        }
+
+        var visible = found.Values
+            .Where(p => p.Latitude >= south && p.Latitude <= north && p.Longitude >= west && p.Longitude <= east)
+            .OrderBy(p => p.Postcode)
+            .ToList();
+        return Ok(ApiResponse<List<MapPostcodeDto>>.Ok(visible));
     }
 
     private static string? Apply(DeliveryZone zone, UpsertDeliveryZoneRequest request)

@@ -70,6 +70,41 @@ public class PostcodesIoLookup(HttpClient http, IMemoryCache cache, ILogger<Post
         }
     }
 
+    public async Task<List<PostcodeLocation>?> AroundAsync(IReadOnlyList<GeoPoint> points, int radiusMetres, CancellationToken ct = default)
+    {
+        var found = new Dictionary<string, PostcodeLocation>();
+        try
+        {
+            // Bulk reverse geocoding takes at most 100 points per request.
+            foreach (var chunk in points.Chunk(100))
+            {
+                var body = new
+                {
+                    geolocations = chunk.Select(p => new { latitude = p.Latitude, longitude = p.Longitude, radius = radiusMetres, limit = 100 }),
+                };
+                using var response = await http.PostAsJsonAsync("postcodes", body, ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    logger.LogWarning("postcodes.io bulk reverse lookup returned {Status}", (int)response.StatusCode);
+                    return null;
+                }
+
+                var result = await response.Content.ReadFromJsonAsync<BulkReverseResponse>(ct);
+                foreach (var dto in (result?.Result ?? []).SelectMany(r => r.Result ?? []))
+                {
+                    if (ToResult(dto).Location is { } location)
+                        found.TryAdd(location.Postcode, location);
+                }
+            }
+            return found.Values.ToList();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            logger.LogWarning(ex, "postcodes.io bulk reverse lookup failed");
+            return null;
+        }
+    }
+
     /// <summary>"sa1 8jf" / "SA18JF" -> "SA1 8JF".</summary>
     public static string Normalise(string postcode)
     {
@@ -84,6 +119,7 @@ public class PostcodesIoLookup(HttpClient http, IMemoryCache cache, ILogger<Post
 
     private sealed record SingleResponse([property: JsonPropertyName("result")] PostcodeDto? Result);
     private sealed record ListResponse([property: JsonPropertyName("result")] List<PostcodeDto>? Result);
+    private sealed record BulkReverseResponse([property: JsonPropertyName("result")] List<ListResponse>? Result);
     private sealed record PostcodeDto(
         [property: JsonPropertyName("postcode")] string? Postcode,
         [property: JsonPropertyName("latitude")] double? Latitude,
