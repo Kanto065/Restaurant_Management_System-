@@ -241,9 +241,13 @@ const DeliveryZones = () => {
   // checkout (cheapest zone wins; grey = "anywhere else"; black = beyond the delivery limit).
   const restaurantPoint: LatLng | null = settings?.restaurantLatitude != null && settings?.restaurantLongitude != null
     ? [settings.restaurantLatitude, settings.restaurantLongitude] : null;
-  const postcodeDots: PostcodeDot[] = !showPostcodes || !restaurantPoint ? [] : (postcodesQuery.data?.data ?? []).map((p) => {
+  // Memoised (like mapZones and testPin below): the map redraws a layer whenever it gets a new
+  // array, and this page re-renders on every pan/zoom - rebuilding shapes then would throw away
+  // corners the owner is dragging, and rebuilding hundreds of dots froze the page.
+  const maxMiles = settings?.maxDeliveryMiles ?? 5;
+  const postcodeDots: PostcodeDot[] = useMemo(() => !showPostcodes || !restaurantPoint ? [] : (postcodesQuery.data?.data ?? []).map((p) => {
     const point: LatLng = [p.latitude, p.longitude];
-    if (milesBetween(restaurantPoint, point) > (settings?.maxDeliveryMiles ?? 5)) {
+    if (milesBetween(restaurantPoint, point) > maxMiles) {
       return { postcode: p.postcode, lat: p.latitude, lng: p.longitude, colour: '#111827', label: `${p.postcode} · no delivery (too far)` };
     }
     const zone = activeZones
@@ -253,14 +257,16 @@ const DeliveryZones = () => {
       ? { postcode: p.postcode, lat: p.latitude, lng: p.longitude, colour: zone.colour, label: `${p.postcode} · ${zone.name} ${money(zone.deliveryFee)}` }
       : { postcode: p.postcode, lat: p.latitude, lng: p.longitude, colour: '#9ca3af',
           label: `${p.postcode} · anywhere else ${outsideFee !== null ? money(outsideFee) : ''}` };
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [showPostcodes, restaurantPoint?.[0], restaurantPoint?.[1], postcodesQuery.data, zonesQuery.data, maxMiles, outsideFee, currency]);
 
-  const mapZones: MapZone[] = zones.map((z) => ({
+  const mapZones: MapZone[] = useMemo(() => zones.map((z) => ({
     id: z.id, name: z.name, colour: z.colour, isActive: z.isActive, boundary: z.boundary,
     label: `${z.name} · ${money(z.deliveryFee)}`,
-  }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  })), [zones, currency]);
 
-  const testPin: TestPin | null = testResult && testResult.latitude !== null && testResult.longitude !== null
+  const testPin: TestPin | null = useMemo(() => testResult && testResult.latitude !== null && testResult.longitude !== null
     ? {
         lat: testResult.latitude,
         lng: testResult.longitude!,
@@ -269,7 +275,8 @@ const DeliveryZones = () => {
           ? `${testResult.quote.postcode}: ${testResult.quote.zoneName} · ${money(testResult.quote.deliveryFee)}`
           : `${testResult.quote.postcode}: no delivery`,
       }
-    : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    : null, [testResult, currency]);
 
   // ---- actions ----
   const openNew = () => {

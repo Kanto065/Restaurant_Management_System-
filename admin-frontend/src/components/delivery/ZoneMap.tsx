@@ -63,8 +63,11 @@ interface Props {
   onMapClick: (lat: number, lng: number) => void;
 }
 
-/** Postcode labels are written out (not just on hover) from this zoom in. */
+/** Postcode labels are written out (not just on hover) from this zoom in... */
 const LABEL_ZOOM = 17;
+/** ...for at most this many postcodes in view. Every written label is a page element that has
+ *  to be positioned; hundreds at once froze the page. */
+const MAX_LABELS = 150;
 
 const METRES_PER_MILE = 1609.344;
 
@@ -83,6 +86,7 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
   const baseLayerRef = useRef<L.LayerGroup | null>(null);
   const pinLayerRef = useRef<L.LayerGroup | null>(null);
   const dotLayerRef = useRef<L.LayerGroup | null>(null);
+  const dotRendererRef = useRef<L.Canvas | null>(null);
   const [zoom, setZoom] = useState(0);
   const polygonsRef = useRef(new Map<string, L.Polygon>());
   const editLayerRef = useRef<L.Polygon | null>(null);
@@ -121,6 +125,8 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
     pinLayerRef.current = L.layerGroup().addTo(map);
     // Own pane above the zone shapes (which are redrawn often) so dots stay on top.
     map.createPane('postcodes').style.zIndex = '450';
+    // One canvas for all the dots instead of an SVG element each - far lighter with hundreds.
+    dotRendererRef.current = L.canvas({ pane: 'postcodes', padding: 0.2 });
     dotLayerRef.current = L.layerGroup().addTo(map);
 
     map.on('moveend', () => {
@@ -237,13 +243,17 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
 
   // Postcode dots.
   useEffect(() => {
+    const map = mapRef.current;
     const group = dotLayerRef.current;
-    if (!group) return;
+    if (!map || !group) return;
     group.clearLayers();
-    const labelled = zoom >= LABEL_ZOOM;
-    for (const dot of postcodeDots) {
+    const bounds = map.getBounds();
+    const inView = postcodeDots.filter((d) => bounds.contains([d.lat, d.lng]));
+    const labelled = zoom >= LABEL_ZOOM && inView.length <= MAX_LABELS;
+    for (const dot of inView) {
       L.circleMarker([dot.lat, dot.lng], {
-        pane: 'postcodes', radius: labelled ? 5 : 4, color: '#fff', weight: 1.5, fillColor: dot.colour, fillOpacity: 1,
+        renderer: dotRendererRef.current ?? undefined,
+        radius: labelled ? 5 : 4, color: '#fff', weight: 1.5, fillColor: dot.colour, fillOpacity: 1,
       })
         .bindTooltip(labelled ? dot.postcode : dot.label, {
           permanent: labelled, direction: labelled ? 'right' : 'top', offset: labelled ? [4, 0] : [0, -4],
