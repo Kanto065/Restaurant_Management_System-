@@ -3,14 +3,14 @@ import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 import 'leaflet/dist/leaflet.css';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
-import type { LatLng } from '@/lib/geo';
+import type { LatLng, Rings } from '@/lib/geo';
 
 export interface MapZone {
   id: string;
   name: string;
   colour: string;
   isActive: boolean;
-  boundary: LatLng[] | null;
+  boundary: Rings | null;
   label: string; // e.g. "Hafod · £2.00"
 }
 
@@ -39,8 +39,10 @@ export interface MapView {
 }
 
 export interface ZoneMapHandle {
-  /** The corners of the shape being edited, or null when nothing is being edited. */
-  editedBoundary: () => LatLng[] | null;
+  /** The rings of the shape being edited, or null when nothing is being edited. */
+  editedBoundary: () => Rings | null;
+  /** Zoom to fit a set of points (e.g. the postcodes a zone check flagged). */
+  focusPoints: (points: LatLng[]) => void;
   focusZone: (id: string) => void;
 }
 
@@ -55,6 +57,8 @@ interface Props {
   drawing: boolean;
   testPin: TestPin | null;
   postcodeDots: PostcodeDot[];
+  /** Postcodes to point out whatever the zoom - e.g. ones a zone check found charged wrongly. */
+  highlightDots: PostcodeDot[];
   onSelect: (id: string) => void;
   onDrawn: (boundary: LatLng[]) => void;
   /** After every pan/zoom - the page fetches postcodes for the visible area. */
@@ -71,13 +75,20 @@ const MAX_LABELS = 150;
 
 const METRES_PER_MILE = 1609.344;
 
-function ringOf(layer: L.Polygon): LatLng[] {
-  const rings = layer.getLatLngs() as L.LatLng[][];
-  return (rings[0] ?? []).map((p) => [p.lat, p.lng] as LatLng);
+/** Every ring of a polygon layer (outer rings, holes, and the parts of a multi-part shape). */
+function ringsOf(layer: L.Polygon): Rings {
+  const out: Rings = [];
+  const walk = (node: unknown) => {
+    if (!Array.isArray(node) || node.length === 0) return;
+    if (node[0] instanceof L.LatLng) out.push((node as L.LatLng[]).map((p) => [p.lat, p.lng] as LatLng));
+    else node.forEach(walk);
+  };
+  walk(layer.getLatLngs());
+  return out.filter((ring) => ring.length >= 3);
 }
 
 const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
-  { centre, maxMiles, zones, selectedId, editingId, drawing, testPin, postcodeDots, onSelect, onDrawn, onViewChange, onMapClick },
+  { centre, maxMiles, zones, selectedId, editingId, drawing, testPin, postcodeDots, highlightDots, onSelect, onDrawn, onViewChange, onMapClick },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,6 +97,7 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
   const baseLayerRef = useRef<L.LayerGroup | null>(null);
   const pinLayerRef = useRef<L.LayerGroup | null>(null);
   const dotLayerRef = useRef<L.LayerGroup | null>(null);
+  const highlightLayerRef = useRef<L.LayerGroup | null>(null);
   const dotRendererRef = useRef<L.Canvas | null>(null);
   const [zoom, setZoom] = useState(0);
   const polygonsRef = useRef(new Map<string, L.Polygon>());
@@ -104,7 +116,10 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
   busyRef.current = drawing || editingId !== null;
 
   useImperativeHandle(ref, () => ({
-    editedBoundary: () => (editLayerRef.current ? ringOf(editLayerRef.current) : null),
+    editedBoundary: () => (editLayerRef.current ? ringsOf(editLayerRef.current) : null),
+    focusPoints: (points) => {
+      if (points.length > 0 && mapRef.current) mapRef.current.fitBounds(L.latLngBounds(points), { padding: [60, 60], maxZoom: 16 });
+    },
     focusZone: (id) => {
       const polygon = polygonsRef.current.get(id);
       if (polygon && mapRef.current) mapRef.current.fitBounds(polygon.getBounds(), { padding: [60, 60], maxZoom: 16 });
@@ -128,6 +143,7 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
     // One canvas for all the dots instead of an SVG element each - far lighter with hundreds.
     dotRendererRef.current = L.canvas({ pane: 'postcodes', padding: 0.2 });
     dotLayerRef.current = L.layerGroup().addTo(map);
+    highlightLayerRef.current = L.layerGroup().addTo(map);
 
     map.on('moveend', () => {
       const b = map.getBounds();
@@ -140,9 +156,9 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
 
     map.on('pm:create', (e: { layer: L.Layer }) => {
       const layer = e.layer as L.Polygon;
-      const boundary = ringOf(layer);
+      const rings = ringsOf(layer);
       map.removeLayer(layer); // the parent saves it, then it comes back as a normal zone
-      if (boundary.length >= 3) onDrawnRef.current(boundary);
+      if (rings.length > 0) onDrawnRef.current(rings[0]);
     });
 
     mapRef.current = map;
@@ -190,7 +206,7 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
     editLayerRef.current = null;
 
     for (const zone of zones) {
-      if (!zone.boundary || zone.boundary.length < 3) continue;
+      if (!zone.boundary || zone.boundary.length === 0) continue;
       const selected = zone.id === selectedId || zone.id === editingId;
       const polygon = L.polygon(zone.boundary, {
         color: zone.colour,
@@ -266,6 +282,21 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
         .addTo(group);
     }
   }, [postcodeDots, zoom]);
+
+  // Highlighted postcodes (zone check results): big red-ringed dots, shown at any zoom.
+  useEffect(() => {
+    const group = highlightLayerRef.current;
+    if (!group) return;
+    group.clearLayers();
+    for (const dot of highlightDots) {
+      L.circleMarker([dot.lat, dot.lng], {
+        renderer: dotRendererRef.current ?? undefined,
+        radius: 7, color: '#dc2626', weight: 3, fillColor: dot.colour, fillOpacity: 1,
+      })
+        .bindTooltip(dot.label, { direction: 'top', offset: [0, -6] })
+        .addTo(group);
+    }
+  }, [highlightDots]);
 
   // "Test a postcode" pin.
   useEffect(() => {

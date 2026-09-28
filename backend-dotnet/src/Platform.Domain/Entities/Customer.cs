@@ -65,6 +65,8 @@ public class DeliveryZone : TenantEntity
     /// [[51.62,-3.93],[51.63,-3.92],...]. Null until the owner draws it - an undrawn zone
     /// never matches.</summary>
     public string? BoundaryJson { get; set; }
+    /// <summary>The shape before the last automatic redraw, so "Restore previous area" can undo it.</summary>
+    public string? PreviousBoundaryJson { get; set; }
     /// <summary>Map colour for the admin page (hex, e.g. "#e8823c").</summary>
     public string Colour { get; set; } = "#e8823c";
     public decimal DeliveryFee { get; set; }

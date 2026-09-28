@@ -20,11 +20,13 @@ public class DeliveryPricingTests
     private static readonly GeoPoint Cardiff = new(51.4816, -3.1791);
 
     private static DeliveryZoneShape Zone(string name, decimal fee, decimal min, (double Lat, double Lng) sw, (double Lat, double Lng) ne) =>
-        new(Guid.NewGuid(), name, fee, min,
-        [
-            new GeoPoint(sw.Lat, sw.Lng), new GeoPoint(ne.Lat, sw.Lng),
-            new GeoPoint(ne.Lat, ne.Lng), new GeoPoint(sw.Lat, ne.Lng),
-        ]);
+        new(Guid.NewGuid(), name, fee, min, [Box(sw, ne)]);
+
+    private static IReadOnlyList<GeoPoint> Box((double Lat, double Lng) sw, (double Lat, double Lng) ne) =>
+    [
+        new GeoPoint(sw.Lat, sw.Lng), new GeoPoint(ne.Lat, sw.Lng),
+        new GeoPoint(ne.Lat, ne.Lng), new GeoPoint(sw.Lat, ne.Lng),
+    ];
 
     private static DeliveryQuote Quote(GeoPoint address, IReadOnlyCollection<DeliveryZoneShape> zones,
         decimal? outsideFee = null, decimal? outsideMin = null, double maxMiles = 5) =>
@@ -146,21 +148,53 @@ public class DeliveryPricingTests
     [Fact]
     public void Boundary_RoundTripsThroughStorage()
     {
-        List<double[]> points = [[51.61, -3.93], [51.62, -3.92], [51.615, -3.91]];
+        List<List<double[]>> rings = [[[51.61, -3.93], [51.62, -3.92], [51.615, -3.91]], [[51.60, -3.90], [51.605, -3.90], [51.605, -3.89]]];
 
-        Assert.Null(DeliveryPricing.NormaliseBoundary(points, out var json));
+        Assert.Null(DeliveryPricing.NormaliseBoundary(rings, out var json));
         var parsed = DeliveryPricing.ParseBoundary(json);
 
-        Assert.Equal(3, parsed.Count);
-        Assert.Equal(new GeoPoint(51.62, -3.92), parsed[1]);
+        Assert.Equal(2, parsed.Count);
+        Assert.Equal(new GeoPoint(51.62, -3.92), parsed[0][1]);
+    }
+
+    [Fact]
+    public void ParseBoundary_ReadsTheOriginalSingleRingFormat()
+    {
+        // Zones saved before multi-ring support: [[lat,lng],...]
+        var parsed = DeliveryPricing.ParseBoundary("[[51.61,-3.93],[51.62,-3.92],[51.615,-3.91]]");
+
+        Assert.Single(parsed);
+        Assert.Equal(3, parsed[0].Count);
     }
 
     [Fact]
     public void NormaliseBoundary_RejectsTooFewCornersAndBadPoints()
     {
-        Assert.NotNull(DeliveryPricing.NormaliseBoundary([[51.6, -3.9], [51.7, -3.8]], out _));
-        Assert.NotNull(DeliveryPricing.NormaliseBoundary([[51.6, -3.9], [95, -3.8], [51.7, -3.7]], out _));
+        Assert.NotNull(DeliveryPricing.NormaliseBoundary([[[51.6, -3.9], [51.7, -3.8]]], out _));
+        Assert.NotNull(DeliveryPricing.NormaliseBoundary([[[51.6, -3.9], [95, -3.8], [51.7, -3.7]]], out _));
         Assert.Null(DeliveryPricing.NormaliseBoundary(null, out var json));
         Assert.Null(json);
+    }
+
+    [Fact]
+    public void RingInsideAnother_IsAHole()
+    {
+        // St Thomas drawn around Port Tennant: Port Tennant's area is a hole in St Thomas.
+        var stThomas = new DeliveryZoneShape(Guid.NewGuid(), "St Thomas", 2m, 15m,
+            [Box((51.60, -3.95), (51.65, -3.88)), Box((51.615, -3.915), (51.628, -3.895))]);
+
+        Assert.Equal("St Thomas", DeliveryPricing.ZoneAt([stThomas], InHafod)?.Name);
+        Assert.Null(DeliveryPricing.ZoneAt([stThomas], InPortTennant));
+    }
+
+    [Fact]
+    public void SeparateRings_AreAllPartOfTheZone()
+    {
+        var twoParts = new DeliveryZoneShape(Guid.NewGuid(), "Split", 3m, 15m,
+            [Box((51.628, -3.950), (51.642, -3.930)), Box((51.615, -3.915), (51.628, -3.895))]);
+
+        Assert.NotNull(DeliveryPricing.ZoneAt([twoParts], InHafod));
+        Assert.NotNull(DeliveryPricing.ZoneAt([twoParts], InPortTennant));
+        Assert.Null(DeliveryPricing.ZoneAt([twoParts], InNoZone));
     }
 }

@@ -20,8 +20,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/hooks/useCurrency';
-import { pointInPolygon, polygonsOverlap, ZONE_COLOURS, type LatLng } from '@/lib/geo';
+import { areasOverlap, pointInArea, ZONE_COLOURS, type LatLng, type Rings } from '@/lib/geo';
 import ZoneMap, { type MapView, type MapZone, type PostcodeDot, type TestPin, type ZoneMapHandle } from '@/components/delivery/ZoneMap';
+import ZoneToolsPanel, { type ZoneCheckResult } from '@/components/delivery/ZoneToolsPanel';
 
 interface DeliveryZone {
   id: string;
@@ -29,8 +30,10 @@ interface DeliveryZone {
   deliveryFee: number;
   minimumOrderAmount: number;
   isActive: boolean;
-  boundary: LatLng[] | null;
+  boundary: Rings | null;
   colour: string;
+  /** The last automatic redraw can be undone. */
+  hasPreviousBoundary: boolean;
 }
 
 interface DeliverySettings {
@@ -78,7 +81,7 @@ type ZonePayload = {
   deliveryFee: number;
   minimumOrderAmount: number;
   isActive: boolean;
-  boundary: LatLng[] | null;
+  boundary: Rings | null;
   colour: string;
 };
 
@@ -111,6 +114,7 @@ const DeliveryZones = () => {
   const [testResult, setTestResult] = useState<DeliveryTest | null>(null);
   const [settingsForm, setSettingsForm] = useState<{ miles: string; fee: string; min: string } | null>(null);
   const [view, setView] = useState<MapView | null>(null);
+  const [shownCheck, setShownCheck] = useState<ZoneCheckResult | null>(null);
 
   const zonesQuery = useQuery({
     queryKey: ['admin', 'delivery-zones'],
@@ -220,7 +224,7 @@ const DeliveryZones = () => {
     const overlaps: string[] = [];
     for (let i = 0; i < drawn.length; i++) {
       for (let j = i + 1; j < drawn.length; j++) {
-        if (polygonsOverlap(drawn[i].boundary!, drawn[j].boundary!)) {
+        if (areasOverlap(drawn[i].boundary!, drawn[j].boundary!)) {
           const cheaper = drawn[i].deliveryFee <= drawn[j].deliveryFee ? drawn[i] : drawn[j];
           overlaps.push(drawn[i].deliveryFee === drawn[j].deliveryFee
             ? `${drawn[i].name} and ${drawn[j].name}`
@@ -251,7 +255,7 @@ const DeliveryZones = () => {
       return { postcode: p.postcode, lat: p.latitude, lng: p.longitude, colour: '#111827', label: `${p.postcode} · no delivery (too far)` };
     }
     const zone = activeZones
-      .filter((z) => z.boundary && pointInPolygon(point, z.boundary))
+      .filter((z) => z.boundary && pointInArea(point, z.boundary))
       .sort((a, b) => a.deliveryFee - b.deliveryFee || a.minimumOrderAmount - b.minimumOrderAmount)[0];
     return zone
       ? { postcode: p.postcode, lat: p.latitude, lng: p.longitude, colour: zone.colour, label: `${p.postcode} · ${zone.name} ${money(zone.deliveryFee)}` }
@@ -259,6 +263,18 @@ const DeliveryZones = () => {
           label: `${p.postcode} · anywhere else ${outsideFee !== null ? money(outsideFee) : ''}` };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [showPostcodes, restaurantPoint?.[0], restaurantPoint?.[1], postcodesQuery.data, zonesQuery.data, maxMiles, outsideFee, currency]);
+
+  // A zone check's wrongly charged postcodes, pointed out on the map.
+  const highlightDots: PostcodeDot[] = useMemo(() => (shownCheck?.misses ?? []).flatMap((m) =>
+    m.points.map((p, i) => {
+      const chargedZone = activeZones.find((z) => z.name.trim() === m.chargedAs);
+      return {
+        postcode: m.postcodes[i], lat: p[0], lng: p[1], colour: chargedZone?.colour ?? '#9ca3af',
+        label: `${m.postcodes[i]} is in ${shownCheck!.name} but charged as ${m.chargedAs}`,
+      };
+    })),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [shownCheck, zonesQuery.data]);
 
   const mapZones: MapZone[] = useMemo(() => zones.map((z) => ({
     id: z.id, name: z.name, colour: z.colour, isActive: z.isActive, boundary: z.boundary,
@@ -317,12 +333,12 @@ const DeliveryZones = () => {
   const startEditing = (id: string) => { setDrawingForId(null); setSelectedId(id); setEditingShapeId(id); mapRef.current?.focusZone(id); };
   const stopShapeWork = () => { setDrawingForId(null); setEditingShapeId(null); };
 
-  const handleDrawn = (boundary: LatLng[]) => {
+  const handleDrawn = (ring: LatLng[]) => {
     const zone = zones.find((z) => z.id === drawingForId);
     setDrawingForId(null);
     if (!zone) return;
     updateMutation.mutate(
-      { id: zone.id, payload: toPayload(zone, { boundary }) },
+      { id: zone.id, payload: toPayload(zone, { boundary: [ring] }) },
       { onSuccess: () => toast({ title: 'Area saved', description: `${zone.name}'s area is on the map. Use "Edit area" to fine-tune it.` }) },
     );
   };
@@ -336,6 +352,28 @@ const DeliveryZones = () => {
       { onSuccess: () => { setEditingShapeId(null); toast({ title: 'Area saved' }); } },
     );
   };
+
+  const autoDrawOne = useMutation({
+    mutationFn: (zone: DeliveryZone) =>
+      api.post<{ drawn: string[]; notFound: string[] }>('/api/admin/delivery-zones/auto-draw', { zoneIds: [zone.id], keepZoneIds: [] }),
+    onSuccess: (res, zone) => {
+      invalidate();
+      if (res.data?.drawn.length) {
+        setDialogZone(null);
+        setSelectedId(zone.id);
+        toast({ title: 'Area drawn from its name', description: `Check ${zone.name} on the map. "Restore previous area" undoes this.` });
+      } else {
+        toast({ title: `Couldn't find "${zone.name}"`, description: 'No map data for this name near you - draw it by hand instead.', variant: 'destructive' });
+      }
+    },
+    onError,
+  });
+
+  const restorePrevious = useMutation({
+    mutationFn: (zone: DeliveryZone) => api.post(`/api/admin/delivery-zones/${zone.id}/restore-previous`),
+    onSuccess: () => { invalidate(); setDialogZone(null); toast({ title: 'Previous area restored' }); },
+    onError,
+  });
 
   const removeShape = (zone: DeliveryZone) => {
     updateMutation.mutate(
@@ -421,6 +459,7 @@ const DeliveryZones = () => {
                 drawing={!!drawingForId}
                 testPin={testPin}
                 postcodeDots={postcodeDots}
+                highlightDots={highlightDots}
                 onSelect={selectZone}
                 onDrawn={handleDrawn}
                 onViewChange={setView}
@@ -566,6 +605,16 @@ const DeliveryZones = () => {
             </CardContent>
           </Card>
 
+          <ZoneToolsPanel
+            zones={zones}
+            money={money}
+            shownName={shownCheck?.name ?? null}
+            onShowMisses={(result) => {
+              setShownCheck(result);
+              if (result) mapRef.current?.focusPoints(result.misses.flatMap((m) => m.points));
+            }}
+          />
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Anywhere else</CardTitle>
@@ -655,10 +704,22 @@ const DeliveryZones = () => {
               </div>
             </div>
             <DialogFooter className="gap-2 sm:justify-between">
-              {dialogZone !== 'new' && dialogZone?.boundary ? (
-                <Button type="button" variant="ghost" className="text-destructive" onClick={() => removeShape(dialogZone)} disabled={isSaving}>
-                  Remove area
-                </Button>
+              {dialogZone !== 'new' && dialogZone ? (
+                <div className="flex flex-wrap gap-1">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => autoDrawOne.mutate(dialogZone)} disabled={isSaving || autoDrawOne.isPending}>
+                    {autoDrawOne.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Draw from name
+                  </Button>
+                  {dialogZone.hasPreviousBoundary && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => restorePrevious.mutate(dialogZone)} disabled={isSaving || restorePrevious.isPending}>
+                      Restore previous area
+                    </Button>
+                  )}
+                  {dialogZone.boundary && (
+                    <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => removeShape(dialogZone)} disabled={isSaving}>
+                      Remove area
+                    </Button>
+                  )}
+                </div>
               ) : <span />}
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={() => setDialogZone(null)} disabled={isSaving}>Cancel</Button>

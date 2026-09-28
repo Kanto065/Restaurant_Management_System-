@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Platform.Api.Contracts;
 using Platform.Api.Controllers.Public;
 using Platform.Application.Common;
@@ -12,14 +11,20 @@ using Platform.Infrastructure.Persistence;
 
 namespace Platform.Api.Controllers.Admin;
 
-/// <param name="Boundary">The zone's outline as [latitude, longitude] points; null until drawn.</param>
+/// <param name="Boundary">The zone's area as rings of [latitude, longitude] points (even-odd: a ring
+/// inside another is a hole); null until drawn.</param>
+/// <param name="HasPreviousBoundary">An automatic redraw can be undone ("Restore previous area").</param>
 public record DeliveryZoneDto(
     Guid Id, string Name, double MaxMileage, decimal DeliveryFee, decimal MinimumOrderAmount, bool IsActive,
-    List<double[]>? Boundary, string Colour);
+    List<List<double[]>>? Boundary, string Colour, bool HasPreviousBoundary);
+
+/// <param name="ZoneIds">Zones to redraw; omit to redraw every zone whose area can be found.</param>
+/// <param name="KeepZoneIds">Zones never to touch, whatever else is asked.</param>
+public record AutoDrawRequest(List<Guid>? ZoneIds, List<Guid>? KeepZoneIds);
 
 public record UpsertDeliveryZoneRequest(
     string Name, decimal DeliveryFee, decimal MinimumOrderAmount, bool IsActive,
-    List<double[]>? Boundary = null, string? Colour = null, double? MaxMileage = null);
+    List<List<double[]>>? Boundary = null, string? Colour = null, double? MaxMileage = null);
 
 /// <param name="RestaurantLatitude">Null when the restaurant's postcode can't be placed on the map.</param>
 public record DeliverySettingsDto(
@@ -37,7 +42,8 @@ public record DeliveryTestDto(DeliveryQuoteDto Quote, double? Latitude, double? 
 [Route("api/admin/delivery-zones")]
 [Authorize(Policy = "StaffOnly")]
 public class DeliveryZonesController(
-    AppDbContext db, ICurrentTenant currentTenant, DeliveryQuoteService quotes, IPostcodeLookup postcodes, IMemoryCache cache) : ControllerBase
+    AppDbContext db, ICurrentTenant currentTenant, DeliveryQuoteService quotes, PostcodeGrid postcodeGrid, ZoneToolsService zoneTools)
+    : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ApiResponse<List<DeliveryZoneDto>>>> List()
@@ -157,45 +163,45 @@ public class DeliveryZonesController(
         if (north <= south || east <= west || north - south > 0.032 || east - west > 0.052)
             return BadRequest(ApiResponse<List<MapPostcodeDto>>.Fail("Zoom in further to see postcodes.", 400));
 
-        // Snap to a fixed grid so panning around reuses cached cells.
-        const double latStep = 0.0025, lngStep = 0.004;
-        var cells = new List<GeoPoint>();
-        for (var la = Math.Floor(south / latStep) * latStep; la <= north + latStep / 2; la += latStep)
-            for (var ln = Math.Floor(west / lngStep) * lngStep; ln <= east + lngStep / 2; ln += lngStep)
-                cells.Add(new GeoPoint(Math.Round(la, 4), Math.Round(ln, 4)));
+        var found = await postcodeGrid.InBoxAsync(south, west, north, east, ct);
+        if (found is null)
+            return StatusCode(503, ApiResponse<List<MapPostcodeDto>>.Fail("The postcode service isn't answering just now.", 503));
 
-        var found = new Dictionary<string, MapPostcodeDto>();
-        var missing = new List<GeoPoint>();
-        foreach (var cell in cells)
-        {
-            if (cache.TryGetValue($"postcode-cell:{cell.Latitude}:{cell.Longitude}", out List<MapPostcodeDto>? hit) && hit is not null)
-                foreach (var p in hit) found.TryAdd(p.Postcode, p);
-            else
-                missing.Add(cell);
-        }
-
-        if (missing.Count > 0)
-        {
-            var fetched = await postcodes.AroundAsync(missing, 250, ct);
-            if (fetched is null)
-                return StatusCode(503, ApiResponse<List<MapPostcodeDto>>.Fail("The postcode service isn't answering just now.", 503));
-
-            var all = fetched.Select(p => new MapPostcodeDto(p.Postcode, p.Point.Latitude, p.Point.Longitude)).ToList();
-            foreach (var cell in missing)
-            {
-                // A postcode belongs to the grid cell it sits in, so each cell caches its own.
-                var inCell = all.Where(p => p.Latitude >= cell.Latitude - latStep / 2 && p.Latitude < cell.Latitude + latStep / 2
-                                            && p.Longitude >= cell.Longitude - lngStep / 2 && p.Longitude < cell.Longitude + lngStep / 2).ToList();
-                cache.Set($"postcode-cell:{cell.Latitude}:{cell.Longitude}", inCell, TimeSpan.FromHours(24));
-            }
-            foreach (var p in all) found.TryAdd(p.Postcode, p);
-        }
-
-        var visible = found.Values
-            .Where(p => p.Latitude >= south && p.Latitude <= north && p.Longitude >= west && p.Longitude <= east)
+        return Ok(ApiResponse<List<MapPostcodeDto>>.Ok(found
             .OrderBy(p => p.Postcode)
-            .ToList();
-        return Ok(ApiResponse<List<MapPostcodeDto>>.Ok(visible));
+            .Select(p => new MapPostcodeDto(p.Postcode, p.Point.Latitude, p.Point.Longitude))
+            .ToList()));
+    }
+
+    /// <summary>"Check zones": for each zone name, the real postcodes of that named area and
+    /// which zone they're charged at now. Slow the first time (area lookups), cached after.</summary>
+    [HttpGet("check")]
+    public async Task<ActionResult<ApiResponse<ZoneCheckReport>>> Check(CancellationToken ct)
+    {
+        if (!currentTenant.RestaurantId.HasValue)
+            return BadRequest(ApiResponse<ZoneCheckReport>.Fail("Restaurant not found.", 400));
+        return Ok(ApiResponse<ZoneCheckReport>.Ok(await zoneTools.CheckAsync(currentTenant.RestaurantId.Value, ct)));
+    }
+
+    /// <summary>"Auto-draw from name": draws zones from where their named areas really are.
+    /// Each redrawn zone keeps its old shape for "Restore previous area".</summary>
+    [HttpPost("auto-draw")]
+    public async Task<ActionResult<ApiResponse<AutoDrawOutcome>>> AutoDraw(AutoDrawRequest request, CancellationToken ct)
+    {
+        if (!currentTenant.RestaurantId.HasValue)
+            return BadRequest(ApiResponse<AutoDrawOutcome>.Fail("Restaurant not found.", 400));
+        var outcome = await zoneTools.AutoDrawAsync(
+            currentTenant.RestaurantId.Value, request.ZoneIds, request.KeepZoneIds ?? [], ct);
+        return Ok(ApiResponse<AutoDrawOutcome>.Ok(outcome));
+    }
+
+    [HttpPost("{id:guid}/restore-previous")]
+    public async Task<ActionResult<ApiResponse<DeliveryZoneDto>>> RestorePrevious(Guid id, CancellationToken ct)
+    {
+        if (!await zoneTools.RestorePreviousAsync(id, ct))
+            return BadRequest(ApiResponse<DeliveryZoneDto>.Fail("There's no earlier area to restore for this zone.", 400));
+        var zone = await db.DeliveryZones.AsNoTracking().FirstAsync(z => z.Id == id, ct);
+        return Ok(ApiResponse<DeliveryZoneDto>.Ok(ToDto(zone)));
     }
 
     private static string? Apply(DeliveryZone zone, UpsertDeliveryZoneRequest request)
@@ -225,7 +231,7 @@ public class DeliveryZonesController(
         var boundary = DeliveryPricing.ParseBoundary(z.BoundaryJson);
         return new DeliveryZoneDto(
             z.Id, z.Name, z.MaxMileage, z.DeliveryFee, z.MinimumOrderAmount, z.IsActive,
-            boundary.Count == 0 ? null : boundary.Select(p => new[] { p.Latitude, p.Longitude }).ToList(),
-            z.Colour);
+            boundary.Count == 0 ? null : boundary.Select(r => r.Select(p => new[] { p.Latitude, p.Longitude }).ToList()).ToList(),
+            z.Colour, z.PreviousBoundaryJson is not null);
     }
 }

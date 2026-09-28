@@ -118,6 +118,21 @@ public static class DependencyInjection
             c.Timeout = TimeSpan.FromSeconds(8);
         });
         services.AddScoped<DeliveryQuoteService>();
+        services.AddScoped<PostcodeGrid>();
+        services.AddHttpClient(NamedAreaLookup.NominatimClient, c =>
+        {
+            c.BaseAddress = new Uri(configuration["Nominatim:BaseUrl"] ?? "https://nominatim.openstreetmap.org/");
+            c.Timeout = TimeSpan.FromSeconds(20);
+            // OpenStreetMap's usage policy asks every app to identify itself.
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("RestaurantPlatform-DeliveryZones/1.0 (+https://www.porttennanttandoori.co.uk)");
+        });
+        services.AddHttpClient(NamedAreaLookup.PostcodesClient, c =>
+        {
+            c.BaseAddress = new Uri(configuration["Postcodes:BaseUrl"] ?? "https://api.postcodes.io/");
+            c.Timeout = TimeSpan.FromSeconds(8);
+        });
+        services.AddScoped<NamedAreaLookup>();
+        services.AddScoped<ZoneToolsService>();
 
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
         var storageProvider = configuration.GetSection(StorageOptions.SectionName)["Provider"];
