@@ -61,7 +61,7 @@ export default function Checkout() {
       setCity((prev) => prev || defaultAddress.city);
       if (!useCartStore.getState().deliveryPostcode) setPostcode(defaultAddress.postcode);
     }
-  }, [profile]);
+  }, [profile, setPostcode]);
 
   const rawSubtotal = subtotal();
   const processingFee = restaurant
