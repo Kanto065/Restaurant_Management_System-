@@ -37,7 +37,17 @@ export default function OrderTracking() {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
       <h1 className="font-display text-2xl sm:text-3xl mb-1">Order #{order.orderNumber}</h1>
-      <p className="text-brand-cream/70 text-sm mb-6">Placed {formatDateTime(order.createdAt)}</p>
+      <p className="text-brand-cream/70 text-sm">Placed {formatDateTime(order.createdAt)}</p>
+      {order.estimatedReadyAt ? (
+        <p className="text-brand-mint text-sm font-medium mt-1">
+          {estimateLabel(order.orderType)}: {formatTimeOfDay(order.estimatedReadyAt)}
+        </p>
+      ) : order.estimatedMinutes && order.status !== 'Cancelled' ? (
+        <p className="text-brand-mint text-sm font-medium mt-1">
+          {estimateLabel(order.orderType)}: {pendingEstimateText(order.estimatedMinutes)}
+        </p>
+      ) : null}
+      <div className="mb-6" />
 
       {paymentOutcome === 'success' && (
         <div className="mb-6 rounded-lg bg-brand-green/15 border border-brand-green/40 text-brand-green px-4 py-3 text-sm font-medium">
@@ -129,15 +139,6 @@ export default function OrderTracking() {
           <span>Total</span>
           <span>{currency}{order.totalAmount.toFixed(2)}</span>
         </div>
-        {order.estimatedReadyAt ? (
-          <p className="mt-3 text-sm text-brand-bg/70">
-            {estimateLabel(order.orderType)}: {formatTimeOfDay(order.estimatedReadyAt)}
-          </p>
-        ) : order.estimatedMinutes && order.status !== 'Cancelled' ? (
-          <p className="mt-3 text-sm text-brand-bg/70">
-            {estimateLabel(order.orderType)}: {pendingEstimateText(order.estimatedMinutes)}
-          </p>
-        ) : null}
       </div>
 
       <Link to="/menu" className="inline-block mt-6 text-brand-mint underline text-sm">
