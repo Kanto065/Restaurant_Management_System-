@@ -25,13 +25,17 @@ public enum DeliveryQuoteOutcome
     TooFar,
     /// <summary>The restaurant hasn't set up delivery pricing (no zones and no "anywhere else" fee).</summary>
     NotConfigured,
+    /// <summary>The restaurant has delivery charges switched off: free, and nothing is checked.</summary>
+    PricingOff,
 }
 
 public record DeliveryQuote(
     DeliveryQuoteOutcome Outcome, decimal DeliveryFee, decimal MinimumOrderAmount, Guid? ZoneId, string? ZoneName,
     double DistanceMiles)
 {
-    public bool CanDeliver => Outcome is DeliveryQuoteOutcome.InZone or DeliveryQuoteOutcome.OutsideZones;
+    public bool CanDeliver => Outcome is DeliveryQuoteOutcome.InZone or DeliveryQuoteOutcome.OutsideZones or DeliveryQuoteOutcome.PricingOff;
+
+    public static DeliveryQuote Free { get; } = new(DeliveryQuoteOutcome.PricingOff, 0, 0, null, null, 0);
 }
 
 /// <summary>

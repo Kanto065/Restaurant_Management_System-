@@ -13,7 +13,7 @@ export default function CartPanel() {
   const navigate = useNavigate();
   const [confirmingCheckout, setConfirmingCheckout] = useState(false);
   const { data: quote } = useDeliveryQuote(deliveryPostcode, orderType === 'Delivery');
-  const deliveryQuote = orderType === 'Delivery' && quote?.canDeliver ? quote : null;
+  const deliveryQuote = orderType === 'Delivery' && quote?.canDeliver && quote.pricingEnabled ? quote : null;
 
   return (
     <div className="bg-brand-cream text-brand-bg rounded-lg overflow-hidden">

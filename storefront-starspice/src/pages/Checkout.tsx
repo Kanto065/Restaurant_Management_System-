@@ -86,7 +86,9 @@ export default function Checkout() {
   const foodAfterVoucher = subtotal - voucherDiscount;
   const deliveryBlocker = !isDelivery
     ? null
-    : !deliveryQuote
+    : deliveryQuote && !deliveryQuote.pricingEnabled
+      ? null // delivery charges switched off: nothing to check
+      : !deliveryQuote
       ? (deliveryCheckFailed ? 'We couldn’t check your postcode just now. Please try again.'
         : checkingDelivery ? 'Checking your delivery address…' : 'Enter your postcode so we can work out the delivery charge.')
       : !deliveryQuote.canDeliver
@@ -301,7 +303,7 @@ export default function Checkout() {
                       {locating ? 'Finding you…' : 'Use my location'}
                     </button>
                     {locateError && <p className="form-error">{locateError}</p>}
-                    {looksLikePostcode(postcode) && deliveryQuote && (
+                    {looksLikePostcode(postcode) && deliveryQuote?.pricingEnabled && (
                       deliveryQuote.canDeliver ? (
                         <p className="form-success">
                           Delivery to {deliveryQuote.postcode}{deliveryQuote.inZone ? ` (${deliveryQuote.zoneName})` : ''}: {formatPrice(deliveryQuote.deliveryFee, currency)}
@@ -371,7 +373,7 @@ export default function Checkout() {
               {processingFee > 0 && <div><span>Service fee</span><span>{formatPrice(processingFee, currency)}</span></div>}
               {voucherDiscount > 0 && <div><span>Voucher</span><span>−{formatPrice(voucherDiscount, currency)}</span></div>}
               {loyaltyDiscount > 0 && <div><span>Loyalty points</span><span>−{formatPrice(loyaltyDiscount, currency)}</span></div>}
-              {isDelivery && (
+              {isDelivery && deliveryQuote?.pricingEnabled !== false && (
                 <div><span>Delivery</span><span>{deliveryQuote?.canDeliver ? formatPrice(deliveryFee, currency) : '—'}</span></div>
               )}
               <div className="grand"><span>Estimated total</span><span>{formatPrice(estimatedTotal, currency)}</span></div>

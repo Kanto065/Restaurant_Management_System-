@@ -12,15 +12,18 @@ namespace Platform.Api.Controllers.Public;
 /// <param name="Postcode">The postcode as priced (tidied, or found from the customer's location).</param>
 /// <param name="ZoneName">The matching zone, or "Anywhere else" for an address inside no zone.</param>
 /// <param name="Message">Why delivery isn't possible; null when it is.</param>
+/// <param name="PricingEnabled">False when the restaurant has delivery charges switched off -
+/// delivery is then free and unchecked, and storefronts show no delivery price.</param>
 public record DeliveryQuoteDto(
     bool CanDeliver, string? Postcode, decimal DeliveryFee, decimal MinimumOrderAmount, string? ZoneName, bool InZone,
-    string? Message);
+    string? Message, bool PricingEnabled = true);
 
 public record PublicDeliveryZoneDto(string Name, decimal DeliveryFee, decimal MinimumOrderAmount);
 
 /// <param name="OutsideZoneFee">Fee for anywhere within MaxDeliveryMiles that's inside no zone; null = none set up.</param>
 public record PublicDeliveryInfoDto(
-    List<PublicDeliveryZoneDto> Zones, decimal? OutsideZoneFee, decimal? OutsideZoneMinimumOrder, double MaxDeliveryMiles);
+    List<PublicDeliveryZoneDto> Zones, decimal? OutsideZoneFee, decimal? OutsideZoneMinimumOrder, double MaxDeliveryMiles,
+    bool PricingEnabled = true);
 
 /// <summary>Storefront delivery pricing: the price list for Contact Us, and a live quote for a postcode.</summary>
 [ApiController]
@@ -44,7 +47,7 @@ public class PublicDeliveryController(AppDbContext db, ICurrentTenant currentTen
         var outsideMin = restaurant.OutsideZoneMinimumOrder ?? (zones.Count > 0 ? zones.Max(z => z.MinimumOrderAmount) : null);
 
         return Ok(ApiResponse<PublicDeliveryInfoDto>.Ok(
-            new PublicDeliveryInfoDto(zones, outsideFee, outsideMin, restaurant.MaxDeliveryMiles)));
+            new PublicDeliveryInfoDto(zones, outsideFee, outsideMin, restaurant.MaxDeliveryMiles, restaurant.DeliveryPricingEnabled)));
     }
 
     /// <summary>Price a delivery by postcode, or by the customer's location (lat/lng) - which
@@ -73,5 +76,6 @@ public class PublicDeliveryController(AppDbContext db, ICurrentTenant currentTen
         check.CanDeliver ? check.Quote!.MinimumOrderAmount : 0,
         check.CanDeliver ? check.Quote!.ZoneName : null,
         check.Quote?.Outcome == DeliveryQuoteOutcome.InZone,
-        check.Problem);
+        check.Problem,
+        check.Quote?.Outcome != DeliveryQuoteOutcome.PricingOff);
 }

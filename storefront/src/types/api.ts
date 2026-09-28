@@ -99,6 +99,8 @@ export interface DeliveryQuote {
   inZone: boolean;
   /** Why delivery isn't possible; null when it is. */
   message: string | null;
+  /** False when the restaurant has delivery charges switched off: free, nothing to show. */
+  pricingEnabled: boolean;
 }
 
 /** GET /api/public/delivery-info - the price list for Contact Us. */
@@ -107,6 +109,7 @@ export interface DeliveryInfo {
   outsideZoneFee: number | null;
   outsideZoneMinimumOrder: number | null;
   maxDeliveryMiles: number;
+  pricingEnabled: boolean;
 }
 
 export type SpiceLevel = 'None' | 'Mild' | 'Medium' | 'Hot';

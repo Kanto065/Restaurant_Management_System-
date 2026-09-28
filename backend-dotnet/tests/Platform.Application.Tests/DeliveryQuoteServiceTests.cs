@@ -132,6 +132,26 @@ public class DeliveryQuoteServiceTests
         Assert.False(down.CanDeliver);
     }
 
+    [Fact]
+    public async Task PricingSwitchedOff_DeliveryIsFreeAndNothingIsChecked()
+    {
+        var (db, restaurantId) = await SeedAsync();
+        (await db.Restaurants.SingleAsync()).DeliveryPricingEnabled = false;
+        await db.SaveChangesAsync();
+        var postcodes = new FakePostcodes(Swansea, down: true); // even with the postcode service down
+        var service = new DeliveryQuoteService(db, postcodes);
+
+        var far = await service.CheckPostcodeAsync(restaurantId, "cf101aa");
+
+        Assert.True(far.CanDeliver);
+        Assert.Equal(DeliveryQuoteOutcome.PricingOff, far.Quote!.Outcome);
+        Assert.Equal(0m, far.Quote.DeliveryFee);
+        Assert.Equal(0m, far.Quote.MinimumOrderAmount);
+        Assert.Equal("CF10 1AA", far.Postcode);
+        Assert.Null(far.Problem);
+        Assert.Equal(0, postcodes.Lookups);
+    }
+
     [Theory]
     [InlineData("sa18jf", "SA1 8JF")]
     [InlineData(" SA1  8JF ", "SA1 8JF")]

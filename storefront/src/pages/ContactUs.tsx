@@ -50,7 +50,7 @@ export default function ContactUs() {
           )}
         </div>
 
-        {deliveryInfo && restaurant?.supportsDelivery && (priceRows.length > 0 || deliveryInfo.outsideZoneFee !== null) && (
+        {deliveryInfo?.pricingEnabled && restaurant?.supportsDelivery && (priceRows.length > 0 || deliveryInfo.outsideZoneFee !== null) && (
           <div className="bg-brand-green rounded-lg overflow-hidden">
             <h2 className="font-display text-xl text-white px-5 py-3">Delivery Information</h2>
             <div className="bg-brand-cream text-brand-bg p-5">

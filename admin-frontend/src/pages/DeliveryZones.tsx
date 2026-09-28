@@ -46,6 +46,7 @@ interface DeliverySettings {
   restaurantPostcode: string;
   restaurantLatitude: number | null;
   restaurantLongitude: number | null;
+  deliveryPricingEnabled: boolean;
 }
 
 interface DeliveryTest {
@@ -425,6 +426,17 @@ const DeliveryZones = () => {
           <Plus className="w-4 h-4 mr-2" />Add Zone
         </Button>
       </div>
+
+      {settings && !settings.deliveryPricingEnabled && (
+        <Alert className="border-sky-500/60">
+          <AlertTriangle className="h-4 w-4 text-sky-500" />
+          <AlertTitle>Delivery charges are switched off</AlertTitle>
+          <AlertDescription>
+            Delivery is free and these zones aren't used at checkout.{' '}
+            <Link to="/dashboard/configurations" className="underline underline-offset-2">Turn them on in Configurations</Link>.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {warnings.map((w) => (
         <Alert key={w.title} className="border-amber-500/60">

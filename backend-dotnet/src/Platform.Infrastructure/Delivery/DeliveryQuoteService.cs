@@ -48,6 +48,11 @@ public class DeliveryQuoteService(AppDbContext db, IPostcodeLookup postcodes)
 {
     public async Task<DeliveryCheck> CheckPostcodeAsync(Guid restaurantId, string postcode, CancellationToken ct = default)
     {
+        // Delivery charges switched off: free, and no postcode/zone/distance checks - so a
+        // restaurant without zones (or while the postcode service is down) still delivers.
+        if (!await PricingEnabledAsync(restaurantId, ct))
+            return Free(PostcodesIoLookup.Normalise(postcode));
+
         var lookup = await postcodes.LookupAsync(postcode, ct);
         return lookup.Status switch
         {
@@ -62,13 +67,21 @@ public class DeliveryQuoteService(AppDbContext db, IPostcodeLookup postcodes)
     public async Task<DeliveryCheck> CheckPointAsync(Guid restaurantId, GeoPoint point, CancellationToken ct = default)
     {
         var lookup = await postcodes.NearestAsync(point, ct);
+        var pricingOn = await PricingEnabledAsync(restaurantId, ct);
         return lookup.Status switch
         {
+            // Still worth finding the postcode (it fills in the address), even when delivery is free.
+            PostcodeLookupStatus.Found when !pricingOn => Free(lookup.Location!.Postcode),
             PostcodeLookupStatus.Found => await PriceAsync(restaurantId, lookup.Location!, ct),
             PostcodeLookupStatus.NotFound => new DeliveryCheck(DeliveryCheckStatus.InvalidPostcode, null, null, null),
             _ => new DeliveryCheck(DeliveryCheckStatus.LookupUnavailable, null, null, null),
         };
     }
+
+    private Task<bool> PricingEnabledAsync(Guid restaurantId, CancellationToken ct) =>
+        db.Restaurants.AsNoTracking().Where(r => r.Id == restaurantId).Select(r => r.DeliveryPricingEnabled).FirstOrDefaultAsync(ct);
+
+    private static DeliveryCheck Free(string postcode) => new(DeliveryCheckStatus.Ok, postcode, null, DeliveryQuote.Free);
 
     /// <summary>The restaurant's map position, looking it up from its postcode the first time
     /// (and again after the postcode changes - the admin settings save clears it).</summary>

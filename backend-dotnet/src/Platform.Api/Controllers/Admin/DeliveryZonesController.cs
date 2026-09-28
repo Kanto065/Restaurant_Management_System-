@@ -27,11 +27,14 @@ public record UpsertDeliveryZoneRequest(
     List<List<double[]>>? Boundary = null, string? Colour = null, double? MaxMileage = null);
 
 /// <param name="RestaurantLatitude">Null when the restaurant's postcode can't be placed on the map.</param>
+/// <param name="DeliveryPricingEnabled">Charge for delivery by zone. Off: delivery is free and unchecked.</param>
 public record DeliverySettingsDto(
     double MaxDeliveryMiles, decimal? OutsideZoneDeliveryFee, decimal? OutsideZoneMinimumOrder,
-    string RestaurantPostcode, double? RestaurantLatitude, double? RestaurantLongitude);
+    string RestaurantPostcode, double? RestaurantLatitude, double? RestaurantLongitude, bool DeliveryPricingEnabled);
 
-public record UpdateDeliverySettingsRequest(double MaxDeliveryMiles, decimal? OutsideZoneDeliveryFee, decimal? OutsideZoneMinimumOrder);
+/// <param name="DeliveryPricingEnabled">Null leaves it as it is.</param>
+public record UpdateDeliverySettingsRequest(
+    double MaxDeliveryMiles, decimal? OutsideZoneDeliveryFee, decimal? OutsideZoneMinimumOrder, bool? DeliveryPricingEnabled = null);
 
 public record MapPostcodeDto(string Postcode, double Latitude, double Longitude);
 
@@ -107,7 +110,7 @@ public class DeliveryZonesController(
         var location = await quotes.RestaurantLocationAsync(restaurant, ct);
         return Ok(ApiResponse<DeliverySettingsDto>.Ok(new DeliverySettingsDto(
             restaurant.MaxDeliveryMiles, restaurant.OutsideZoneDeliveryFee, restaurant.OutsideZoneMinimumOrder,
-            restaurant.Postcode, location?.Latitude, location?.Longitude)));
+            restaurant.Postcode, location?.Latitude, location?.Longitude, restaurant.DeliveryPricingEnabled)));
     }
 
     [HttpPut("settings")]
@@ -125,6 +128,8 @@ public class DeliveryZonesController(
         restaurant.MaxDeliveryMiles = request.MaxDeliveryMiles;
         restaurant.OutsideZoneDeliveryFee = request.OutsideZoneDeliveryFee;
         restaurant.OutsideZoneMinimumOrder = request.OutsideZoneMinimumOrder;
+        if (request.DeliveryPricingEnabled is { } pricingOn)
+            restaurant.DeliveryPricingEnabled = pricingOn;
         await db.SaveChangesAsync(ct);
 
         return await GetSettings(ct);

@@ -4,7 +4,7 @@ import { LocateFixed, Loader2 } from 'lucide-react';
 import { useCartStore } from '../store/cart';
 import { useRestaurant } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
-import { looksLikePostcode, quoteFromMyLocation, tidyPostcode, useDeliveryQuote } from '../lib/delivery';
+import { looksLikePostcode, quoteFromMyLocation, tidyPostcode, useDeliveryInfo, useDeliveryQuote } from '../lib/delivery';
 
 type Tone = 'dark' | 'light';
 
@@ -63,6 +63,7 @@ export function DeliveryStatus({ postcode, tone, foodTotal }: { postcode: string
   const good = tone === 'dark' ? 'text-brand-mint' : 'text-green-700';
 
   if (!postcode.trim()) return null;
+  if (quote && !quote.pricingEnabled) return null; // delivery charges switched off - nothing to say
   if (!looksLikePostcode(postcode)) return <p className={`text-xs ${muted}`}>Enter your full postcode to see the delivery charge.</p>;
   if (isFetching && !quote) return <p className={`text-xs ${muted} flex items-center gap-1`}><Loader2 className="w-3 h-3 animate-spin" />Checking delivery...</p>;
   if (isError || !quote) return <p className={`text-xs ${bad}`}>We couldn't check that postcode just now. Please try again.</p>;
@@ -85,11 +86,15 @@ export function DeliveryStatus({ postcode, tone, foodTotal }: { postcode: string
 /** Postcode box + "Use my location" + live price, bound to the cart's delivery postcode. */
 export default function DeliveryPostcodeBox({ tone, foodTotal }: { tone: Tone; foodTotal?: number }) {
   const { deliveryPostcode, setDeliveryPostcode } = useCartStore();
+  const { data: info } = useDeliveryInfo();
   const [draft, setDraft] = useState(deliveryPostcode);
   // Follow changes made elsewhere (the home page's box, "Use my location", checkout).
   useEffect(() => setDraft(deliveryPostcode), [deliveryPostcode]);
 
   const commit = (value: string) => setDeliveryPostcode(tidyPostcode(value));
+
+  // With delivery charges switched off there's no price to check.
+  if (info && !info.pricingEnabled) return null;
 
   return (
     <div className="space-y-2">

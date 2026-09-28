@@ -102,7 +102,9 @@ export default function Checkout() {
   const foodAfterVoucher = rawSubtotal - voucherDiscount;
   const deliveryBlocker = !isDelivery
     ? null
-    : !deliveryQuote
+    : deliveryQuote && !deliveryQuote.pricingEnabled
+      ? null // delivery charges switched off: nothing to check
+      : !deliveryQuote
       ? (checkingDelivery ? 'Checking your delivery address...' : 'Enter your postcode so we can work out the delivery charge.')
       : !deliveryQuote.canDeliver
         ? deliveryQuote.message ?? "Sorry, we can't deliver to this address."
@@ -209,7 +211,7 @@ export default function Checkout() {
             <div className="pt-3 mt-2 border-t border-brand-bg/10 text-sm space-y-1.5">
               <div className="flex justify-between"><span>Subtotal</span><span>{currency}{rawSubtotal.toFixed(2)}</span></div>
               <div className="flex justify-between"><span>Discount</span><span>-{currency}{discount.toFixed(2)}</span></div>
-              {isDelivery && (
+              {isDelivery && deliveryQuote?.pricingEnabled !== false && (
                 <div className="flex justify-between">
                   <span>Delivery{deliveryQuote?.canDeliver && deliveryQuote.inZone ? ` (${deliveryQuote.zoneName})` : ''}</span>
                   <span>{deliveryQuote?.canDeliver ? `${currency}${deliveryFee.toFixed(2)}` : '-'}</span>

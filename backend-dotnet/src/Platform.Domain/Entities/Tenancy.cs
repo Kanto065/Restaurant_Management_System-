@@ -70,6 +70,9 @@ public class Restaurant : Entity
     public int CollectionMinutes { get; set; } = 20;
     public int DineInMinutes { get; set; } = 20;
 
+    /// <summary>Charge for delivery by zone (and check the postcode, minimum and distance limit).
+    /// Off: delivery is free and unchecked, as it was before zones existed.</summary>
+    public bool DeliveryPricingEnabled { get; set; } = true;
     /// <summary>No delivery beyond this straight-line distance from the restaurant.</summary>
     public double MaxDeliveryMiles { get; set; } = 5;
     /// <summary>Fee for a delivery address inside no drawn zone (but within MaxDeliveryMiles).

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Loader2, Truck } from 'lucide-react';
@@ -17,6 +18,8 @@ export interface DeliverySettings {
   restaurantPostcode: string;
   restaurantLatitude: number | null;
   restaurantLongitude: number | null;
+  /** Charge for delivery by zone. Off: delivery is free and nothing is checked. */
+  deliveryPricingEnabled: boolean;
 }
 
 export const DELIVERY_SETTINGS_KEY = ['admin', 'delivery-settings'];
@@ -28,8 +31,9 @@ export function useDeliverySettings() {
   });
 }
 
-type Form = { fee: string; min: string; miles: string };
+type Form = { enabled: boolean; fee: string; min: string; miles: string };
 const toForm = (s: DeliverySettings): Form => ({
+  enabled: s.deliveryPricingEnabled,
   fee: s.outsideZoneDeliveryFee?.toString() ?? '',
   min: s.outsideZoneMinimumOrder?.toString() ?? '',
   miles: s.maxDeliveryMiles.toString(),
@@ -53,7 +57,7 @@ export default function DeliverySettingsCard({ className = '' }: { className?: s
   const highestFee = active.length ? Math.max(...active.map((z) => z.deliveryFee)) : null;
   const highestMin = active.length ? Math.max(...active.map((z) => z.minimumOrderAmount)) : null;
 
-  const [form, setForm] = useState<Form>({ fee: '', min: '', miles: '5' });
+  const [form, setForm] = useState<Form>({ enabled: true, fee: '', min: '', miles: '5' });
   useEffect(() => { if (settings) setForm(toForm(settings)); }, [settings]);
   const dirty = !!settings && JSON.stringify(form) !== JSON.stringify(toForm(settings));
 
@@ -62,10 +66,11 @@ export default function DeliverySettingsCard({ className = '' }: { className?: s
       maxDeliveryMiles: parseFloat(form.miles),
       outsideZoneDeliveryFee: form.fee.trim() === '' ? null : parseFloat(form.fee),
       outsideZoneMinimumOrder: form.min.trim() === '' ? null : parseFloat(form.min),
+      deliveryPricingEnabled: form.enabled,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: DELIVERY_SETTINGS_KEY });
-      toast({ title: 'Saved', description: 'Delivery limit and "anywhere else" price updated.' });
+      toast({ title: 'Saved', description: form.enabled ? 'Delivery charges are on.' : 'Delivery charges are off - delivery is free.' });
     },
     onError: (e: Error) => toast({ variant: 'destructive', title: "Couldn't save", description: e.message }),
   });
@@ -73,7 +78,7 @@ export default function DeliverySettingsCard({ className = '' }: { className?: s
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const miles = parseFloat(form.miles);
-    if (Number.isNaN(miles) || miles <= 0) {
+    if (form.enabled && (Number.isNaN(miles) || miles <= 0)) {
       toast({ variant: 'destructive', title: 'Check the delivery limit', description: 'Enter the furthest distance you deliver, in miles.' });
       return;
     }
@@ -84,26 +89,37 @@ export default function DeliverySettingsCard({ className = '' }: { className?: s
     <section className={`rounded-xl border bg-card p-4 sm:p-5 ${className}`}>
       <header className="flex items-start gap-3 mb-4">
         <span className="grid place-items-center w-8 h-8 rounded-lg bg-primary/10 text-primary shrink-0"><Truck className="w-4 h-4" /></span>
-        <div className="min-w-0">
-          <h2 className="font-semibold leading-tight">Delivery outside your zones</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold leading-tight">Delivery charges</h2>
           <p className="text-sm text-muted-foreground text-pretty">
-            Price for addresses that aren't inside any <Link to="/dashboard/delivery-zones" className="underline underline-offset-2 hover:text-foreground">delivery zone</Link>, and how far you deliver at all.
+            Charge by <Link to="/dashboard/delivery-zones" className="underline underline-offset-2 hover:text-foreground">delivery zone</Link>, the price for addresses outside every zone, and how far you deliver.
           </p>
         </div>
+        {settings && (
+          <label className="flex items-center gap-2 text-sm font-medium shrink-0 cursor-pointer">
+            {form.enabled ? 'On' : 'Off'}
+            <Switch checked={form.enabled} onCheckedChange={(enabled) => setForm((f) => ({ ...f, enabled }))} aria-label="Charge for delivery" />
+          </label>
+        )}
       </header>
 
       {!settings ? (
         <div className="grid grid-cols-3 gap-3"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div>
       ) : (
         <form onSubmit={submit} className="space-y-3">
-          <div className="grid grid-cols-3 gap-3">
+          {!form.enabled && (
+            <p className="text-sm rounded-lg bg-muted px-3 py-2">
+              Delivery is <strong>free</strong> and orders aren't checked against zones, a minimum or a distance. Turn on to charge by zone.
+            </p>
+          )}
+          <fieldset disabled={!form.enabled} className="grid grid-cols-3 gap-3 disabled:opacity-50 transition-opacity">
             <Field id="outsideFee" label="Delivery fee" prefix={currency} value={form.fee} step="0.01"
               placeholder={highestFee?.toFixed(2) ?? ''} onChange={(fee) => setForm((f) => ({ ...f, fee }))} />
             <Field id="outsideMin" label="Minimum order" prefix={currency} value={form.min} step="0.01"
               placeholder={highestMin?.toFixed(2) ?? '0.00'} onChange={(min) => setForm((f) => ({ ...f, min }))} />
             <Field id="maxMiles" label="Deliver up to" suffix="mi" value={form.miles} step="0.5"
               onChange={(miles) => setForm((f) => ({ ...f, miles }))} />
-          </div>
+          </fieldset>
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
               Blank fee or minimum = your highest zone's price. The limit is straight-line distance.
