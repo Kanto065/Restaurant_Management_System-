@@ -98,7 +98,7 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
   const pinLayerRef = useRef<L.LayerGroup | null>(null);
   const dotLayerRef = useRef<L.LayerGroup | null>(null);
   const highlightLayerRef = useRef<L.LayerGroup | null>(null);
-  const dotRendererRef = useRef<L.Canvas | null>(null);
+  const dotRendererRef = useRef<L.SVG | null>(null);
   // Only whether labels are written out - not the zoom itself - so zooming doesn't re-render
   // the map layers unless it crosses that line.
   const [labelZoom, setLabelZoom] = useState(false);
@@ -143,8 +143,9 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
     pinLayerRef.current = L.layerGroup().addTo(map);
     // Own pane above the zone shapes (which are redrawn often) so dots stay on top.
     map.createPane('postcodes').style.zIndex = '450';
-    // One canvas for all the dots instead of an SVG element each - far lighter with hundreds.
-    dotRendererRef.current = L.canvas({ pane: 'postcodes', padding: 0.2 });
+    // SVG, not canvas: a canvas catches the mouse over its whole area, which stopped zone
+    // names showing on hover. The pane's SVG lets the mouse through between dots (see index.css).
+    dotRendererRef.current = L.svg({ pane: 'postcodes', padding: 0.2 });
     dotLayerRef.current = L.layerGroup().addTo(map);
     highlightLayerRef.current = L.layerGroup().addTo(map);
 
@@ -232,6 +233,11 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
         sticky: !selected, permanent: selected, direction: 'center', className: 'zone-label',
       });
       polygon.on('click', () => onSelectRef.current(zone.id));
+      // Light up the area under the mouse, so it's clear which one the name belongs to.
+      if (!selected) {
+        polygon.on('mouseover', () => polygon.setStyle({ weight: 4, fillOpacity: zone.isActive ? 0.35 : 0.12 }));
+        polygon.on('mouseout', () => polygon.setStyle({ weight: 2, fillOpacity: zone.isActive ? 0.22 : 0.06 }));
+      }
       polygon.addTo(group);
       polygonsRef.current.set(zone.id, polygon);
 

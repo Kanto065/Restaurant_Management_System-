@@ -128,3 +128,7 @@ All colors MUST be HSL.
   color: #111827;
 }
 .leaflet-tooltip.postcode-label::before { display: none; }
+
+/* Postcode dots sit in their own pane above the zones: let the mouse through the empty space
+   so hovering an area still shows its name, while the dots themselves stay hoverable. */
+.leaflet-postcodes-pane > svg { pointer-events: none; }
