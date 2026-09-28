@@ -70,6 +70,14 @@ public class Restaurant : Entity
     public int CollectionMinutes { get; set; } = 20;
     public int DineInMinutes { get; set; } = 20;
 
+    /// <summary>No delivery beyond this straight-line distance from the restaurant.</summary>
+    public double MaxDeliveryMiles { get; set; } = 5;
+    /// <summary>Fee for a delivery address inside no drawn zone (but within MaxDeliveryMiles).
+    /// Null means "the highest zone fee".</summary>
+    public decimal? OutsideZoneDeliveryFee { get; set; }
+    /// <summary>Minimum order for those addresses. Null means "the highest zone minimum".</summary>
+    public decimal? OutsideZoneMinimumOrder { get; set; }
+
     /// <summary>Serialized HomepageContent (hero slides + editable section copy).
     /// Null means "use default hardcoded storefront copy".</summary>
     public string? HomepageContentJson { get; set; }

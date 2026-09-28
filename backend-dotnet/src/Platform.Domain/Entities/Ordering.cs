@@ -36,6 +36,9 @@ public class Order : TenantEntity
 
     public decimal Subtotal { get; set; }
     public decimal DeliveryFee { get; set; }
+    /// <summary>The delivery zone that priced this order ("Hafod"), or "Anywhere else" for an
+    /// address inside no drawn zone. Snapshot - renaming a zone later doesn't change old orders.</summary>
+    public string? DeliveryZoneName { get; set; }
     public decimal ProcessingFee { get; set; }
     public decimal DiscountAmount { get; set; }
     public Guid? VoucherId { get; set; }

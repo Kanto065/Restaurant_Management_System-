@@ -52,11 +52,21 @@ public class LoyaltyTransaction : TenantEntity
     public LoyaltyTransactionReason Reason { get; set; }
 }
 
-/// <summary>Mileage-tiered delivery pricing, matching the reference site's delivery table.</summary>
+/// <summary>A delivery area drawn on the admin map. A delivery address inside the shape pays
+/// this zone's fee and minimum order; an address inside no zone pays the restaurant's
+/// "anywhere else" fee (see Restaurant.OutsideZoneDeliveryFee).</summary>
 public class DeliveryZone : TenantEntity
 {
     public string Name { get; set; } = default!;
+    /// <summary>Left over from the original mileage tiers. Not used for pricing any more -
+    /// the owner's "miles" turned out to be area labels, so zones are matched by shape.</summary>
     public double MaxMileage { get; set; }
+    /// <summary>The zone's outline as a JSON array of [latitude, longitude] points, e.g.
+    /// [[51.62,-3.93],[51.63,-3.92],...]. Null until the owner draws it - an undrawn zone
+    /// never matches.</summary>
+    public string? BoundaryJson { get; set; }
+    /// <summary>Map colour for the admin page (hex, e.g. "#e8823c").</summary>
+    public string Colour { get; set; } = "#e8823c";
     public decimal DeliveryFee { get; set; }
     public decimal MinimumOrderAmount { get; set; }
     public bool IsActive { get; set; } = true;
