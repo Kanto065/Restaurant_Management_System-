@@ -86,6 +86,18 @@ export default function FindUs() {
             </div>
           </dl>
         </div>
+        {/* Google's plain embed (no API key). Shows the takeaway once the address is confirmed,
+            Tumble itself until then. */}
+        <figure className="wrap find-map">
+          <iframe
+            title={address ? `Map showing Star Spice, ${address}` : 'Map of Tumble, Carmarthenshire'}
+            src={`https://www.google.com/maps?q=${mapQuery}&z=${address ? 16 : 14}&output=embed`}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            allowFullScreen
+          />
+          {!address && <figcaption>Showing Tumble - the exact address will be pinned once it’s confirmed.</figcaption>}
+        </figure>
       </section>
       <section className="wrap section">
         <div className="section-heading">
