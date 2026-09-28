@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { RestaurantPublic } from '@shared/types/api';
 import { useCartStore, type CartLine } from '@shared/store/cart';
@@ -47,7 +47,7 @@ export function BasketLines({ currency, editable = true }: { currency: string | 
   );
 }
 
-function BasketBody({ restaurant, onCheckout }: { restaurant: RestaurantPublic; onCheckout: () => void }) {
+export function BasketBody({ restaurant, onCheckout }: { restaurant: RestaurantPublic; onCheckout: () => void }) {
   const { lines, orderType, setOrderType } = useCartStore();
   const subtotal = lines.reduce((s, l) => s + lineTotal(l), 0);
   const both = restaurant.supportsCollection && restaurant.supportsDelivery;
@@ -84,11 +84,10 @@ function BasketBody({ restaurant, onCheckout }: { restaurant: RestaurantPublic; 
   );
 }
 
-/** Desktop: sticky panel beside the menu. Phones/tablets: a bottom bar that opens a sheet. */
+/** Desktop: sticky panel beside the menu. Phones/tablets: a bottom bar that opens the basket page. */
 export default function Basket({ restaurant }: { restaurant: RestaurantPublic }) {
   const navigate = useNavigate();
   const lines = useCartStore((s) => s.lines);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const count = lines.reduce((n, l) => n + l.quantity, 0);
   const subtotal = lines.reduce((s, l) => s + lineTotal(l), 0);
   useValidOrderType(restaurant);
@@ -98,35 +97,17 @@ export default function Basket({ restaurant }: { restaurant: RestaurantPublic })
     return () => document.body.classList.remove('has-basket-bar');
   }, [count]);
 
-  useEffect(() => {
-    if (!sheetOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSheetOpen(false); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [sheetOpen]);
-
-  const checkout = () => { setSheetOpen(false); navigate('/checkout'); };
-
   return (
     <>
-      <aside className="basket" aria-label="Your order">
-        <BasketBody restaurant={restaurant} onCheckout={checkout} />
+      <aside className='basket' aria-label='Your order'>
+        <BasketBody restaurant={restaurant} onCheckout={() => navigate('/checkout')} />
       </aside>
 
       {count > 0 && (
-        <button type="button" className="basket-bar" onClick={() => setSheetOpen(true)}>
+        <button type='button' className='basket-bar' onClick={() => navigate('/basket')}>
           <span>View basket ({count})</span>
           <span>{formatPrice(subtotal, restaurant.currency)}</span>
         </button>
-      )}
-
-      {sheetOpen && (
-        <div className="basket-sheet" onMouseDown={(e) => { if (e.target === e.currentTarget) setSheetOpen(false); }}>
-          <div className="basket" role="dialog" aria-modal="true" aria-label="Your order">
-            <button type="button" className="sheet-close" aria-label="Close basket" onClick={() => setSheetOpen(false)}>✕</button>
-            <BasketBody restaurant={restaurant} onCheckout={checkout} />
-          </div>
-        </div>
       )}
     </>
   );

@@ -152,3 +152,29 @@ input:focus,select:focus,textarea:focus{outline:2px solid #976414;outline-offset
 .summary .qty{border-color:#bdbbac}
 .summary .qty button{color:var(--ink)}
 .summary .link-button{color:#595a4e}
+
+/* Basket page (header "Basket" button) */
+.basket-page{padding:55px 0 85px;display:flex;flex-direction:column;align-items:center;gap:28px}
+.basket.basket-standalone{position:static;width:min(560px,100%)}
+.basket-standalone .basket-lines{max-height:none}
+.basket-page-back{width:min(560px,100%)}
+
+/* Gallery - empty until the client's own photos arrive */
+.gallery-empty{padding:70px 0 90px;display:grid;grid-template-columns:1.1fr 1fr;gap:70px;align-items:center}
+.gallery-placeholder{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.gallery-placeholder span{aspect-ratio:4/5;background:repeating-linear-gradient(135deg,#e7e1d3 0 14px,#ece6d9 14px 28px);border:1px solid #d8d3c6}
+.gallery-placeholder span:nth-child(2),.gallery-placeholder span:nth-child(5){transform:translateY(22px)}
+.gallery-notice{border-left:2px solid #ac792e;padding-left:28px}
+.gallery-notice h2{font-size:clamp(2rem,3.2vw,2.8rem);margin:16px 0 18px}
+.gallery-notice p:not(.eyebrow){color:#595b50;line-height:1.85}
+
+/* Checkout: sign in or continue as a guest */
+.checkout-choice{padding:55px 0 85px;display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.choice-card{background:#e7e1d3;border-top:3px solid #ac792e;padding:34px 30px;display:flex;flex-direction:column;gap:14px}
+.choice-card h2{font-size:2.2rem}
+.choice-card p{color:#595a4e;font-size:.9375rem}
+.choice-card .choice-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:auto;padding-top:10px}
+.choice-card.guest{background:var(--ink);color:var(--paper);border-top-color:var(--gold)}
+.choice-card.guest p{color:#c8c9bc}
+.guest-link{margin-top:18px;font-size:.875rem}
+@media(max-width:760px){.gallery-empty{grid-template-columns:1fr;gap:40px;padding:45px 0 60px}.checkout-choice{grid-template-columns:1fr;padding:35px 0 55px}.choice-card{padding:28px 22px}.choice-card h2{font-size:1.9rem}}
