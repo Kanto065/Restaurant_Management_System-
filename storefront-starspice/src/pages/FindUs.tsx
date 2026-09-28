@@ -30,28 +30,22 @@ export default function FindUs() {
       </div>
       <section className="paper">
         <div className="wrap find-layout">
-          <div className="place-panel">
-            <div>
+          {/* The map fills the panel; the text sits over a cream band at the top, which also
+              hides Google's "Open in Maps" box in that corner (the free embed can't turn it off). */}
+          <div className="place-panel place-panel-map">
+            <iframe
+              className="place-map-frame"
+              title={address ? `Map showing Star Spice, ${address}` : 'Map of Tumble, Carmarthenshire'}
+              src={`https://www.google.com/maps?q=${mapQuery}&z=${address ? 16 : 14}&output=embed`}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+            <div className="place-map-text">
               <p className="eyebrow">CARMARTHENSHIRE · WALES</p>
               <h2>Tumble.</h2>
               <p>{address ?? 'The full takeaway address will be added once confirmed.'}</p>
             </div>
-            {/* Google's plain embed (no API key): the takeaway once the address is confirmed,
-                Tumble itself until then. */}
-            <figure className="place-map">
-              <iframe
-                title={address ? `Map showing Star Spice, ${address}` : 'Map of Tumble, Carmarthenshire'}
-                src={`https://www.google.com/maps?q=${mapQuery}&z=${address ? 16 : 14}&output=embed`}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-              />
-              {!address && <figcaption>Showing Tumble - the exact address will be pinned once it’s confirmed.</figcaption>}
-            </figure>
-            <a className="text-link" href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`} target="_blank" rel="noopener noreferrer">
-              {address ? 'View on Google Maps' : 'View Tumble on Google Maps'} <span aria-hidden="true">↗</span>
-              <span className="sr-only"> (opens in a new tab)</span>
-            </a>
+            {!address && <p className="place-map-note">Showing Tumble - the exact address will be pinned once it’s confirmed.</p>}
           </div>
           <dl className="details-list">
             {!orderingOpen && (

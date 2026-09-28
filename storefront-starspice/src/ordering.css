@@ -179,8 +179,11 @@ input:focus,select:focus,textarea:focus{outline:2px solid #976414;outline-offset
 .guest-link{margin-top:18px;font-size:.875rem}
 @media(max-width:760px){.gallery-empty{grid-template-columns:1fr;gap:40px;padding:45px 0 60px}.checkout-choice{grid-template-columns:1fr;padding:35px 0 55px}.choice-card{padding:28px 22px}.choice-card h2{font-size:1.9rem}}
 
-/* Find us: Google map inside the address panel, between the address and the Maps link */
-.place-map{margin:26px 0}
-.place-map iframe{display:block;width:100%;height:260px;border:0;background:#dcd5c5}
-.place-map figcaption{font-size:.8125rem;color:#666759;margin-top:10px}
-@media(max-width:760px){.place-map iframe{height:220px}}
+/* Find us: the map fills the address panel; the text sits over a cream band at the top */
+.place-panel.place-panel-map{position:relative;overflow:hidden;padding:0;min-height:600px;display:block}
+.place-map-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#dcd5c5;filter:saturate(.75) sepia(.08)}
+.place-map-text{position:relative;z-index:1;padding:55px 40px 60px;background:linear-gradient(to bottom,#e7e1d3 0,#e7e1d3 62%,rgba(231,225,211,.9) 78%,rgba(231,225,211,0) 100%)}
+.place-map-text h2{margin:20px 0}
+.place-map-text p:not(.eyebrow){color:#595a4e;max-width:420px}
+.place-map-note{position:absolute;z-index:1;left:16px;bottom:34px;margin:0;font-size:.75rem;color:var(--ink);background:#e7e1d3e6;padding:6px 10px;pointer-events:none}
+@media(max-width:760px){.place-panel.place-panel-map{min-height:560px}.place-map-text{padding:32px 28px 50px}}
