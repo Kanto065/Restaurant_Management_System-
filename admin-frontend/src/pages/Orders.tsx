@@ -50,7 +50,7 @@ interface OrderItem { id: string; nameSnapshot: string; unitPriceSnapshot: numbe
 interface StatusHistoryEntry { status: OrderStatus; note: string | null; timestamp: string }
 
 interface OrderDetail extends OrderListItem {
-  subtotal: number; deliveryFee: number; processingFee: number; discountAmount: number;
+  subtotal: number; deliveryFee: number; deliveryZoneName?: string | null; processingFee: number; discountAmount: number;
   customerPhone: string | null; customerEmail: string | null; specialRequests: string | null;
   estimatedReadyAt: string | null; items: OrderItem[]; statusHistory: StatusHistoryEntry[];
 }
@@ -106,7 +106,7 @@ function openReceiptPrintWindow(order: OrderDetail, formatCurrency: (amount: num
   <table>${itemsHtml}</table>
   <table class="totals">
     <tr><td>Subtotal</td><td style="text-align:right">${formatCurrency(order.subtotal)}</td></tr>
-    ${feeRow('Delivery fee', order.deliveryFee)}
+    ${feeRow(order.deliveryZoneName ? `Delivery fee (${escapeHtml(order.deliveryZoneName)})` : 'Delivery fee', order.deliveryFee)}
     ${feeRow('Processing fee', order.processingFee)}
     ${order.discountAmount > 0 ? `<tr><td>Discount</td><td style="text-align:right">&minus;${formatCurrency(order.discountAmount)}</td></tr>` : ''}
     <tr class="grand"><td>Total</td><td style="text-align:right">${formatCurrency(order.totalAmount)}</td></tr>
@@ -648,7 +648,7 @@ const Orders = () => {
                   <h4 className="font-semibold mb-3 flex items-center gap-2"><DollarSign className="w-4 h-4" />Payment Information</h4>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between"><span className="text-sm">Subtotal</span><span className="text-sm">{formatCurrency(selectedOrder.subtotal)}</span></div>
-                    {selectedOrder.deliveryFee > 0 && <div className="flex items-center justify-between"><span className="text-sm">Delivery Fee</span><span className="text-sm">{formatCurrency(selectedOrder.deliveryFee)}</span></div>}
+                    {selectedOrder.deliveryFee > 0 && <div className="flex items-center justify-between"><span className="text-sm">Delivery Fee{selectedOrder.deliveryZoneName && ` (${selectedOrder.deliveryZoneName})`}</span><span className="text-sm">{formatCurrency(selectedOrder.deliveryFee)}</span></div>}
                     {selectedOrder.processingFee > 0 && <div className="flex items-center justify-between"><span className="text-sm">Processing Fee</span><span className="text-sm">{formatCurrency(selectedOrder.processingFee)}</span></div>}
                     {selectedOrder.discountAmount > 0 && <div className="flex items-center justify-between"><span className="text-sm">Discount</span><span className="text-sm">-{formatCurrency(selectedOrder.discountAmount)}</span></div>}
                     <div className="flex items-center justify-between"><span className="text-sm">Payment Method</span><span className="text-sm font-medium">{selectedOrder.paymentMethod}</span></div>
