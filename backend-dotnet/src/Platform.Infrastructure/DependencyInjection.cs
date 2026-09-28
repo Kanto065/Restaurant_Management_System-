@@ -6,6 +6,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Platform.Application.Common;
+using Platform.Application.Delivery;
+using Platform.Infrastructure.Delivery;
 using Platform.Infrastructure.Identity;
 using Platform.Infrastructure.Multitenancy;
 using Platform.Infrastructure.Payments;
@@ -109,6 +111,13 @@ public static class DependencyInjection
         services.Configure<PaymentsOptions>(configuration.GetSection(PaymentsOptions.SectionName));
         services.AddSingleton<ISecretProtector, AesGcmSecretProtector>();
         services.AddScoped<IStripeAccountProvider, StripeAccountProvider>();
+
+        services.AddHttpClient<IPostcodeLookup, PostcodesIoLookup>(c =>
+        {
+            c.BaseAddress = new Uri(configuration["Postcodes:BaseUrl"] ?? "https://api.postcodes.io/");
+            c.Timeout = TimeSpan.FromSeconds(8);
+        });
+        services.AddScoped<DeliveryQuoteService>();
 
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
         var storageProvider = configuration.GetSection(StorageOptions.SectionName)["Provider"];
