@@ -153,9 +153,15 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
       setLabelZoom(map.getZoom() >= LABEL_ZOOM);
       onViewChangeRef.current({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast(), zoom: map.getZoom() });
     });
+    // A double-click zooms; don't also treat its clicks as "check this spot". Single clicks
+    // wait a moment and are dropped if a second click follows.
+    let pendingClick: ReturnType<typeof setTimeout> | undefined;
     map.on('click', (e: L.LeafletMouseEvent) => {
-      if (!busyRef.current) onMapClickRef.current(e.latlng.lat, e.latlng.lng);
+      if (busyRef.current) return;
+      clearTimeout(pendingClick);
+      pendingClick = setTimeout(() => onMapClickRef.current(e.latlng.lat, e.latlng.lng), 250);
     });
+    map.on('dblclick', () => clearTimeout(pendingClick));
 
     map.on('pm:create', (e: { layer: L.Layer }) => {
       const layer = e.layer as L.Polygon;
