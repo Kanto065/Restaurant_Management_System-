@@ -42,8 +42,15 @@ export default function FindUs() {
             />
             <div className="place-map-text">
               <p className="eyebrow">CARMARTHENSHIRE · WALES</p>
-              <h2>Tumble.</h2>
-              <p>{address ?? 'The full takeaway address will be added once confirmed.'}</p>
+              {address ? (
+                <p className="place-address">
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`} target="_blank" rel="noopener noreferrer">
+                    {address}<span className="sr-only"> (opens Google Maps in a new tab)</span>
+                  </a>
+                </p>
+              ) : (
+                <p className="place-address">The full takeaway address will be added once confirmed.</p>
+              )}
             </div>
             {!address && <p className="place-map-note">Showing Tumble - the exact address will be pinned once it’s confirmed.</p>}
           </div>

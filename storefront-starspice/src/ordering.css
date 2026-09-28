@@ -183,7 +183,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #976414;outline-offset
 .place-panel.place-panel-map{position:relative;overflow:hidden;padding:0;min-height:600px;display:block}
 .place-map-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#dcd5c5;filter:saturate(.75) sepia(.08)}
 .place-map-text{position:relative;z-index:1;padding:55px 40px 60px;background:linear-gradient(to bottom,#e7e1d3 0,#e7e1d3 62%,rgba(231,225,211,.9) 78%,rgba(231,225,211,0) 100%)}
-.place-map-text h2{margin:20px 0}
-.place-map-text p:not(.eyebrow){color:#595a4e;max-width:420px}
+.place-address{margin-top:18px;font-family:var(--display);font-size:clamp(1.35rem,2vw,1.7rem);line-height:1.35;letter-spacing:-.015em;color:var(--ink);max-width:440px}
+.place-address a{text-decoration:underline;text-decoration-color:transparent;text-decoration-thickness:1px;text-underline-offset:5px;transition:text-decoration-color .2s,color .2s}
+.place-address a:hover,.place-address a:focus-visible{text-decoration-color:currentColor;color:#875713}
 .place-map-note{position:absolute;z-index:1;left:16px;bottom:34px;margin:0;font-size:.75rem;color:var(--ink);background:#e7e1d3e6;padding:6px 10px;pointer-events:none}
 @media(max-width:760px){.place-panel.place-panel-map{min-height:560px}.place-map-text{padding:32px 28px 50px}}
