@@ -87,6 +87,28 @@ export interface DeliveryZone {
   minimumOrderAmount: number;
 }
 
+/** GET /api/public/delivery-quote - what delivery to one postcode costs. */
+export interface DeliveryQuote {
+  canDeliver: boolean;
+  /** The postcode as priced (tidied, or found from the customer's location). */
+  postcode: string | null;
+  deliveryFee: number;
+  minimumOrderAmount: number;
+  /** The matching area, or "Anywhere else". */
+  zoneName: string | null;
+  inZone: boolean;
+  /** Why delivery isn't possible; null when it is. */
+  message: string | null;
+}
+
+/** GET /api/public/delivery-info - the price list for Contact Us. */
+export interface DeliveryInfo {
+  zones: { name: string; deliveryFee: number; minimumOrderAmount: number }[];
+  outsideZoneFee: number | null;
+  outsideZoneMinimumOrder: number | null;
+  maxDeliveryMiles: number;
+}
+
 export type SpiceLevel = 'None' | 'Mild' | 'Medium' | 'Hot';
 
 export interface ModifierOption {

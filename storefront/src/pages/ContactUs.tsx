@@ -1,6 +1,8 @@
-import { useRestaurant, useDeliveryZones } from '../lib/queries';
+import { useRestaurant } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
+import { useDeliveryInfo } from '../lib/delivery';
 import MandalaAccent from '../components/MandalaAccent';
+import DeliveryPostcodeBox from '../components/DeliveryCheck';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -14,7 +16,16 @@ function formatTime(t: string | null) {
 
 export default function ContactUs() {
   const { data: restaurant } = useRestaurant();
-  const { data: deliveryZones } = useDeliveryZones();
+  const { data: deliveryInfo } = useDeliveryInfo();
+  // One row per price, listing every area charged it (Hafod, Marina, St Thomas... all £2.00).
+  const priceRows = Object.values(
+    (deliveryInfo?.zones ?? []).reduce<Record<string, { fee: number; min: number; areas: string[] }>>((rows, z) => {
+      const key = `${z.deliveryFee}|${z.minimumOrderAmount}`;
+      rows[key] ??= { fee: z.deliveryFee, min: z.minimumOrderAmount, areas: [] };
+      if (!rows[key].areas.includes(z.name)) rows[key].areas.push(z.name);
+      return rows;
+    }, {}),
+  ).sort((a, b) => a.fee - b.fee || a.min - b.min);
   const currency = currencySymbol(restaurant?.currency);
 
   const today = new Date().getDay();
@@ -39,32 +50,43 @@ export default function ContactUs() {
           )}
         </div>
 
-        {deliveryZones && deliveryZones.length > 0 && (
+        {deliveryInfo && restaurant?.supportsDelivery && (priceRows.length > 0 || deliveryInfo.outsideZoneFee !== null) && (
           <div className="bg-brand-green rounded-lg overflow-hidden">
             <h2 className="font-display text-xl text-white px-5 py-3">Delivery Information</h2>
             <div className="bg-brand-cream text-brand-bg p-5">
-              <p className="text-sm mb-3">We offer home delivery under the following order conditions:</p>
+              <p className="text-sm mb-3">We deliver up to {deliveryInfo.maxDeliveryMiles} miles away. The charge depends on your area:</p>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left border-b border-brand-bg/10">
-                    <th className="pb-2 font-medium">Mileage</th>
-                    <th className="pb-2 font-medium">Minimum Order *</th>
-                    <th className="pb-2 font-medium">Delivery Charge</th>
+                    <th className="pb-2 font-medium">Area</th>
+                    <th className="pb-2 pl-3 font-medium whitespace-nowrap">Minimum Order *</th>
+                    <th className="pb-2 pl-3 font-medium whitespace-nowrap">Delivery Charge</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-bg/10">
-                  {deliveryZones.map((z) => (
-                    <tr key={z.id}>
-                      <td className="py-2">Up to {z.maxMileage} miles</td>
-                      <td className="py-2">{currency}{z.minimumOrderAmount.toFixed(2)}</td>
-                      <td className="py-2">{currency}{z.deliveryFee.toFixed(2)}</td>
+                  {priceRows.map((row) => (
+                    <tr key={`${row.fee}|${row.min}`}>
+                      <td className="py-2">{row.areas.join(', ')}</td>
+                      <td className="py-2 pl-3">{currency}{row.min.toFixed(2)}</td>
+                      <td className="py-2 pl-3">{currency}{row.fee.toFixed(2)}</td>
                     </tr>
                   ))}
+                  {deliveryInfo.outsideZoneFee !== null && (
+                    <tr>
+                      <td className="py-2">Anywhere else within {deliveryInfo.maxDeliveryMiles} miles</td>
+                      <td className="py-2 pl-3">{currency}{(deliveryInfo.outsideZoneMinimumOrder ?? 0).toFixed(2)}</td>
+                      <td className="py-2 pl-3">{currency}{deliveryInfo.outsideZoneFee.toFixed(2)}</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
               <p className="text-xs text-brand-bg/60 mt-3">
                 * you must spend at least this amount on the items, after discount, excluding any delivery or processing fees.
               </p>
+              <div className="mt-4 pt-4 border-t border-brand-bg/10">
+                <p className="text-sm font-medium mb-2">Check your postcode</p>
+                <DeliveryPostcodeBox tone="light" />
+              </div>
             </div>
           </div>
         )}

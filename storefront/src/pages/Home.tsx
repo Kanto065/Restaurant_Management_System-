@@ -5,6 +5,7 @@ import { useCartStore } from '../store/cart';
 import { currencySymbol } from '../lib/currency';
 import HeroCarousel from '../components/HeroCarousel';
 import MandalaAccent from '../components/MandalaAccent';
+import { UseMyLocationButton } from '../components/DeliveryCheck';
 import type { HeroSlide } from '../types/api';
 
 const DEFAULT_ORDER_ONLINE_TITLE = 'Order Online';
@@ -142,6 +143,12 @@ export default function Home() {
                 Order
               </button>
             </form>
+            <div className="mt-2">
+              <UseMyLocationButton
+                tone="light"
+                onFound={(found) => navigate(`/menu?type=Delivery&postcode=${encodeURIComponent(found)}`)}
+              />
+            </div>
           </div>
 
           <div className="bg-brand-orange text-white rounded-lg p-6">

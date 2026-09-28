@@ -5,6 +5,8 @@ import { useCartStore } from '../store/cart';
 import { useCreateOrder, useCreateCheckoutSession, useRestaurant, useProfile, useLoyalty } from '../lib/queries';
 import { api, customerAuth } from '../lib/api';
 import { currencySymbol } from '../lib/currency';
+import { useDeliveryQuote } from '../lib/delivery';
+import { DeliveryStatus, UseMyLocationButton } from '../components/DeliveryCheck';
 import { CreditCard, Banknote, Check } from 'lucide-react';
 import type { CreateOrderRequest, PaymentMethod } from '../types/api';
 
@@ -16,7 +18,7 @@ interface ValidateVoucherResponse {
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { orderType, lines, subtotal, clear, incrementLine, decrementLine } = useCartStore();
+  const { orderType, lines, subtotal, clear, incrementLine, decrementLine, deliveryPostcode: postcode, setDeliveryPostcode: setPostcode } = useCartStore();
   const createOrder = useCreateOrder();
   const createCheckoutSession = useCreateCheckoutSession();
   const { data: restaurant } = useRestaurant();
@@ -30,7 +32,6 @@ export default function Checkout() {
   const [addressLine1, setAddressLine1] = useState('');
   const [addressLine2, setAddressLine2] = useState('');
   const [city, setCity] = useState('');
-  const [postcode, setPostcode] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Card');
   const [voucherCode, setVoucherCode] = useState('');
@@ -58,7 +59,7 @@ export default function Checkout() {
       setAddressLine1((prev) => prev || defaultAddress.line1);
       setAddressLine2((prev) => prev || defaultAddress.line2 || '');
       setCity((prev) => prev || defaultAddress.city);
-      setPostcode((prev) => prev || defaultAddress.postcode);
+      if (!useCartStore.getState().deliveryPostcode) setPostcode(defaultAddress.postcode);
     }
   }, [profile]);
 
@@ -67,8 +68,12 @@ export default function Checkout() {
     ? Math.round((restaurant.processingFeeFlat + (rawSubtotal * restaurant.processingFeePercentage) / 100) * 100) / 100
     : 0;
 
+  const isDelivery = orderType === 'Delivery';
+  const { data: deliveryQuote, isFetching: checkingDelivery } = useDeliveryQuote(postcode, isDelivery);
+  const deliveryFee = isDelivery && deliveryQuote?.canDeliver ? deliveryQuote.deliveryFee : 0;
+
   const voucherDiscount = appliedVoucher?.discountAmount ?? 0;
-  const afterVoucher = Math.max(0, rawSubtotal + processingFee - voucherDiscount);
+  const afterVoucher = Math.max(0, rawSubtotal + deliveryFee + processingFee - voucherDiscount);
 
   const pointsBalance = loyalty?.pointsBalance ?? 0;
   const pointsValue = pointsBalance * 0.01;
@@ -90,13 +95,30 @@ export default function Checkout() {
     onError: () => { setAppliedVoucher(null); setVoucherError('Could not check this voucher right now. Please try again.'); },
   });
 
-  const estimatedTotal = Math.max(0, rawSubtotal + processingFee - discount);
+  const estimatedTotal = Math.max(0, rawSubtotal + deliveryFee + processingFee - discount);
+
+  // Same rules the server applies when the order is placed - checked here so the customer
+  // finds out before pressing the button. Minimum = food after voucher, fees excluded.
+  const foodAfterVoucher = rawSubtotal - voucherDiscount;
+  const deliveryBlocker = !isDelivery
+    ? null
+    : !deliveryQuote
+      ? (checkingDelivery ? 'Checking your delivery address...' : 'Enter your postcode so we can work out the delivery charge.')
+      : !deliveryQuote.canDeliver
+        ? deliveryQuote.message ?? "Sorry, we can't deliver to this address."
+        : foodAfterVoucher < deliveryQuote.minimumOrderAmount
+          ? `The minimum order for delivery is ${currencySymbol(restaurant?.currency)}${deliveryQuote.minimumOrderAmount.toFixed(2)} of food - add a little more to your order.`
+          : null;
   const estimatedLoyaltyPoints = restaurant ? Math.floor(estimatedTotal * restaurant.loyaltyPointsPerCurrencyUnit) : 0;
   const currency = currencySymbol(restaurant?.currency);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (deliveryBlocker) {
+      setError(deliveryBlocker);
+      return;
+    }
 
     const request: CreateOrderRequest = {
       orderType,
@@ -187,6 +209,12 @@ export default function Checkout() {
             <div className="pt-3 mt-2 border-t border-brand-bg/10 text-sm space-y-1.5">
               <div className="flex justify-between"><span>Subtotal</span><span>{currency}{rawSubtotal.toFixed(2)}</span></div>
               <div className="flex justify-between"><span>Discount</span><span>-{currency}{discount.toFixed(2)}</span></div>
+              {isDelivery && (
+                <div className="flex justify-between">
+                  <span>Delivery{deliveryQuote?.canDeliver && deliveryQuote.inZone ? ` (${deliveryQuote.zoneName})` : ''}</span>
+                  <span>{deliveryQuote?.canDeliver ? `${currency}${deliveryFee.toFixed(2)}` : '-'}</span>
+                </div>
+              )}
               {processingFee > 0 && (
                 <div className="flex justify-between items-center relative">
                   <span className="flex items-center gap-1">
@@ -302,8 +330,12 @@ export default function Checkout() {
                   className="rounded border border-brand-bg/20 px-3 py-2 text-sm sm:col-span-2" />
                 <input required value={city} onChange={(e) => setCity(e.target.value)} placeholder="Town/City"
                   className="rounded border border-brand-bg/20 px-3 py-2 text-sm" />
-                <input required value={postcode} onChange={(e) => setPostcode(e.target.value)} placeholder="Postcode"
-                  className="rounded border border-brand-bg/20 px-3 py-2 text-sm" />
+                <input required value={postcode} onChange={(e) => setPostcode(e.target.value.toUpperCase())} placeholder="Postcode"
+                  autoComplete="postal-code" className="rounded border border-brand-bg/20 px-3 py-2 text-sm" />
+                <div className="sm:col-span-2 space-y-1.5">
+                  <UseMyLocationButton tone="light" />
+                  <DeliveryStatus postcode={postcode} tone="light" foodTotal={foodAfterVoucher} />
+                </div>
               </div>
             )}
           </div>
@@ -351,10 +383,11 @@ export default function Checkout() {
           </div>
 
           {error && <p className="text-red-400 text-sm">{error}</p>}
+          {!error && deliveryBlocker && <p className="text-amber-300 text-sm">{deliveryBlocker}</p>}
 
           <button
             type="submit"
-            disabled={createOrder.isPending}
+            disabled={createOrder.isPending || !!deliveryBlocker}
             className="w-full bg-brand-green text-white rounded-lg py-3.5 font-semibold disabled:opacity-50"
           >
             {createOrder.isPending ? 'Placing order...' : `Confirm and Place Order (${currency}${estimatedTotal.toFixed(2)})`}

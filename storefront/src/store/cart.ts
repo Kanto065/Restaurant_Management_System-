@@ -13,7 +13,11 @@ export interface CartLine {
 interface CartState {
   orderType: OrderType;
   lines: CartLine[];
+  /** Where a delivery order is going - checked for a delivery price as soon as it's entered,
+   *  and carried from the home page through the menu to checkout. */
+  deliveryPostcode: string;
   setOrderType: (type: OrderType) => void;
+  setDeliveryPostcode: (postcode: string) => void;
   addLine: (menuItem: MenuItem, selectedOptions: ModifierOption[], quantity?: number, specialInstructions?: string) => void;
   incrementLine: (lineId: string) => void;
   decrementLine: (lineId: string) => void;
@@ -30,8 +34,10 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       orderType: 'Collection',
       lines: [],
+      deliveryPostcode: '',
 
       setOrderType: (orderType) => set({ orderType }),
+      setDeliveryPostcode: (deliveryPostcode) => set({ deliveryPostcode }),
 
       addLine: (menuItem, selectedOptions, quantity = 1, specialInstructions) => {
         const optionKey = selectedOptions.map((o) => o.id).sort().join(',');

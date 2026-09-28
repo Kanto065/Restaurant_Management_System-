@@ -3,14 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../store/cart';
 import { useRestaurant } from '../lib/queries';
 import { currencySymbol } from '../lib/currency';
+import { useDeliveryQuote } from '../lib/delivery';
 
 export default function CartPanel() {
-  const { lines, orderType, setOrderType, incrementLine, decrementLine, clear, subtotal } = useCartStore();
+  const { lines, orderType, setOrderType, incrementLine, decrementLine, clear, subtotal, deliveryPostcode } = useCartStore();
   const total = subtotal();
   const { data: restaurant } = useRestaurant();
   const currency = currencySymbol(restaurant?.currency);
   const navigate = useNavigate();
   const [confirmingCheckout, setConfirmingCheckout] = useState(false);
+  const { data: quote } = useDeliveryQuote(deliveryPostcode, orderType === 'Delivery');
+  const deliveryQuote = orderType === 'Delivery' && quote?.canDeliver ? quote : null;
 
   return (
     <div className="bg-brand-cream text-brand-bg rounded-lg overflow-hidden">
@@ -47,6 +50,19 @@ export default function CartPanel() {
         <span>Subtotal:</span>
         <span>{currency}{total.toFixed(2)}</span>
       </div>
+      {deliveryQuote && lines.length > 0 && (
+        <div className="px-4 pb-3 -mt-1 text-sm space-y-1">
+          <div className="flex items-center justify-between">
+            <span>Delivery{deliveryQuote.inZone ? ` (${deliveryQuote.zoneName})` : ''}:</span>
+            <span>{currency}{deliveryQuote.deliveryFee.toFixed(2)}</span>
+          </div>
+          {total < deliveryQuote.minimumOrderAmount && (
+            <p className="text-xs text-red-600">
+              Minimum order for delivery is {currency}{deliveryQuote.minimumOrderAmount.toFixed(2)} - add {currency}{(deliveryQuote.minimumOrderAmount - total).toFixed(2)} more.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="p-3 flex gap-2">
         <button

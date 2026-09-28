@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMenu, useFavourites, useLastOrder, useRestaurant } from '../lib/queries';
@@ -10,6 +10,8 @@ import ModifierModal from '../components/ModifierModal';
 import CartPanel from '../components/CartPanel';
 import RichDescription from '../components/RichDescription';
 import MandalaAccent from '../components/MandalaAccent';
+import DeliveryPostcodeBox from '../components/DeliveryCheck';
+import { tidyPostcode } from '../lib/delivery';
 import type { MenuItem, OrderType } from '../types/api';
 
 type ViewMode = 'category' | 'best-sellers' | 'favourites';
@@ -52,6 +54,13 @@ export default function Menu() {
 
   const orderType = (searchParams.get('type') as OrderType | null) ?? 'Collection';
   useMemo(() => setOrderType(orderType), [orderType, setOrderType]);
+
+  // The home page's "enter your postcode" box lands here as ?postcode=...
+  const setDeliveryPostcode = useCartStore((s) => s.setDeliveryPostcode);
+  const postcodeParam = searchParams.get('postcode');
+  useEffect(() => {
+    if (postcodeParam?.trim()) setDeliveryPostcode(tidyPostcode(postcodeParam));
+  }, [postcodeParam, setDeliveryPostcode]);
 
   const categories = data?.categories ?? [];
   const allItems = useMemo(() => categories.flatMap((c) => c.items), [categories]);
@@ -164,6 +173,11 @@ export default function Menu() {
             >
               Order for Home Delivery
             </button>
+          </div>
+        )}
+        {orderType === 'Delivery' && (
+          <div className="mt-3">
+            <DeliveryPostcodeBox tone="dark" foodTotal={subtotal} />
           </div>
         )}
       </div>
