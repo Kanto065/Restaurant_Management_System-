@@ -1,65 +1,65 @@
 BEGIN;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.624287,-3.883788],[51.626934,-3.884205],[51.629479,-3.885441],[51.631824,-3.887446],[51.63388,-3.890145],[51.634178,-3.890727],[51.634551,-3.893437],[51.631237,-3.919146],[51.615506,-3.916818],[51.611872,-3.914149],[51.611754,-3.913798],[51.610982,-3.909726],[51.610722,-3.905492],[51.610982,-3.901258],[51.611754,-3.897186],[51.613008,-3.893434],[51.614695,-3.890145],[51.616751,-3.887446],[51.619096,-3.885441],[51.621641,-3.884205]]', "Colour" = '#27ae60', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Port Tennant' AND "DeliveryFee" = 1.50 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Port Tennant' AND "DeliveryFee" = 1.50 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.619825,-3.934645],[51.615506,-3.916818],[51.631237,-3.919146],[51.63213,-3.921272],[51.627126,-3.943451],[51.626922,-3.943566]]', "Colour" = '#2f80ed', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'St Tomas' AND "DeliveryFee" = 2.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'St Tomas' AND "DeliveryFee" = 2.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.638344,-3.924475],[51.638887,-3.942663],[51.635228,-3.950079],[51.635045,-3.950292],[51.627126,-3.943451],[51.63213,-3.921272]]', "Colour" = '#2f80ed', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Hafod' AND "DeliveryFee" = 2.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Hafod' AND "DeliveryFee" = 2.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.605695,-3.94908],[51.604584,-3.946913],[51.60333,-3.943161],[51.602558,-3.939089],[51.602297,-3.934855],[51.602558,-3.930621],[51.60333,-3.926549],[51.604584,-3.922797],[51.606271,-3.919508],[51.608326,-3.916809],[51.610672,-3.914803],[51.611931,-3.914192],[51.615506,-3.916818],[51.619825,-3.934645]]', "Colour" = '#2f80ed', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Marina' AND "DeliveryFee" = 2.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Marina' AND "DeliveryFee" = 2.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.615805,-3.938752],[51.619825,-3.934645],[51.626922,-3.943566],[51.625639,-3.945596]]', "Colour" = '#2f80ed', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Sandfields' AND "DeliveryFee" = 2.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Sandfields' AND "DeliveryFee" = 2.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.608194,-3.951605],[51.606162,-3.950575],[51.605671,-3.949105],[51.615805,-3.938752],[51.625639,-3.945596],[51.623686,-3.948686],[51.619669,-3.951108]]', "Colour" = '#e8823c', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Sandfields' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Sandfields' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.646551,-3.94126],[51.638887,-3.942663],[51.638344,-3.924475],[51.643028,-3.924067]]', "Colour" = '#9b51e0', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Landore' AND "DeliveryFee" = 2.50 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Landore' AND "DeliveryFee" = 2.50 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.644539,-3.922727],[51.643028,-3.924067],[51.638344,-3.924475],[51.63213,-3.921272],[51.631237,-3.919146],[51.634551,-3.893437],[51.636281,-3.895414]]', "Colour" = '#e8823c', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Bonymaen' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Bonymaen' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.652411,-3.913841],[51.65274,-3.915449],[51.644539,-3.922727],[51.636281,-3.895414]]', "Colour" = '#eb5757', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Bonymaen' AND "DeliveryFee" = 4.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Bonymaen' AND "DeliveryFee" = 4.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.653473,-3.949904],[51.635228,-3.950079],[51.638887,-3.942663],[51.646551,-3.94126]]', "Colour" = '#e8823c', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Brynhyfryd' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Brynhyfryd' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.603231,-3.986099],[51.602589,-3.985255],[51.600902,-3.981967],[51.599648,-3.978214],[51.598876,-3.974143],[51.598615,-3.969909],[51.598876,-3.965674],[51.599648,-3.961603],[51.600902,-3.957851],[51.602589,-3.954562],[51.604644,-3.951863],[51.606154,-3.950571],[51.608194,-3.951605],[51.615511,-3.966413],[51.61591,-3.976522]]', "Colour" = '#e8823c', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Brynmill' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Brynmill' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.65607,-3.952041],[51.656149,-3.953319],[51.655888,-3.957553],[51.655116,-3.961624],[51.653862,-3.965377],[51.652175,-3.968666],[51.65012,-3.971365],[51.647774,-3.97337],[51.645229,-3.974605],[51.642583,-3.975023],[51.640585,-3.974708],[51.636992,-3.965505],[51.635045,-3.950292],[51.635228,-3.950079],[51.653473,-3.949904]]', "Colour" = '#e8823c', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Manselton' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Manselton' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.626521,-3.962503],[51.623686,-3.948686],[51.626922,-3.943566],[51.627126,-3.943451],[51.635045,-3.950292],[51.636992,-3.965505]]', "Colour" = '#e8823c', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'May hill' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'May hill' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.660394,-3.922392],[51.661411,-3.925437],[51.662183,-3.929508],[51.662444,-3.933743],[51.662183,-3.937977],[51.661411,-3.942048],[51.660157,-3.9458],[51.65847,-3.949089],[51.656415,-3.951788],[51.656095,-3.952062],[51.653473,-3.949904],[51.646551,-3.94126],[51.643028,-3.924067],[51.65274,-3.915449]]', "Colour" = '#e8823c', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Plasmarl' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Plasmarl' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.62389,-3.97951],[51.61591,-3.976522],[51.615511,-3.966413],[51.620994,-3.965075],[51.623353,-3.967859]]', "Colour" = '#e8823c', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Upland' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Upland' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.615511,-3.966413],[51.608194,-3.951605],[51.619669,-3.951108],[51.620994,-3.965075]]', "Colour" = '#e8823c', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Waun wen' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Waun wen' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.619669,-3.951108],[51.623686,-3.948686],[51.626521,-3.962503],[51.623353,-3.967859],[51.620994,-3.965075]]', "Colour" = '#e8823c', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'gors avenue' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'gors avenue' AND "DeliveryFee" = 3.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.660567,-3.87905],[51.663214,-3.879467],[51.665759,-3.880702],[51.668104,-3.882708],[51.67016,-3.885407],[51.671847,-3.888696],[51.6731,-3.892448],[51.673872,-3.896519],[51.674133,-3.900754],[51.673872,-3.904988],[51.6731,-3.909059],[51.671847,-3.912811],[51.67016,-3.9161],[51.668104,-3.918799],[51.665759,-3.920805],[51.663214,-3.92204],[51.660567,-3.922457],[51.660445,-3.922438],[51.65274,-3.915449],[51.652411,-3.913841],[51.655542,-3.880621],[51.657921,-3.879467]]', "Colour" = '#eb5757', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Llansamlet' AND "DeliveryFee" = 4.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Llansamlet' AND "DeliveryFee" = 4.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.630035,-3.989574],[51.629265,-3.993636],[51.628011,-3.997389],[51.626324,-4.000678],[51.624269,-4.003377],[51.621923,-4.005382],[51.619379,-4.006617],[51.616732,-4.007034],[51.614085,-4.006617],[51.611541,-4.005382],[51.609195,-4.003377],[51.60714,-4.000678],[51.605453,-3.997389],[51.604199,-3.993636],[51.603427,-3.989565],[51.603214,-3.986112],[51.61591,-3.976522],[51.62389,-3.97951]]', "Colour" = '#eb5757', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Sketty' AND "DeliveryFee" = 4.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Sketty' AND "DeliveryFee" = 4.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.640573,-3.974679],[51.640228,-3.976502],[51.638974,-3.980255],[51.637287,-3.983544],[51.635231,-3.986243],[51.632886,-3.988248],[51.630341,-3.989483],[51.630012,-3.989535],[51.62389,-3.97951],[51.623353,-3.967859],[51.626521,-3.962503],[51.636992,-3.965505]]', "Colour" = '#eb5757', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Townhill' AND "DeliveryFee" = 4.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Townhill' AND "DeliveryFee" = 4.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 UPDATE "DeliveryZones" SET "BoundaryJson" = '[[51.647029,-3.875783],[51.649676,-3.8762],[51.65222,-3.877435],[51.654566,-3.879441],[51.655533,-3.880712],[51.652411,-3.913841],[51.634551,-3.893437],[51.634189,-3.890803],[51.634496,-3.889181],[51.63575,-3.885429],[51.637437,-3.88214],[51.639492,-3.879441],[51.641838,-3.877435],[51.644382,-3.8762]]', "Colour" = '#eb5757', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = 'Winch wen' AND "DeliveryFee" = 4.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
+    AND btrim("Name") = 'Winch wen' AND "DeliveryFee" = 4.00 AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;
 COMMIT;

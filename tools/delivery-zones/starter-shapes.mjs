@@ -68,7 +68,7 @@ const sql = ["BEGIN;"];
 for (const o of out) {
   sql.push(`UPDATE "DeliveryZones" SET "BoundaryJson" = '${JSON.stringify(o.boundary)}', "Colour" = '${o.colour}', "UpdatedAt" = now()
   WHERE "RestaurantId" = (SELECT "Id" FROM "Restaurants" WHERE "Slug" = :'slug')
-    AND "Name" = '${esc(o.name)}' AND "DeliveryFee" = ${o.fee.toFixed(2)} AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;`);
+    AND btrim("Name") = '${esc(o.name)}' AND "DeliveryFee" = ${o.fee.toFixed(2)} AND NOT "IsDeleted" AND "BoundaryJson" IS NULL;`);
 }
 sql.push("COMMIT;");
 fs.writeFileSync("starter-shapes.sql", sql.join("\n") + "\n");
