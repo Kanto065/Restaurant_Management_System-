@@ -41,7 +41,7 @@ public class ZoneToolsService(AppDbContext db, DeliveryQuoteService quotes, Name
 
         foreach (var g in groups)
         {
-            var lookup = await areas.FindAsync(g.First().Name, origin.Value, restaurant.City, ct);
+            var lookup = await areas.FindAsync(g.First().Name, origin.Value, restaurant.City, restaurant.MaxDeliveryMiles + 1, ct);
             serviceProblem |= lookup.ServiceUnavailable;
             if (lookup.Area is null)
                 results[g.Key] = new ZoneCheckResult(g.First().Name.Trim(), g.Select(z => z.Id).ToList(), false, null, null, 0, 0, []);
@@ -111,7 +111,7 @@ public class ZoneToolsService(AppDbContext db, DeliveryQuoteService quotes, Name
 
         foreach (var g in wanted.GroupBy(z => NamedAreaLookup.Normalise(z.Name)))
         {
-            var lookup = await areas.FindAsync(g.First().Name, origin.Value, restaurant.City, ct);
+            var lookup = await areas.FindAsync(g.First().Name, origin.Value, restaurant.City, restaurant.MaxDeliveryMiles + 1, ct);
             serviceProblem |= lookup.ServiceUnavailable;
             if (lookup.Area is null) { notFound.Add(g.First().Name.Trim()); continue; }
             // Cheapest first: with two prices for one name, the cheaper gets the nearer half.

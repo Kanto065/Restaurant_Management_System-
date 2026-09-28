@@ -34,23 +34,25 @@ public class NamedAreaLookup(IHttpClientFactory httpFactory, IMemoryCache cache,
         ["plasmarl"] = ["Plas-marl"],
     };
 
-    public async Task<AreaLookupResult> FindAsync(string zoneName, GeoPoint near, string town, CancellationToken ct = default)
+    /// <param name="withinMiles">Only areas centred this close to the restaurant count - the
+    /// delivery limit plus a margin, so "Sandfields" can't pick up Port Talbot's.</param>
+    public async Task<AreaLookupResult> FindAsync(string zoneName, GeoPoint near, string town, double withinMiles, CancellationToken ct = default)
     {
         var name = zoneName.Trim();
-        var key = $"named-area:{Normalise(name)}:{Math.Round(near.Latitude, 2)}:{Math.Round(near.Longitude, 2)}";
+        var key = $"named-area:{Normalise(name)}:{Math.Round(near.Latitude, 2)}:{Math.Round(near.Longitude, 2)}:{Math.Round(withinMiles)}";
         if (cache.TryGetValue(key, out AreaLookupResult? cached) && cached is not null)
             return cached;
 
         var unavailable = false;
         foreach (var variant in Variants(name))
         {
-            var outline = await OsmOutlineAsync(variant, near, town, ct);
+            var outline = await OsmOutlineAsync(variant, near, town, withinMiles, ct);
             if (outline.Unavailable) unavailable = true;
             if (outline.Area is not null) return cache.Set(key, new AreaLookupResult(outline.Area), TimeSpan.FromDays(7));
         }
         foreach (var variant in Variants(name))
         {
-            var extent = await OsPlaceExtentAsync(variant, near, ct);
+            var extent = await OsPlaceExtentAsync(variant, near, withinMiles, ct);
             if (extent.Unavailable) unavailable = true;
             if (extent.Area is not null) return cache.Set(key, new AreaLookupResult(extent.Area), TimeSpan.FromDays(7));
         }
@@ -78,7 +80,7 @@ public class NamedAreaLookup(IHttpClientFactory httpFactory, IMemoryCache cache,
 
     // ---- OpenStreetMap (Nominatim) ----
 
-    private async Task<(AreaReference? Area, bool Unavailable)> OsmOutlineAsync(string name, GeoPoint near, string town, CancellationToken ct)
+    private async Task<(AreaReference? Area, bool Unavailable)> OsmOutlineAsync(string name, GeoPoint near, string town, double withinMiles, CancellationToken ct)
     {
         // Only look within ~10 km of the restaurant, so "Sandfields" doesn't find Port Talbot's.
         var box = FormattableString.Invariant(
@@ -109,6 +111,8 @@ public class NamedAreaLookup(IHttpClientFactory httpFactory, IMemoryCache cache,
 
                 var rings = OuterRings(geo);
                 if (rings.Count == 0) continue;
+                var centre = new GeoPoint(rings.SelectMany(r => r).Average(p => p.Latitude), rings.SelectMany(r => r).Average(p => p.Longitude));
+                if (DeliveryPricing.DistanceMiles(near, centre) > withinMiles) continue;
                 var label = hit.TryGetProperty("name", out var n) && n.GetString() is { Length: > 0 } nm ? nm : name;
                 var source = category == "boundary" ? "OpenStreetMap official boundary" : "OpenStreetMap place area";
                 return (new AreaReference(label, source, rings), false);
@@ -157,7 +161,7 @@ public class NamedAreaLookup(IHttpClientFactory httpFactory, IMemoryCache cache,
 
     // ---- Ordnance Survey place names (via postcodes.io) ----
 
-    private async Task<(AreaReference? Area, bool Unavailable)> OsPlaceExtentAsync(string name, GeoPoint near, CancellationToken ct)
+    private async Task<(AreaReference? Area, bool Unavailable)> OsPlaceExtentAsync(string name, GeoPoint near, double withinMiles, CancellationToken ct)
     {
         try
         {
@@ -171,7 +175,7 @@ public class NamedAreaLookup(IHttpClientFactory httpFactory, IMemoryCache cache,
                 if (Normalise(RemoveAccents(placeName)) != Normalise(RemoveAccents(name))) continue;
                 if (!TryDouble(p, "latitude", out var lat) || !TryDouble(p, "longitude", out var lng)) continue;
                 var centre = new GeoPoint(lat, lng);
-                if (DeliveryPricing.DistanceMiles(near, centre) > 8) continue; // a different place with the same name
+                if (DeliveryPricing.DistanceMiles(near, centre) > withinMiles) continue; // a different place with the same name
 
                 if (!TryDouble(p, "eastings", out var e) || !TryDouble(p, "northings", out var nth)
                     || !TryDouble(p, "min_eastings", out var minE) || !TryDouble(p, "max_eastings", out var maxE)

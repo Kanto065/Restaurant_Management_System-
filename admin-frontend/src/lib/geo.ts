@@ -45,18 +45,39 @@ export function areasOverlap(a: Rings, b: Rings): boolean {
   const w = Math.max(ba.w, bb.w), e = Math.min(ba.e, bb.e);
   if (s >= n || w >= e) return false;
 
-  // Count the shared area, not shared samples: a long border sliver catches many samples but
-  // adds up to little ground. Under ~1.5 hectares (a 120 m square) isn't worth a warning.
+  // A real overlap has ground well inside both shapes. Neighbours whose borders don't quite
+  // line up (an auto-drawn area next to a hand-drawn curve) only share a thin sliver, where
+  // every shared point is within a few tens of metres of a border - not worth a warning.
   const steps = 40;
-  const cellSqMetres = (((n - s) / steps) * 110_574) * (((e - w) / steps) * 111_320 * Math.cos((s * Math.PI) / 180));
-  let both = 0;
+  let deep = 0;
   for (let i = 0; i <= steps; i++) {
     for (let j = 0; j <= steps; j++) {
       const p: LatLng = [s + ((n - s) * i) / steps, w + ((e - w) * j) / steps];
-      if (pointInArea(p, a) && pointInArea(p, b) && ++both * cellSqMetres >= 15_000 && both >= 3) return true;
+      if (pointInArea(p, a) && pointInArea(p, b)
+          && metresToEdge(p, a) > SLIVER_METRES && metresToEdge(p, b) > SLIVER_METRES && ++deep >= 2) return true;
     }
   }
   return false;
+}
+
+const SLIVER_METRES = 30;
+
+/** Distance from a point to the nearest border of an area, in metres (flat, town scale). */
+export function metresToEdge(point: LatLng, rings: Rings): number {
+  const kx = 111_320 * Math.cos((point[0] * Math.PI) / 180);
+  const ky = 110_574;
+  let best = Infinity;
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const ax = (ring[j][1] - point[1]) * kx, ay = (ring[j][0] - point[0]) * ky;
+      const bx = (ring[i][1] - point[1]) * kx, by = (ring[i][0] - point[0]) * ky;
+      const dx = bx - ax, dy = by - ay;
+      const len = dx * dx + dy * dy;
+      const t = len === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len));
+      best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+    }
+  }
+  return best;
 }
 
 /** Distinct, readable-on-a-map colours for new zones. */
