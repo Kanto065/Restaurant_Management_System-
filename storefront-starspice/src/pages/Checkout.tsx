@@ -7,7 +7,7 @@ import { api, customerAuth } from '@shared/lib/api';
 import { looksLikePostcode, quoteFromMyLocation, tidyPostcode, useDeliveryQuote } from '@shared/lib/delivery';
 import type { CreateOrderRequest, PaymentMethod } from '@shared/types/api';
 import { BasketLines, lineTotal, useValidOrderType } from '../components/Basket';
-import { formatPrice, isOrderingOpen, usePageTitle } from '../lib/site';
+import { formatPrice, GUEST_KEY, isOrderingOpen, usePageTitle } from '../lib/site';
 
 interface ValidateVoucherResponse {
   valid: boolean;
@@ -44,6 +44,14 @@ export default function Checkout() {
   const [redeemPoints, setRedeemPoints] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Remembered for this browser tab, so going back to the menu doesn't ask again.
+  const [guestChosen, setGuestChosen] = useState(() => {
+    try { return sessionStorage.getItem(GUEST_KEY) === '1'; } catch { return false; }
+  });
+  const chooseGuest = () => {
+    try { sessionStorage.setItem(GUEST_KEY, '1'); } catch { /* private mode - just this visit */ }
+    setGuestChosen(true);
+  };
 
   const cardAvailable = restaurant?.cardPaymentsAvailable !== false;
   useEffect(() => { if (!cardAvailable) setPaymentMethod('Cash'); }, [cardAvailable]);
@@ -142,6 +150,41 @@ export default function Checkout() {
         <p>Add a few dishes from the menu first.</p>
         <Link className="button" to="/menu">Back to the menu <span aria-hidden="true">→</span></Link>
       </div>
+    );
+  }
+
+  // Customers who aren't signed in choose first: sign in (or create an account) for saved
+  // details and loyalty points, or carry on as a guest. Signed-in customers skip this.
+  if (!isMember && !guestChosen) {
+    return (
+      <>
+        <div className="wrap page-intro menu-intro">
+          <p className="eyebrow">CHECKOUT</p>
+          <h1>How would you like to order?</h1>
+          <p>Sign in to use your saved details and collect loyalty points, or order as a guest - no account needed.</p>
+        </div>
+        <div className="paper">
+          <div className="wrap checkout-choice">
+            <section className="choice-card">
+              <p className="eyebrow">MEMBERS</p>
+              <h2>Sign in or create an account</h2>
+              <p>Your details and addresses are filled in for you, and every order earns loyalty points.</p>
+              <div className="choice-actions">
+                <Link className="button" to="/sign-in?next=/checkout">Sign in <span aria-hidden="true">→</span></Link>
+                <Link className="button ghost" to="/sign-in?next=/checkout#register">Create an account</Link>
+              </div>
+            </section>
+            <section className="choice-card guest">
+              <p className="eyebrow">GUEST</p>
+              <h2>Order as a guest</h2>
+              <p>Just add your name, number and address at the next step. You can create an account another time.</p>
+              <div className="choice-actions">
+                <button type="button" className="button" onClick={chooseGuest}>Continue as guest <span aria-hidden="true">→</span></button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </>
     );
   }
 

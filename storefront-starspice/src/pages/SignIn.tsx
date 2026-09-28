@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, customerAuth } from '@shared/lib/api';
-import { usePageTitle } from '../lib/site';
+import { GUEST_KEY, usePageTitle } from '../lib/site';
 
 type Tokens = { accessToken: string; refreshToken: string };
 
@@ -22,6 +22,13 @@ export default function SignIn() {
   const [reg, setReg] = useState({ fullName: '', email: '', phone: '', password: '', confirm: '', marketingEmailOptIn: false, marketingSmsOptIn: false });
   const [regError, setRegError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
+
+  // "Create an account" from checkout lands on #register - bring that form into view (on
+  // phones it sits below the sign-in form).
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash === '#register') document.getElementById('register')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [hash]);
 
   if (customerAuth.isLoggedIn()) return <Navigate to={next} replace />;
 
@@ -63,6 +70,13 @@ export default function SignIn() {
     }
   }
 
+  // Arrived here from checkout: let them carry on without an account too.
+  const fromCheckout = next === '/checkout';
+  const continueAsGuest = () => {
+    try { sessionStorage.setItem(GUEST_KEY, '1'); } catch { /* private mode */ }
+    navigate('/checkout');
+  };
+
   const set = (key: keyof typeof reg) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setReg((r) => ({ ...r, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
@@ -72,6 +86,11 @@ export default function SignIn() {
         <p className="eyebrow">YOUR ACCOUNT</p>
         <h1>Welcome back.</h1>
         <p>Sign in to order faster, keep your addresses and collect loyalty points on every order.</p>
+        {fromCheckout && (
+          <p className="guest-link">
+            Rather not? <button type="button" className="link-button" onClick={continueAsGuest}>Continue as a guest</button> - no account needed.
+          </p>
+        )}
       </div>
       <div className="paper">
         <div className="wrap auth-layout">
@@ -85,7 +104,7 @@ export default function SignIn() {
             <div><button type="submit" className="button" disabled={signingIn}>{signingIn ? 'Signing in…' : 'Sign in'} <span aria-hidden="true">→</span></button></div>
           </form>
 
-          <form className="stack" onSubmit={register}>
+          <form className="stack" id="register" onSubmit={register}>
             <h2>New here?</h2>
             <label className="field"><span>Full name</span>
               <input type="text" autoComplete="name" required value={reg.fullName} onChange={set('fullName')} /></label>

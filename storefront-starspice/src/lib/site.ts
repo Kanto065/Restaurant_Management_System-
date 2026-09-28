@@ -45,3 +45,6 @@ export function usePageTitle(page: string | null) {
 
 // 12-hour time helpers are shared with the Port Tennant storefront.
 export { formatClock, formatTimeOfDay } from '@shared/lib/time';
+
+/** Session flag set when a customer picks "Continue as guest" at checkout (or on the sign-in page). */
+export const GUEST_KEY = 'starspice-checkout-guest';
