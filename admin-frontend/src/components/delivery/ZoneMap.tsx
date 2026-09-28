@@ -94,7 +94,12 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
     });
 
     mapRef.current = map;
+    // The map measures its box once; when the page layout settles or the window resizes
+    // afterwards it would leave grey strips, so re-measure whenever the box changes.
+    const resize = new ResizeObserver(() => map.invalidateSize());
+    resize.observe(containerRef.current);
     return () => {
+      resize.disconnect();
       map.remove();
       mapRef.current = null;
     };
@@ -106,7 +111,7 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
     const group = baseLayerRef.current;
     if (!map || !group) return;
     group.clearLayers();
-    const ring = L.circle(centre, {
+    L.circle(centre, {
       radius: maxMiles * METRES_PER_MILE,
       color: '#6b7280', weight: 2, dashArray: '6 8', fill: false, interactive: false,
     }).addTo(group);
@@ -118,7 +123,9 @@ const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
       interactive: false,
       icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div style="transform:translate(-50%,-50%);width:max-content;font:600 11px system-ui;color:#374151;background:#fff;padding:1px 6px;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.3)">No delivery beyond ${maxMiles} miles</div>` }),
     }).addTo(group);
-    map.fitBounds(ring.getBounds(), { padding: [10, 10] });
+    // Not ring.getBounds(): a circle can only measure itself once the map has a view, and on
+    // first load it doesn't yet - that threw and blanked the whole admin app.
+    map.fitBounds(L.latLng(centre).toBounds(maxMiles * METRES_PER_MILE * 2), { padding: [10, 10] });
   }, [centre[0], centre[1], maxMiles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Zone shapes.
