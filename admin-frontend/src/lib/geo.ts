@@ -20,12 +20,30 @@ function cross(o: LatLng, a: LatLng, b: LatLng) {
   return (a[1] - o[1]) * (b[0] - o[0]) - (a[0] - o[0]) * (b[1] - o[1]);
 }
 
+// ~5 metres in degrees. Neighbours drawn to share a border (or a corner where three meet)
+// cross each other by centimetres once corners are rounded for storage - not a real overlap.
+const CORNER_TOLERANCE = 5 / 111_000;
+
+function closeTo(a: LatLng, b: LatLng) {
+  return Math.hypot(a[0] - b[0], (a[1] - b[1]) * 0.62) < CORNER_TOLERANCE;
+}
+
 function segmentsCross(p1: LatLng, p2: LatLng, q1: LatLng, q2: LatLng): boolean {
   const d1 = cross(q1, q2, p1);
   const d2 = cross(q1, q2, p2);
   const d3 = cross(p1, p2, q1);
   const d4 = cross(p1, p2, q2);
-  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+  if (!(((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)))) return false;
+
+  const t = d1 / (d1 - d2);
+  const at: LatLng = [p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])];
+  if ([p1, p2, q1, q2].some((corner) => closeTo(corner, at))) return false;
+
+  // A shared border runs (almost) parallel; a real overlap crosses at an angle.
+  const u = [p2[0] - p1[0], p2[1] - p1[1]];
+  const v = [q2[0] - q1[0], q2[1] - q1[1]];
+  const sin = Math.abs(u[0] * v[1] - u[1] * v[0]) / (Math.hypot(u[0], u[1]) * Math.hypot(v[0], v[1]));
+  return sin > 0.02;
 }
 
 /** True when two shapes share any area (edges crossing, or one inside the other). Shapes
