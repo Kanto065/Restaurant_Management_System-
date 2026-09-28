@@ -230,6 +230,10 @@ public class DeliveryZonesController(
         zone.DeliveryFee = request.DeliveryFee;
         zone.MinimumOrderAmount = request.MinimumOrderAmount;
         zone.IsActive = request.IsActive;
+        // Any change of shape keeps the one before, so "Restore previous area" can undo it -
+        // hand edits and restores from a backup, not just automatic redraws.
+        if (zone.BoundaryJson is not null && zone.BoundaryJson != boundaryJson)
+            zone.PreviousBoundaryJson = zone.BoundaryJson;
         zone.BoundaryJson = boundaryJson;
         if (!string.IsNullOrWhiteSpace(request.Colour) && System.Text.RegularExpressions.Regex.IsMatch(request.Colour, "^#[0-9a-fA-F]{6}$"))
             zone.Colour = request.Colour;

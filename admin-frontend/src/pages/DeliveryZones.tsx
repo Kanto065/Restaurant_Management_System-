@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -116,9 +117,10 @@ const DeliveryZones = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [testPostcode, setTestPostcode] = useState('');
   const [testResult, setTestResult] = useState<DeliveryTest | null>(null);
-  const [settingsForm, setSettingsForm] = useState<{ miles: string; fee: string; min: string } | null>(null);
+
   const [view, setView] = useState<MapView | null>(null);
   const [shownCheck, setShownCheck] = useState<ZoneCheckResult | null>(null);
+  const [zoneSearch, setZoneSearch] = useState('');
 
   const zonesQuery = useQuery({
     queryKey: ['admin', 'delivery-zones'],
@@ -186,18 +188,6 @@ const DeliveryZones = () => {
     onSuccess: () => { toast({ title: 'Zone deleted' }); invalidate(); },
     onError,
     onSettled: () => setDeleteId(null),
-  });
-
-  const settingsMutation = useMutation({
-    mutationFn: (payload: { maxDeliveryMiles: number; outsideZoneDeliveryFee: number | null; outsideZoneMinimumOrder: number | null }) =>
-      api.put<DeliverySettings>('/api/admin/delivery-zones/settings', payload),
-    onSuccess: () => {
-      toast({ title: 'Saved', description: 'Delivery limit and "anywhere else" price updated.' });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'delivery-settings'] });
-      setSettingsForm(null);
-      setTestResult(null);
-    },
-    onError,
   });
 
   const testMutation = useMutation({
@@ -404,21 +394,6 @@ const DeliveryZones = () => {
     if (testPostcode.trim()) testMutation.mutate(testPostcode.trim());
   };
 
-  const saveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!settingsForm) return;
-    const miles = parseFloat(settingsForm.miles);
-    if (Number.isNaN(miles) || miles <= 0) {
-      toast({ title: 'Check the delivery limit', description: 'Enter the furthest distance you deliver, in miles.', variant: 'destructive' });
-      return;
-    }
-    settingsMutation.mutate({
-      maxDeliveryMiles: miles,
-      outsideZoneDeliveryFee: settingsForm.fee.trim() === '' ? null : parseFloat(settingsForm.fee),
-      outsideZoneMinimumOrder: settingsForm.min.trim() === '' ? null : parseFloat(settingsForm.min),
-    });
-  };
-
   if (zonesQuery.isLoading || settingsQuery.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -426,6 +401,10 @@ const DeliveryZones = () => {
       </div>
     );
   }
+
+  const searchTerm = zoneSearch.trim().toLowerCase().replace(/^£/, '');
+  const visibleZones = !searchTerm ? zones : zones.filter((z) =>
+    z.name.toLowerCase().includes(searchTerm) || z.deliveryFee.toFixed(2).includes(searchTerm));
 
   const drawingZone = zones.find((z) => z.id === drawingForId);
   const editingZone = zones.find((z) => z.id === editingShapeId);
@@ -568,9 +547,23 @@ const DeliveryZones = () => {
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Zones ({zones.length})</CardTitle>
-              <CardDescription>Click a zone to find it on the map.</CardDescription>
+            <CardHeader className="pb-3 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <CardTitle className="text-lg">Zones ({zones.length})</CardTitle>
+                  <CardDescription>Click a zone to find it on the map.</CardDescription>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0" onClick={openNew} disabled={!!drawingForId || !!editingShapeId}>
+                  <Plus className="w-4 h-4 mr-1" />Add zone
+                </Button>
+              </div>
+              {zones.length > 0 && (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input value={zoneSearch} onChange={(e) => setZoneSearch(e.target.value)} placeholder="Search zones or prices"
+                    aria-label="Search zones" className="pl-8 h-9" />
+                </div>
+              )}
             </CardHeader>
             <CardContent className="p-0">
               {zones.length === 0 ? (
@@ -581,7 +574,10 @@ const DeliveryZones = () => {
                 </div>
               ) : (
                 <div className="divide-y max-h-[50vh] overflow-y-auto">
-                  {zones.map((z) => (
+                  {visibleZones.length === 0 && (
+                    <p className="px-4 py-6 text-sm text-muted-foreground text-center">No zone matches "{zoneSearch}".</p>
+                  )}
+                  {visibleZones.map((z) => (
                     <div
                       key={z.id}
                       onClick={() => selectZone(z.id)}
@@ -626,57 +622,11 @@ const DeliveryZones = () => {
             }}
           />
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Anywhere else</CardTitle>
-              <CardDescription>For addresses that aren't inside any zone, and how far you deliver at all.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {settingsForm === null ? (
-                <div className="space-y-2 text-sm">
-                  <p><span className="text-muted-foreground">Delivery fee:</span> {outsideFee !== null ? money(outsideFee) : 'not set'}
-                    {settings?.outsideZoneDeliveryFee === null && highestFee !== null && <span className="text-muted-foreground"> (your highest zone fee)</span>}</p>
-                  <p><span className="text-muted-foreground">Minimum order:</span> {money(outsideMin)}</p>
-                  <p><span className="text-muted-foreground">No delivery beyond:</span> {settings?.maxDeliveryMiles} miles</p>
-                  <Button size="sm" variant="outline" className="mt-2" onClick={() => setSettingsForm({
-                    miles: String(settings?.maxDeliveryMiles ?? 5),
-                    fee: settings?.outsideZoneDeliveryFee?.toString() ?? '',
-                    min: settings?.outsideZoneMinimumOrder?.toString() ?? '',
-                  })}>Change</Button>
-                </div>
-              ) : (
-                <form onSubmit={saveSettings} className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="outsideFee">Delivery fee ({currency})</Label>
-                      <Input id="outsideFee" type="number" step="0.01" min="0" value={settingsForm.fee}
-                        placeholder={highestFee !== null ? highestFee.toFixed(2) : ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, fee: e.target.value })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="outsideMin">Minimum order ({currency})</Label>
-                      <Input id="outsideMin" type="number" step="0.01" min="0" value={settingsForm.min}
-                        placeholder={highestMin !== null ? highestMin.toFixed(2) : '0.00'}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, min: e.target.value })} />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Leave blank to use your highest zone's price.</p>
-                  <div className="space-y-1">
-                    <Label htmlFor="maxMiles">No delivery beyond (miles)</Label>
-                    <Input id="maxMiles" type="number" step="0.5" min="0.5" max="50" value={settingsForm.miles}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, miles: e.target.value })} />
-                    <p className="text-xs text-muted-foreground">Straight-line distance from your restaurant - the dashed circle on the map.</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="submit" size="sm" disabled={settingsMutation.isPending}>
-                      {settingsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save
-                    </Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => setSettingsForm(null)}>Cancel</Button>
-                  </div>
-                </form>
-              )}
-            </CardContent>
-          </Card>
+          <p className="text-xs text-muted-foreground px-1">
+            Anywhere else within {settings?.maxDeliveryMiles ?? 5} miles pays {outsideFee !== null ? money(outsideFee) : 'the "anywhere else" price'}
+            {' '}(min {money(outsideMin)}).{' '}
+            <Link to="/dashboard/configurations" className="underline underline-offset-2 hover:text-foreground">Change in Configurations</Link>
+          </p>
         </div>
       </div>
 
