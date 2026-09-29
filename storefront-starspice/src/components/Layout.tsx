@@ -48,6 +48,7 @@ export default function Layout() {
   return (
     <>
       <a className="skip" href="#main">Skip to content</a>
+      <div className="preview-bar"><b>PREVIEW ONLY</b> &nbsp;·&nbsp; This site is a preview</div>
       <header className="site-header">
         <div className="wrap nav-row">
           <Brand />

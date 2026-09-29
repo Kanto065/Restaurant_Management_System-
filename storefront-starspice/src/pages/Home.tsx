@@ -61,11 +61,11 @@ export default function Home() {
       <section className="paper">
         <div className="wrap intro">
           <div>
-            <p className="eyebrow">FROM CYMRU BALTI TO STAR SPICE</p>
+            <p className="eyebrow">WELCOME TO STAR SPICE</p>
             <h2>A familiar place.<br />A fresh beginning.</h2>
           </div>
           <div className="prose">
-            <p className="lead">You may know us as Cymru Balti. We’re preparing for our next chapter as Star Spice.</p>
+            <p className="lead">We’re preparing for our next chapter as Star Spice.</p>
             <p>Our plans bring Indian and Bangladeshi cooking together here in Tumble. The new menu is taking shape, and we’ll share our reopening details when they’re ready.</p>
             <Link className="text-link" to="/gallery">See our gallery <span aria-hidden="true">→</span></Link>
           </div>
