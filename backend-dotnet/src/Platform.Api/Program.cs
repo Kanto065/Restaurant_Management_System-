@@ -78,6 +78,8 @@ if (builder.Configuration.GetValue("Seed:Enabled", true))
 await PlatformAdminSeeder.EnsureAsync(app.Services,
     builder.Configuration.GetSection(PlatformAdminOptions.SectionName).Get<PlatformAdminOptions>() ?? new());
 
+app.UseMiddleware<Platform.Api.Middleware.GlobalExceptionMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
