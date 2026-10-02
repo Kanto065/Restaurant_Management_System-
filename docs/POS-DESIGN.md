@@ -444,3 +444,20 @@ flowchart TD
 6. **Takeaway and collection at the POS** as well as dine-in: assumed yes (same order screen, no table).
 7. **VAT** shown on the receipt and in reports? (Not modelled yet; prices are treated as VAT-inclusive.)
 8. **Plans:** names, prices and which features each one includes.
+
+---
+
+## 14. M1 build notes (2026-10-02)
+
+M1 (backend foundation) is on `feature/pos-m1-backend`. Where it differs from or adds to the sections above:
+
+- **Sync takes closed orders only.** `POST /api/pos/orders/sync` accepts an order only in a completed status and raises no SSE event, so the Sunmi terminal and the admin "active orders" list never see POS orders as new work. Open orders stay on the hub (section 10's "pull open orders from the cloud" is therefore not available yet).
+- **`changes?since=` returns `liveIds`.** Some existing admin screens hard-delete menu rows, tables and modifiers, so the hub drops any local row whose id is missing rather than relying on `IsDeleted`.
+- **New route `POST /api/admin/pos-devices`** registers a `MainPos` device. `POST /api/admin/devices` keeps creating Sunmi terminals exactly as before.
+- **New route `PUT /api/admin/menu-items/{id}/print-route`** sets `PrintRouteOverride`.
+- **New column `Plan.MaxDevices`** (null = unlimited). Hubs and tablets count against it; Sunmi terminals don't.
+- **Subscription expiry only affects the POS licence.** It never suspends a restaurant or its web ordering.
+- **Licence:** ECDSA P-256. The key comes from `PosLicence:PrivateKeyPem`, or is derived from `Jwt:SigningKey` when that's not set (rotating the JWT key then means re-pairing hubs).
+- **PIN hashes:** `pbkdf2-sha256$10000$<salt b64>$<hash b64>`, unique per restaurant, so a PIN alone identifies the person at the till.
+- **Reports** count an order on `ClosedAt` (POS) or `CreatedAt` (web), by local day in the restaurant's time zone.
+- **Roles:** reports and refunds allow Owner, Manager and the existing Staff role. Staff management is Owner/Manager only.
