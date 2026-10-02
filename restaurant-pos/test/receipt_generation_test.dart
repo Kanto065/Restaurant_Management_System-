@@ -57,9 +57,11 @@ void main() {
       expect(paper.text.any((l) => l.endsWith('£38.35')), isTrue);
       expect(paper.text.any((l) => l.endsWith('-£3.84')), isTrue);
       expect(paper.text.any((l) => l.endsWith('£15.49')), isTrue);
-      File('build/receipt_simulation.png')
-        ..createSync(recursive: true)
-        ..writeAsBytesSync(paper.renderPng());
+      if (!Platform.isAndroid) { // the PNG preview is for desktop runs; a phone's app folder is read-only here
+        File('build/receipt_simulation.png')
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(paper.renderPng());
+      }
     });
 
     test('drawer kick is ESC p and nothing else', () {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pos/core/db.dart';
 import 'package:my_pos/core/models.dart';
@@ -11,6 +13,7 @@ import 'pos_flow_test.dart' show snapshot;
 
 /// The tablet app's state against a real till (PosState + LanServer) in the same process.
 void main() {
+  qrTests();
   test('tablet pairs, signs in, orders a table and sees the till change it live', () async {
     final hubDb = LocalDb.memory();
     applyConfig(hubDb, {
@@ -73,4 +76,33 @@ Future<void> _until(bool Function() ok) async {
     await Future<void>.delayed(const Duration(milliseconds: 40));
   }
   expect(ok(), isTrue);
+}
+
+void qrTests() {
+  test('QR pairing: tries each till address, refuses other codes', () async {
+    final hubDb = LocalDb.memory();
+    applyConfig(hubDb, snapshot(), full: true);
+    final till = PosState(hubDb);
+    final server = LanServer(till, port: 0, registerTablet: (_) async => 'cloud-1');
+    await server.start();
+    final tablet = TabletState(LocalDb.memory());
+
+    await expectLater(tablet.pairFromQr('https://example.com', name: 'Tab'), throwsA(isA<TabletError>()));
+    await expectLater(tablet.pairFromQr('{"t":"other"}', name: 'Tab'), throwsA(isA<TabletError>()));
+
+    // The first address is dead (e.g. the till's other network card); the second is the till.
+    final qr = jsonEncode({'t': 'pos-pair', 'a': ['127.0.0.1:1', '127.0.0.1:${server.boundPort}'], 'c': server.newPairCode()});
+    await tablet.pairFromQr(qr, name: 'Tab');
+    expect(tablet.isPaired, isTrue);
+    expect(server.tablets.values.single['name'], 'Tab');
+
+    // A used code: the till answers, so the tablet stops and says why instead of trying on.
+    final unpaired = TabletState(LocalDb.memory());
+    await expectLater(unpaired.pairFromQr(qr, name: 'Tab 2'),
+        throwsA(isA<TabletError>().having((e) => e.message, 'message', contains('pairing code'))));
+
+    tablet.dispose();
+    till.stop();
+    await server.stop();
+  });
 }

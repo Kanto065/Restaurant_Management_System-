@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/models.dart';
 import '../core/permissions.dart';
@@ -488,13 +491,27 @@ class _TabletsPanelState extends State<_TabletsPanel> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('On the tablet, choose “Waiter tablet” and enter:'),
-            const SizedBox(height: 8),
-            Text('Till address  ${_addresses.isEmpty ? '…' : _addresses.join('  or  ')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            Text('Code  $code', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 4, color: scheme.primary)),
-            Text('The code works once, for 10 minutes. Give the till a fixed IP on the router so tablets keep finding it.',
-                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (_addresses.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(right: 20),
+                padding: const EdgeInsets.all(10),
+                color: Colors.white, // QR codes need dark-on-light to scan, in dark mode too
+                child: QrImageView(
+                  data: jsonEncode({'t': 'pos-pair', 'a': [for (final a in _addresses) '$a:${lan.boundPort ?? lan.port}'], 'c': code}),
+                  size: 180,
+                ),
+              ),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('On the tablet, tap “Scan QR code”, or type:'),
+                const SizedBox(height: 8),
+                Text('Till address  ${_addresses.isEmpty ? '…' : _addresses.join('  or  ')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text('Code  $code', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 4, color: scheme.primary)),
+                Text('The code works once, for 10 minutes. Give the till a fixed IP on the router so tablets keep finding it.',
+                    style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
+              ]),
+            ),
           ]),
         ),
       for (final MapEntry(:key, :value) in tablets.entries)

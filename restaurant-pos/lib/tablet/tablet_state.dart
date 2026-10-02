@@ -27,7 +27,7 @@ class HubClient {
   static Future<Map<String, dynamic>> pair(String address, String code, String name) async {
     final res = await http
         .post(uri(address, '/pair'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'code': code, 'name': name}))
-        .timeout(const Duration(seconds: 20));
+        .timeout(const Duration(seconds: 8));
     return _decode(res) as Map<String, dynamic>;
   }
 
@@ -100,6 +100,30 @@ class TabletState extends ChangeNotifier {
       throw TabletError('Can’t reach the till at $a. Check the address and that this tablet is on the shop Wi-Fi.');
     }
     await refresh();
+  }
+
+  /// Pairs from the QR code the till shows: {"t":"pos-pair","a":["192.168.1.20:8787",...],"c":"123456"}.
+  /// Tries each of the till's addresses (a PC can have Wi-Fi and cable) until one answers.
+  Future<void> pairFromQr(String raw, {required String name}) async {
+    final Map<String, dynamic> qr;
+    try {
+      qr = jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      throw const TabletError('That is not a till pairing code. On the till, open Settings → Waiter tablets → Pair a tablet.');
+    }
+    if (qr['t'] != 'pos-pair' || qr['c'] is! String || qr['a'] is! List) {
+      throw const TabletError('That is not a till pairing code. On the till, open Settings → Waiter tablets → Pair a tablet.');
+    }
+    TabletError? last;
+    for (final address in (qr['a'] as List).cast<String>()) {
+      try {
+        return await pair(address: address, code: qr['c'], name: name);
+      } on TabletError catch (e) {
+        last = e;
+        if (!e.message.startsWith('Can’t reach')) rethrow; // the till answered (e.g. code expired): stop
+      }
+    }
+    throw last ?? const TabletError('Can’t reach the till. Check this tablet is on the shop Wi-Fi.');
   }
 
   void unpair() {

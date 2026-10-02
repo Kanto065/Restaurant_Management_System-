@@ -18,9 +18,14 @@ dependencies:
   sqlite3: ^3.7.0
   pointycastle: ^4.0.0
   path_provider: ^2.1.6
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.4.2
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  # Runs the test suite on a real phone or tablet: flutter test integration_test -d <device>
+  integration_test:
     sdk: flutter
   flutter_lints: ^5.0.0
   # Only used by the test-side printer simulator to render receipt_simulation.png.

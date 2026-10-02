@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
 import '../core/ids.dart';
@@ -69,13 +70,21 @@ class _TabletPairScreenState extends State<TabletPairScreen> {
   bool _busy = false;
   String? _error;
 
-  Future<void> _pair() async {
+  Future<void> _pair() => _run(() => context.read<TabletState>().pair(address: _address.text, code: _code.text, name: _name.text));
+
+  Future<void> _scan() async {
+    final raw = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const _ScanPage()));
+    if (raw == null || !mounted) return;
+    await _run(() => context.read<TabletState>().pairFromQr(raw, name: _name.text));
+  }
+
+  Future<void> _run(Future<void> Function() body) async {
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      await context.read<TabletState>().pair(address: _address.text, code: _code.text, name: _name.text);
+      await body();
     } on TabletError catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
@@ -97,19 +106,33 @@ class _TabletPairScreenState extends State<TabletPairScreen> {
               const SizedBox(height: 16),
               Text('Connect to the till', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
-              Text('On the main till, open Settings → Waiter tablets → Pair a tablet. Type the address and code it shows. '
+              Text('On the main till, open Settings → Waiter tablets → Pair a tablet, then scan the QR code it shows. '
                   'This tablet must be on the shop Wi-Fi.', style: TextStyle(color: scheme.onSurfaceVariant, height: 1.4)),
-              const SizedBox(height: 28),
-              TextField(controller: _address, decoration: const InputDecoration(labelText: 'Till address', hintText: '192.168.1.20'),
-                  keyboardType: TextInputType.url),
-              const SizedBox(height: 12),
-              TextField(controller: _code, decoration: const InputDecoration(labelText: 'Code'), keyboardType: TextInputType.number, maxLength: 6),
+              const SizedBox(height: 24),
               TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name for this tablet')),
               const SizedBox(height: 16),
               if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(_error!, style: TextStyle(color: scheme.error))),
-              FilledButton(
-                onPressed: _busy ? null : _pair,
-                child: _busy ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5)) : const Text('Connect'),
+              SizedBox(
+                height: 60,
+                child: FilledButton.icon(
+                  onPressed: _busy ? null : _scan,
+                  icon: _busy
+                      ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
+                      : const Icon(Icons.qr_code_scanner_rounded),
+                  label: const Text('Scan QR code', style: TextStyle(fontSize: 17)),
+                ),
+              ),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text('No camera? Type the address and code', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14)),
+                children: [
+                  TextField(controller: _address, decoration: const InputDecoration(labelText: 'Till address', hintText: '192.168.1.20'),
+                      keyboardType: TextInputType.url),
+                  const SizedBox(height: 12),
+                  TextField(controller: _code, decoration: const InputDecoration(labelText: 'Code'), keyboardType: TextInputType.number, maxLength: 6),
+                  SizedBox(width: double.infinity, child: OutlinedButton(onPressed: _busy ? null : _pair, child: const Text('Connect'))),
+                  const SizedBox(height: 8),
+                ],
               ),
               const SizedBox(height: 8),
               TextButton(onPressed: widget.onUseAsTill, child: const Text('This is the main till, not a tablet')),
@@ -571,5 +594,57 @@ class _TabletTicket extends StatelessWidget {
   Widget? _details(OrderLine l, ColorScheme scheme) {
     final parts = [...l.modifiers.map((m) => '+ ${m.name}'), if (l.notes != null) '“${l.notes}”'];
     return parts.isEmpty ? null : Text(parts.join('  '), style: TextStyle(color: scheme.onSurfaceVariant));
+  }
+}
+
+/// Camera view that returns the first QR code it reads.
+class _ScanPage extends StatefulWidget {
+  const _ScanPage();
+
+  @override
+  State<_ScanPage> createState() => _ScanPageState();
+}
+
+class _ScanPageState extends State<_ScanPage> {
+  final _controller = MobileScannerController(formats: const [BarcodeFormat.qrCode]);
+  bool _done = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Scan the till’s QR code')),
+      body: Stack(children: [
+        MobileScanner(
+          controller: _controller,
+          onDetect: (capture) {
+            final raw = capture.barcodes.firstOrNull?.rawValue;
+            if (_done || raw == null) return;
+            _done = true;
+            Navigator.pop(context, raw);
+          },
+          errorBuilder: (context, error) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text('The camera is not available (${error.errorCode.name}). Go back and type the address and code instead.',
+                  textAlign: TextAlign.center),
+            ),
+          ),
+        ),
+        const Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text('Point the camera at the code on the till screen',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600, shadows: [Shadow(blurRadius: 6)])),
+          ),
+        ),
+      ]),
+    );
   }
 }
