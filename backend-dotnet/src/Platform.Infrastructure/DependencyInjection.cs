@@ -32,6 +32,8 @@ public static class DependencyInjection
         services.AddScoped<ITenantDomainResolver, TenantDomainResolver>();
         services.AddScoped<TenantProvisioningService>();
         services.AddScoped<Pos.FeatureService>();
+        services.AddSingleton<Pos.LicenceSigner>();
+        services.AddHostedService<Pos.SubscriptionExpiryService>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentActor, CurrentActor>();
 
