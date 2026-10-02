@@ -125,7 +125,10 @@ public class Plan : Entity
     public decimal PriceMonthly { get; set; }
     public int MaxRestaurants { get; set; }
     public int MaxStaffUsers { get; set; }
+    /// <summary>Default feature switches, e.g. {"pos": true, "pos.waiter": false} - see FeatureKeys.</summary>
     public string FeatureFlagsJson { get; set; } = "{}";
+    /// <summary>Paired POS devices (hubs + tablets) per restaurant. Null = no limit.</summary>
+    public int? MaxDevices { get; set; }
     public bool IsActive { get; set; } = true;
 }
 
@@ -141,4 +144,31 @@ public class Subscription : Entity
     public string? StripeSubscriptionId { get; set; }
     public DateTimeOffset? CurrentPeriodEnd { get; set; }
     public DateTimeOffset? TrialEndsAt { get; set; }
+    /// <summary>Days after CurrentPeriodEnd before the POS stops taking new orders.</summary>
+    public int GraceDays { get; set; } = 7;
+
+    public List<SubscriptionPayment> Payments { get; set; } = [];
+}
+
+/// <summary>A manual renewal recorded by the platform owner; extends CurrentPeriodEnd.</summary>
+public class SubscriptionPayment : Entity
+{
+    public Guid SubscriptionId { get; set; }
+    public Subscription? Subscription { get; set; }
+
+    public decimal Amount { get; set; }
+    public DateTimeOffset PaidAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset PeriodFrom { get; set; }
+    public DateTimeOffset PeriodTo { get; set; }
+    public string? Method { get; set; }
+    public string? Note { get; set; }
+    public Guid? RecordedByUserId { get; set; }
+}
+
+/// <summary>A feature switched on/off for one restaurant, overriding its plan's default.
+/// Key "pos" is never stored here - it reads/writes Restaurant.PosEnabled.</summary>
+public class RestaurantFeature : TenantEntity
+{
+    public string Key { get; set; } = default!;
+    public bool IsEnabled { get; set; }
 }

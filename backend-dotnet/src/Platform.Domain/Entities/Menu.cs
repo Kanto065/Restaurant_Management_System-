@@ -12,6 +12,8 @@ public class MenuCategory : TenantEntity
     public bool IsActive { get; set; } = true;
     public TimeOnly? AvailableFrom { get; set; }
     public TimeOnly? AvailableTo { get; set; }
+    /// <summary>Which POS printer its items' tickets go to (unless the item overrides it).</summary>
+    public PrintRoute PrintRoute { get; set; } = PrintRoute.Kitchen;
 
     public Restaurant? Restaurant { get; set; }
     public List<MenuItem> Items { get; set; } = [];
@@ -53,6 +55,9 @@ public class MenuItem : TenantEntity
     /// £0.95 / Spicy £0.95) instead of opening the customise popup. Purely a display choice -
     /// the underlying modifier group data is unchanged either way.</summary>
     public bool ShowVariantsAsRows { get; set; }
+
+    /// <summary>Per-item exception to the category's PrintRoute (e.g. a dessert wine to the bar).</summary>
+    public PrintRoute? PrintRouteOverride { get; set; }
 
     public List<MenuItemModifierGroup> ModifierGroupLinks { get; set; } = [];
 }

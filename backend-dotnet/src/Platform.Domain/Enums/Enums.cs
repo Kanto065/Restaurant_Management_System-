@@ -5,7 +5,10 @@ public enum StaffRole
     Owner,
     Manager,
     Staff,
-    KitchenDisplay
+    KitchenDisplay,
+    // POS-only roles (stored as ints: only append). Blocked from the admin panel.
+    Waiter,
+    Cashier
 }
 
 public enum OrderType
@@ -33,7 +36,9 @@ public enum PaymentMethod
 public enum PaymentProvider
 {
     Stripe,
-    Cash
+    Cash,
+    /// <summary>Card terminal at the POS, amount entered by hand.</summary>
+    Card
 }
 
 public enum SpiceLevel
@@ -57,7 +62,8 @@ public enum SubscriptionStatus
     Trialing,
     Active,
     PastDue,
-    Canceled
+    Canceled,
+    Expired
 }
 
 public enum NotificationEventType
@@ -91,4 +97,51 @@ public enum DomainKind
 {
     Storefront,
     Admin
+}
+
+// POS enums below are stored as integers - only ever append values.
+
+public enum DeviceType
+{
+    SunmiTerminal,
+    MainPos,
+    WaiterTablet
+}
+
+/// <summary>Which printer a menu item's ticket goes to.</summary>
+public enum PrintRoute
+{
+    None,
+    Kitchen,
+    Bar
+}
+
+/// <summary>Kitchen/bar progress of one order line. Web orders never read it.</summary>
+public enum OrderItemStatus
+{
+    Pending,
+    Sent,
+    Ready,
+    Served,
+    Void
+}
+
+public enum PrinterRole
+{
+    Receipt,
+    Kitchen,
+    Bar
+}
+
+public enum PrinterConnection
+{
+    Network,
+    Usb,
+    Windows
+}
+
+public enum RefundMethod
+{
+    Cash,
+    Card
 }

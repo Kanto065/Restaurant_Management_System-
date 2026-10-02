@@ -22,10 +22,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
     public DbSet<OpeningHour> OpeningHours => Set<OpeningHour>();
     public DbSet<Plan> Plans => Set<Plan>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
+    public DbSet<RestaurantFeature> RestaurantFeatures => Set<RestaurantFeature>();
 
     // Staff / devices
     public DbSet<RestaurantStaff> RestaurantStaff => Set<RestaurantStaff>();
     public DbSet<Device> Devices => Set<Device>();
+    public DbSet<Printer> Printers => Set<Printer>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     // Menu
@@ -45,6 +48,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
     public DbSet<OrderItemModifier> OrderItemModifiers => Set<OrderItemModifier>();
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<OrderStatusDefinition> OrderStatusDefinitions => Set<OrderStatusDefinition>();
     public DbSet<PaymentStatusDefinition> PaymentStatusDefinitions => Set<PaymentStatusDefinition>();
     public DbSet<ProcessedPaymentEvent> ProcessedPaymentEvents => Set<ProcessedPaymentEvent>();
@@ -132,6 +136,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
         builder.Entity<Voucher>().HasIndex(v => new { v.RestaurantId, v.Code }).IsUnique();
         builder.Entity<CustomerFavoriteMenuItem>().HasIndex(f => new { f.CustomerId, f.MenuItemId }).IsUnique();
         builder.Entity<OpeningHourException>().HasIndex(e => new { e.RestaurantId, e.Date }).IsUnique();
+        builder.Entity<RestaurantFeature>().HasIndex(f => new { f.RestaurantId, f.Key }).IsUnique();
+        // POS sync idempotency: one order/refund per hub-generated ClientId. Web rows have none.
+        builder.Entity<Order>().HasIndex(o => new { o.RestaurantId, o.ClientId }).IsUnique().HasFilter("\"ClientId\" IS NOT NULL");
+        builder.Entity<Refund>().HasIndex(r => new { r.RestaurantId, r.ClientId }).IsUnique().HasFilter("\"ClientId\" IS NOT NULL");
 
         // Avoid multiple-cascade-path errors: Order → OrderStatusHistory/Payment cascade,
         // but Order → Table/Customer/DeliveryAddress should not cascade-delete the order's parents.
