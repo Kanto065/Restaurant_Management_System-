@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<TenantProvisioningService>();
         services.AddScoped<Pos.FeatureService>();
         services.AddSingleton<Pos.LicenceSigner>();
+        services.AddScoped<Pos.PosOrderSync>();
         services.AddHostedService<Pos.SubscriptionExpiryService>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentActor, CurrentActor>();
