@@ -10,6 +10,8 @@ import 'package:my_pos/core/models.dart';
 import 'package:my_pos/core/sync.dart';
 import 'package:my_pos/main.dart';
 import 'package:my_pos/state/pos_state.dart';
+import 'package:my_pos/tablet/tablet_screens.dart';
+import 'package:my_pos/tablet/tablet_state.dart';
 import 'package:my_pos/ui/order_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -55,6 +57,7 @@ Widget _app(PosState s) => RepaintBoundary(
     );
 
 void main() {
+  tabletScreens();
   final fonts = Directory(_fonts).existsSync();
 
   Future<void> prepare(WidgetTester tester) async {
@@ -94,5 +97,59 @@ void main() {
       await _shot(tester, '${theme}_5_payment');
       expect(find.byType(PaymentDialog), findsOneWidget);
     }, skip: !fonts);
+  }
+}
+
+/// A tablet signed in, with the till's demo order on table 1 (one dish already Ready).
+TabletState _tablet(String theme) {
+  final till = _state(theme: theme);
+  final order = till.openOrders.single;
+  till.setItemStatus(order, order.lines.first.id, 'Ready');
+  final t = TabletState(LocalDb.memory()..set('theme', theme))
+    ..client = HubClient('192.168.1.20', 'k')
+    ..restaurantName = 'Test Tandoori'
+    ..catalog = till.catalog
+    ..staff = {'id': 's2', 'name': 'Tom Hughes', 'role': 'Waiter'}
+    ..orders = {order.clientId: PosOrder.fromJson(order.toJson())}
+    ..tableStatus = {'t1': 'occupied', 't2': 'free'}
+    ..connected = true;
+  return t;
+}
+
+void tabletScreens() {
+  for (final (name, size) in [('landscape', const Size(1280, 800)), ('portrait', const Size(800, 1280))]) {
+    testWidgets('tablet screens render without overflow ($name)', (tester) async {
+      await tester.runAsync(() async {
+        final roboto = FontLoader('Roboto');
+        for (final f in Directory(_fonts).listSync().whereType<File>().where((f) => f.path.contains('roboto-'))) {
+          roboto.addFont(Future.value(ByteData.sublistView(f.readAsBytesSync())));
+        }
+        await roboto.load();
+        final icons = File('$_fonts/materialicons-regular.otf').readAsBytesSync();
+        await (FontLoader('MaterialIcons')..addFont(Future.value(ByteData.sublistView(icons)))).load();
+      });
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      Widget app(TabletState s) => RepaintBoundary(
+          key: const ValueKey('shot'), child: ChangeNotifierProvider.value(value: s, child: TabletApp(onUseAsTill: () {})));
+
+      await tester.pumpWidget(app(TabletState(LocalDb.memory())));
+      await _shot(tester, 'tablet_${name}_1_pair');
+
+      final s = _tablet('light');
+      await tester.pumpWidget(app(s));
+      await _shot(tester, 'tablet_${name}_2_tables');
+      expect(find.text('1 ready'), findsOneWidget);
+
+      await tester.tap(find.text('1').first);
+      await _shot(tester, 'tablet_${name}_3_order');
+      await tester.tap(find.text('Drinks'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cobra').last);
+      await _shot(tester, 'tablet_${name}_4_basket');
+      expect(find.text('Send 1 to kitchen'), findsOneWidget);
+    }, skip: !Directory(_fonts).existsSync());
   }
 }

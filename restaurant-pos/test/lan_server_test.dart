@@ -11,7 +11,7 @@ import 'pos_flow_test.dart' show snapshot;
 
 // Hashes made by the backend's PinHasher: Maya (Manager) 2468, Sam (Waiter) 1357.
 const _maya = r'pbkdf2-sha256$10000$F8b9IFsGeQ5ua5W9SW+wvQ==$eFZbxua/wuwTjCDu9fwEngLCQM6tEt8QzKRd/E5rqII=';
-const _sam = r'pbkdf2-sha256$10000$5wdCnydK6KxWn+3deznJdQ==$hH3oo8G38Ionba4SAutEn9ZRpx3BldEFBVHoqW9RgJE=';
+const waiterPinHash = r'pbkdf2-sha256$10000$5wdCnydK6KxWn+3deznJdQ==$hH3oo8G38Ionba4SAutEn9ZRpx3BldEFBVHoqW9RgJE=';
 
 void main() {
   late PosState state;
@@ -26,7 +26,7 @@ void main() {
       ...snapshot(),
       'staff': [
         {'id': 's1', 'userId': 'u1', 'fullName': 'Maya Patel', 'role': 'Manager', 'pinHash': _maya},
-        {'id': 's3', 'userId': 'u3', 'fullName': 'Sam Okafor', 'role': 'Waiter', 'pinHash': _sam},
+        {'id': 's3', 'userId': 'u3', 'fullName': 'Sam Okafor', 'role': 'Waiter', 'pinHash': waiterPinHash},
       ],
       'printers': [
         {'name': 'Kitchen', 'role': 'Kitchen', 'connection': 'Network', 'address': '10.0.0.5'},

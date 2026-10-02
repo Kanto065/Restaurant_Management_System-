@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../core/models.dart';
 import '../core/permissions.dart';
 import '../state/pos_state.dart';
+import '../tablet/tablet_state.dart';
 
 void showMessage(BuildContext context, String text, {bool error = false}) {
   final scheme = Theme.of(context).colorScheme;
@@ -19,6 +20,8 @@ Future<T?> guard<T>(BuildContext context, Future<T> Function() body) async {
   try {
     return await body();
   } on PosError catch (e) {
+    if (context.mounted) showMessage(context, e.message, error: true);
+  } on TabletError catch (e) {
     if (context.mounted) showMessage(context, e.message, error: true);
   } catch (e) {
     if (context.mounted) showMessage(context, 'Something went wrong: $e', error: true);

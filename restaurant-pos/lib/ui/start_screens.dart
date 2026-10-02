@@ -12,7 +12,8 @@ import 'widgets.dart';
 /// First run: connect this till to the restaurant using the ID and secret from
 /// admin > POS settings > Register till.
 class PairingScreen extends StatefulWidget {
-  const PairingScreen({super.key});
+  const PairingScreen({super.key, this.onUseAsTablet});
+  final VoidCallback? onUseAsTablet;
 
   @override
   State<PairingScreen> createState() => _PairingScreenState();
@@ -97,6 +98,11 @@ class _PairingScreenState extends State<PairingScreen> {
                 onPressed: _busy ? null : _pair,
                 child: _busy ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5)) : const Text('Connect till'),
               ),
+              if (widget.onUseAsTablet != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: TextButton(onPressed: widget.onUseAsTablet, child: const Text('Use this device as a waiter tablet')),
+                ),
             ]),
           ),
         ),
