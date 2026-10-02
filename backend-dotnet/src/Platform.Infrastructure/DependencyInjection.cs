@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddScoped<ITenantDomainResolver, TenantDomainResolver>();
         services.AddScoped<TenantProvisioningService>();
+        services.AddScoped<Pos.FeatureService>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentActor, CurrentActor>();
 
