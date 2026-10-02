@@ -35,6 +35,17 @@ public class PrintersController(AppDbContext db) : ControllerBase
         return Ok(ApiResponse<List<PrinterDto>>.Ok(await ListAsync(db)));
     }
 
+    /// <summary>Where each category and item prints (the existing menu DTOs stay unchanged).</summary>
+    [HttpGet("print-routes")]
+    public async Task<ActionResult<ApiResponse<object>>> PrintRoutes() =>
+        Ok(ApiResponse<object>.Ok(new
+        {
+            categories = await db.MenuCategories.OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name)
+                .Select(c => new { c.Id, c.Name, c.PrintRoute }).ToListAsync(),
+            items = await db.MenuItems.OrderBy(i => i.DisplayOrder).ThenBy(i => i.Name)
+                .Select(i => new { i.Id, i.Name, i.CategoryId, i.PrintRouteOverride }).ToListAsync(),
+        }));
+
     /// <summary>New route: the existing PUT menu-categories/{id} is unchanged.</summary>
     [HttpPut("menu-categories/{id:guid}/print-route")]
     public async Task<ActionResult<ApiResponse<object>>> SetCategoryRoute(Guid id, SetPrintRouteRequest request)
