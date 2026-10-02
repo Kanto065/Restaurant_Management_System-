@@ -219,7 +219,7 @@ void main() {
       secret: 's',
       client: MockClient((req) async {
         if (req.url.path == '/api/auth/device/login') {
-          return http.Response(jsonEncode({'success': true, 'data': {'accessToken': 't', 'expiresAt': '2099-01-01T00:00:00Z', 'restaurantName': 'R'}}), 200);
+          return http.Response(jsonEncode({'success': true, 'data': {'accessToken': 't', 'accessTokenExpiresAt': '2099-01-01T00:00:00Z', 'restaurantName': 'R'}}), 200);
         }
         final body = jsonDecode(req.body);
         batches++;

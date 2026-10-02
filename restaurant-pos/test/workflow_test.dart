@@ -49,7 +49,7 @@ void main() {
       client: MockClient((req) async {
         if (!cloudUp) throw const SocketException('offline');
         if (req.url.path == '/api/auth/device/login') {
-          return http.Response(jsonEncode({'success': true, 'data': {'accessToken': 't', 'expiresAt': '2099-01-01T00:00:00Z'}}), 200);
+          return http.Response(jsonEncode({'success': true, 'data': {'accessToken': 't', 'accessTokenExpiresAt': '2099-01-01T00:00:00Z'}}), 200);
         }
         if (req.url.path == '/api/pos/changes') {
           return http.Response(jsonEncode({'success': true, 'data': {...snapshot(), 'serverTime': '2026-10-03T12:00:00+00:00', 'printers': null}}), 200);

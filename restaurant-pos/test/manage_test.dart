@@ -33,7 +33,7 @@ void main() {
       client: MockClient((req) async {
         if (!online) throw const SocketException('down');
         if (req.url.path == '/api/auth/device/login') {
-          return ok({'accessToken': 't', 'expiresAt': '2099-01-01T00:00:00Z', 'restaurantName': 'R'});
+          return ok({'accessToken': 't', 'accessTokenExpiresAt': '2099-01-01T00:00:00Z', 'restaurantName': 'R'});
         }
         calls.add(req);
         return switch ((req.method, req.url.path)) {

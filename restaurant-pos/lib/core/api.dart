@@ -39,7 +39,8 @@ class CloudApi {
         .timeout(const Duration(seconds: 15));
     final data = _decode(res);
     _token = data['accessToken'];
-    _tokenExpires = DateTime.parse(data['expiresAt']).subtract(const Duration(minutes: 2));
+    _tokenExpires = DateTime.parse(data['accessTokenExpiresAt']) // DeviceTokenResponse field name
+       .subtract(const Duration(minutes: 2));
     restaurantName = data['restaurantName'];
   }
 
