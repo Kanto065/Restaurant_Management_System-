@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, ShieldCheck } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Mark } from '@/components/Mark';
 import { api, setToken, type LoginResponse } from '@/lib/api';
 
 export default function Login() {
@@ -31,17 +31,34 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-3 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-            <ShieldCheck className="h-6 w-6 text-primary-foreground" />
+    <div className="grid min-h-[100dvh] lg:grid-cols-[1.1fr_1fr]">
+      <aside className="relative hidden overflow-hidden bg-[hsl(228_24%_11%)] p-12 text-[hsl(228_14%_92%)] lg:flex lg:flex-col">
+        <div aria-hidden className="pointer-events-none absolute -left-40 -top-40 h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(closest-side,hsl(26_78%_47%/0.28),transparent)]" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:radial-gradient(hsl(0_0%_100%)_1px,transparent_1px)] [background-size:18px_18px]" />
+        <div className="relative flex items-center gap-2.5 font-semibold">
+          <Mark className="bg-[hsl(228_14%_92%)] text-[hsl(228_24%_11%)]" />
+          Platform console
+        </div>
+        <div className="relative mt-auto max-w-md">
+          <p className="text-3xl font-semibold leading-tight tracking-tight">
+            Restaurants, plans and devices, in one place.
+          </p>
+          <p className="mt-4 text-sm leading-relaxed text-[hsl(228_10%_70%)]">
+            Switch features per restaurant, record subscription payments and see every till and tablet on the platform.
+          </p>
+        </div>
+      </aside>
+
+      <main className="flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 flex items-center gap-2.5 font-semibold lg:hidden">
+            <Mark />
+            Platform console
           </div>
-          <CardTitle className="text-2xl">Super Admin</CardTitle>
-          <CardDescription>Manage restaurants on the platform</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <h1 className="text-2xl font-semibold">Sign in</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">Platform owner access only.</p>
+
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -58,12 +75,12 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)} required />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <Loader2 className="animate-spin" />}
               Sign in
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </main>
     </div>
   );
 }

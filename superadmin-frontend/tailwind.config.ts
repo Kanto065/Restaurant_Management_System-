@@ -14,7 +14,12 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Geist", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["\"Geist Mono\"", "ui-monospace", "monospace"],
+      },
       colors: {
+        success: { DEFAULT: "hsl(var(--success))", soft: "hsl(var(--success-soft))" },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -39,6 +44,7 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          soft: "hsl(var(--accent-soft))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
