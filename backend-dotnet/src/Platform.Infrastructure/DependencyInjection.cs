@@ -95,14 +95,16 @@ public static class DependencyInjection
             });
 
         services.AddAuthorizationBuilder()
-            .AddPolicy("StaffOnly", p => p.RequireClaim("token_type", "staff"))
+            .AddPolicy("StaffOnly", p => p.RequireClaim("token_type", "staff")
+                .RequireAssertion(ctx => StaffRoles.CanUseAdminPanel(ctx.User)))
             .AddPolicy("CustomerOnly", p => p.RequireClaim("token_type", "customer"))
             .AddPolicy("PlatformSuperAdmin", p => p.RequireClaim("token_type", "platform"))
             .AddPolicy("PosDeviceOnly", p => p.RequireClaim("token_type", "device").RequireClaim("scope", "pos"))
             // Orders endpoints POS terminals need directly (list/read/update status) - staff
             // dashboard and paired Sunmi devices both allowed, nothing else.
             .AddPolicy("StaffOrDevice", p => p.RequireAssertion(ctx =>
-                ctx.User.HasClaim(c => c.Type == "token_type" && (c.Value == "staff" || c.Value == "device"))));
+                ctx.User.HasClaim("token_type", "device") ||
+                (ctx.User.HasClaim("token_type", "staff") && StaffRoles.CanUseAdminPanel(ctx.User))));
 
         services.AddSingleton<SseConnectionManager>();
         services.AddScoped<IOrderNotifier, OrderNotifier>();
