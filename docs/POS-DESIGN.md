@@ -1,6 +1,6 @@
 # Restaurant POS: Design Pack
 
-Status: **draft for client confirmation** · 2026-10-02
+Status: **approved by client** · 2026-10-02
 Scope: spec sections 24 (required workflow) and 25 (deliverables 1–25).
 
 The POS is built **on the existing live platform**: the .NET 10 / Postgres backend, the
