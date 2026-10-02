@@ -5,7 +5,6 @@ import { ArrowLeft, ExternalLink, KeyRound, Loader2, Pencil, Plus, Trash2 } from
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -17,6 +16,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { api, type DomainKind, type TenantDetail as Tenant, type TenantStaff } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import PaymentsTab from '@/pages/PaymentsTab';
+import { FeaturesPanel, SubscriptionPanel } from '@/pages/TenantPlatformTabs';
+import { PageHeader, Stat } from '@/components/Page';
 
 function useTenantMutation<TVars>(id: string, fn: (vars: TVars) => Promise<Tenant>, successMessage: string) {
   const queryClient = useQueryClient();
@@ -269,32 +270,6 @@ function StaffTab({ tenant }: { tenant: Tenant }) {
   );
 }
 
-function FeaturesTab({ tenant }: { tenant: Tenant }) {
-  const setFeatures = useTenantMutation(tenant.restaurantId,
-    (posEnabled: boolean) => api.put<Tenant>(`/api/platform/tenants/${tenant.restaurantId}/features`, { posEnabled }),
-    'Features updated');
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-        <div>
-          <p className="font-medium">POS terminal app</p>
-          <p className="text-sm text-muted-foreground">
-            Lets the restaurant pair Sunmi POS terminals and shows "POS Terminals" and "Download POS App" in its admin.
-            Turning it off signs out any paired terminals straight away. Restaurant staff can't change this.
-          </p>
-        </div>
-        <Switch checked={tenant.features.posEnabled} disabled={setFeatures.isPending}
-          aria-label="POS terminal app"
-          onCheckedChange={(checked) => {
-            if (checked || window.confirm(`Turn off the POS app for ${tenant.name}? Any paired terminals stop working immediately.`)) setFeatures.mutate(checked);
-          }} />
-      </div>
-      <ResetStatusesCard tenant={tenant} />
-    </div>
-  );
-}
-
 function ResetStatusesCard({ tenant }: { tenant: Tenant }) {
   const reset = useMutation({
     mutationFn: () => api.post<{ ordersRemapped: number; paymentsRemapped: number; removedOrderStatuses: string[]; removedPaymentStatuses: string[] }>(
@@ -309,7 +284,7 @@ function ResetStatusesCard({ tenant }: { tenant: Tenant }) {
   });
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+    <div className="flex items-center justify-between gap-4 surface p-5">
       <div>
         <p className="font-medium">Order &amp; payment statuses</p>
         <p className="text-sm text-muted-foreground">
@@ -335,7 +310,7 @@ function StatusTab({ tenant }: { tenant: Tenant }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+      <div className="flex items-center justify-between gap-4 rounded-lg bg-secondary/50 p-4">
         <div>
           <p className="font-medium">{tenant.isActive ? 'Active' : 'Suspended'}</p>
           <p className="text-sm text-muted-foreground">
@@ -356,6 +331,19 @@ function StatusTab({ tenant }: { tenant: Tenant }) {
   );
 }
 
+
+function FeaturesTab({ tenant }: { tenant: Tenant }) {
+  return (
+    <div className="space-y-8">
+      <FeaturesPanel tenant={tenant} />
+      <section>
+        <h3 className="eyebrow mb-2 px-1">Maintenance</h3>
+        <ResetStatusesCard tenant={tenant} />
+      </section>
+    </div>
+  );
+}
+
 export default function TenantDetail() {
   const { id = '' } = useParams();
   const { data: tenant, isLoading, error } = useQuery({
@@ -363,43 +351,63 @@ export default function TenantDetail() {
     queryFn: () => api.get<Tenant>(`/api/platform/tenants/${id}`),
   });
 
+  if (error) return <p className="text-sm text-destructive">{(error as Error).message}</p>;
+  if (isLoading || !tenant) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-5 w-28" />
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  const storefront = tenant.domains.find((d) => d.kind === 'Storefront' && d.isPrimary) ?? tenant.domains.find((d) => d.kind === 'Storefront');
+  const admin = tenant.domains.find((d) => d.kind === 'Admin' && d.isPrimary) ?? tenant.domains.find((d) => d.kind === 'Admin');
+
   return (
-    <div className="space-y-4">
-      <Button variant="ghost" size="sm" asChild>
-        <Link to="/"><ArrowLeft className="mr-2 h-4 w-4" />Restaurants</Link>
-      </Button>
-      {error && <p className="text-sm text-destructive">{(error as Error).message}</p>}
-      {isLoading || !tenant ? (
-        !error && <Skeleton className="h-64 w-full" />
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              {tenant.name}
-              {tenant.isActive ? <Badge>Active</Badge> : <Badge variant="destructive">Suspended</Badge>}
-            </CardTitle>
-            <CardDescription>{tenant.slug} · {tenant.city}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="info">
-              <TabsList className="mb-4 flex-wrap">
-                <TabsTrigger value="info">Info</TabsTrigger>
-                <TabsTrigger value="domains">Domains</TabsTrigger>
-                <TabsTrigger value="staff">Owners</TabsTrigger>
-                <TabsTrigger value="stripe">Payments</TabsTrigger>
-                <TabsTrigger value="features">Features</TabsTrigger>
-                <TabsTrigger value="status">Status</TabsTrigger>
-              </TabsList>
-              <TabsContent value="info"><InfoTab key={tenant.restaurantId} tenant={tenant} /></TabsContent>
-              <TabsContent value="domains"><DomainsTab tenant={tenant} /></TabsContent>
-              <TabsContent value="staff"><StaffTab tenant={tenant} /></TabsContent>
-              <TabsContent value="stripe"><PaymentsTab restaurantId={tenant.restaurantId} /></TabsContent>
-              <TabsContent value="features"><FeaturesTab tenant={tenant} /></TabsContent>
-              <TabsContent value="status"><StatusTab tenant={tenant} /></TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      )}
+    <div>
+      <Link to="/" className="mb-5 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" />Restaurants
+      </Link>
+
+      <PageHeader
+        title={<span className="flex flex-wrap items-center gap-3">{tenant.name}
+          {tenant.isActive ? <Badge variant="success">Live</Badge> : <Badge variant="destructive">Suspended</Badge>}</span>}
+        description={`${tenant.addressLine1}, ${tenant.city} ${tenant.postcode}`}
+        actions={<>
+          {storefront && <Button variant="outline" size="sm" asChild>
+            <a href={`https://${storefront.host}`} target="_blank" rel="noreferrer">Storefront<ExternalLink /></a></Button>}
+          {admin && <Button variant="outline" size="sm" asChild>
+            <a href={`https://${admin.host}`} target="_blank" rel="noreferrer">Admin<ExternalLink /></a></Button>}
+        </>}
+      />
+
+      <section className="surface mb-8 grid grid-cols-2 sm:grid-cols-4 sm:divide-x" aria-label="Summary">
+        <Stat label="Orders" value={tenant.orderCount.toLocaleString('en-GB')} />
+        <Stat label="Last order" value={tenant.lastOrderAt ? formatDate(tenant.lastOrderAt) : '—'} className="[&>div:nth-child(2)]:text-base" />
+        <Stat label="POS apps" value={tenant.features.posEnabled ? 'On' : 'Off'} />
+        <Stat label="On the platform since" value={formatDate(tenant.createdAt).split(',')[0]} className="[&>div:nth-child(2)]:text-base" />
+      </section>
+
+      <Tabs defaultValue="info">
+        <TabsList>
+          <TabsTrigger value="info">Details</TabsTrigger>
+          <TabsTrigger value="domains">Domains</TabsTrigger>
+          <TabsTrigger value="staff">Owners</TabsTrigger>
+          <TabsTrigger value="stripe">Payments</TabsTrigger>
+          <TabsTrigger value="features">Features</TabsTrigger>
+          <TabsTrigger value="subscription">Subscription</TabsTrigger>
+          <TabsTrigger value="status">Status</TabsTrigger>
+        </TabsList>
+        <TabsContent value="info"><div className="surface p-5"><InfoTab key={tenant.restaurantId} tenant={tenant} /></div></TabsContent>
+        <TabsContent value="domains"><div className="surface p-5"><DomainsTab tenant={tenant} /></div></TabsContent>
+        <TabsContent value="staff"><div className="surface p-5"><StaffTab tenant={tenant} /></div></TabsContent>
+        <TabsContent value="stripe"><div className="surface p-5"><PaymentsTab restaurantId={tenant.restaurantId} /></div></TabsContent>
+        <TabsContent value="features"><FeaturesTab tenant={tenant} /></TabsContent>
+        <TabsContent value="subscription"><SubscriptionPanel tenant={tenant} /></TabsContent>
+        <TabsContent value="status"><div className="surface p-5"><StatusTab tenant={tenant} /></div></TabsContent>
+      </Tabs>
     </div>
   );
 }

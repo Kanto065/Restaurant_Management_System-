@@ -74,7 +74,7 @@ export const api = {
 // ---- Types mirroring backend-dotnet Controllers/PlatformAdmin DTOs ----
 
 export type DomainKind = 'Storefront' | 'Admin';
-export type StaffRole = 'Owner' | 'Manager' | 'Staff' | 'KitchenDisplay';
+export type StaffRole = 'Owner' | 'Manager' | 'Staff' | 'KitchenDisplay' | 'Waiter' | 'Cashier';
 
 export interface TenantDomain {
   id: string;
@@ -146,4 +146,60 @@ export interface PaymentSettings {
   webhookUrl: string;
   encryptionConfigured: boolean;
   configAccountAvailable: boolean;
+}
+
+// ---- POS platform (M1): features, plans, subscriptions, devices ----
+
+/** Every feature key -> on/off. Keys come from the backend's FeatureKeys list. */
+export type FeatureMap = Record<string, boolean>;
+
+export interface Plan {
+  id: string;
+  name: string;
+  priceMonthly: number;
+  maxRestaurants: number;
+  maxStaffUsers: number;
+  maxDevices: number | null;
+  features: FeatureMap;
+  isActive: boolean;
+}
+
+export type SubscriptionStatus = 'Trialing' | 'Active' | 'PastDue' | 'Canceled' | 'Expired';
+
+export interface SubscriptionPayment {
+  id: string;
+  amount: number;
+  paidAt: string;
+  periodFrom: string;
+  periodTo: string;
+  method: string | null;
+  note: string | null;
+}
+
+export interface Subscription {
+  id: string;
+  planId: string;
+  planName: string;
+  status: SubscriptionStatus;
+  currentPeriodEnd: string | null;
+  trialEndsAt: string | null;
+  graceDays: number;
+  /** What the POS licence sees: Active, Grace or Expired. */
+  access: 'Active' | 'Grace' | 'Expired';
+  payments: SubscriptionPayment[];
+}
+
+export type DeviceType = 'SunmiTerminal' | 'MainPos' | 'WaiterTablet';
+
+export interface PlatformDevice {
+  id: string;
+  restaurantId: string;
+  restaurantName: string;
+  deviceName: string;
+  deviceType: DeviceType;
+  isActive: boolean;
+  lastSeenAt: string | null;
+  appVersion: string | null;
+  lastIp: string | null;
+  hubDeviceId: string | null;
 }
