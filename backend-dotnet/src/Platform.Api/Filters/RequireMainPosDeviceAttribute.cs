@@ -12,9 +12,17 @@ namespace Platform.Api.Filters;
 [AttributeUsage(AttributeTargets.Class)]
 public sealed class RequireMainPosDeviceAttribute : Attribute, IAsyncActionFilter
 {
+    /// <summary>Lets staff (admin panel) tokens through untouched; only device tokens are checked.</summary>
+    public bool StaffAllowed { get; init; }
+
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var http = context.HttpContext;
+        if (StaffAllowed && http.User.HasClaim("token_type", "staff"))
+        {
+            await next();
+            return;
+        }
         var db = http.RequestServices.GetRequiredService<AppDbContext>();
         var device = Guid.TryParse(http.User.FindFirst("device_id")?.Value, out var id)
             ? await db.Devices.FirstOrDefaultAsync(d => d.Id == id, http.RequestAborted)

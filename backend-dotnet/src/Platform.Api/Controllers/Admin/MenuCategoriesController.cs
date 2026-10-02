@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Contracts;
+using Platform.Api.Filters;
 using Platform.Domain.Entities;
 using Platform.Infrastructure.Persistence;
 
@@ -13,7 +14,8 @@ public record ReorderMenuCategoriesRequest(List<Guid> OrderedIds);
 
 [ApiController]
 [Route("api/admin/menu-categories")]
-[Authorize(Policy = "StaffOnly")]
+[Authorize(Policy = "StaffOrMainPos")]
+[RequireMainPosDevice(StaffAllowed = true)]
 public class MenuCategoriesController(AppDbContext db) : ControllerBase
 {
     [HttpGet]

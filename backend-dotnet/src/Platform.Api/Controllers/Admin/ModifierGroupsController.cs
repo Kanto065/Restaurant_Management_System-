@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Contracts;
+using Platform.Api.Filters;
 using Platform.Domain.Entities;
 using Platform.Domain.Enums;
 using Platform.Infrastructure.Persistence;
@@ -24,7 +25,8 @@ public record ReorderModifierOptionsRequest(List<Guid> OrderedIds);
 /// the UI only ever creates one-group-per-item today.
 /// </summary>
 [ApiController]
-[Authorize(Policy = "StaffOnly")]
+[Authorize(Policy = "StaffOrMainPos")]
+[RequireMainPosDevice(StaffAllowed = true)]
 public class ModifierGroupsController(AppDbContext db) : ControllerBase
 {
     [HttpGet("~/api/admin/menu-items/{itemId:guid}/modifier-groups")]

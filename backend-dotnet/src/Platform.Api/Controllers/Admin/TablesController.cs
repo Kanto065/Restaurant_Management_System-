@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Contracts;
+using Platform.Api.Filters;
 using Platform.Domain.Entities;
 using Platform.Infrastructure.Persistence;
 
@@ -12,7 +13,8 @@ public record UpsertTableRequest(string TableNumber, int Capacity, string? Locat
 
 [ApiController]
 [Route("api/admin/tables")]
-[Authorize(Policy = "StaffOnly")]
+[Authorize(Policy = "StaffOrMainPos")]
+[RequireMainPosDevice(StaffAllowed = true)]
 public class TablesController(AppDbContext db) : ControllerBase
 {
     [HttpGet]

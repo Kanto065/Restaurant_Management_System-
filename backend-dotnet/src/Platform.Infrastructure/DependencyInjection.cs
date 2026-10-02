@@ -101,6 +101,11 @@ public static class DependencyInjection
         services.AddAuthorizationBuilder()
             .AddPolicy("StaffOnly", p => p.RequireClaim("token_type", "staff")
                 .RequireAssertion(ctx => StaffRoles.CanUseAdminPanel(ctx.User)))
+            // Menu, tables, staff and printers: the admin panel, or a main POS till (the filter
+            // RequireMainPosDevice(StaffAllowed = true) turns away Sunmi terminals).
+            .AddPolicy("StaffOrMainPos", p => p.RequireAssertion(ctx =>
+                (ctx.User.HasClaim("token_type", "staff") && StaffRoles.CanUseAdminPanel(ctx.User)) ||
+                (ctx.User.HasClaim("token_type", "device") && ctx.User.HasClaim("scope", "pos"))))
             .AddPolicy("CustomerOnly", p => p.RequireClaim("token_type", "customer"))
             .AddPolicy("PlatformSuperAdmin", p => p.RequireClaim("token_type", "platform"))
             .AddPolicy("PosDeviceOnly", p => p.RequireClaim("token_type", "device").RequireClaim("scope", "pos"))

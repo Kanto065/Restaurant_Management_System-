@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Contracts;
+using Platform.Api.Filters;
 using Platform.Domain.Entities;
 using Platform.Domain.Enums;
 using Platform.Infrastructure.Persistence;
@@ -20,7 +21,8 @@ public record SetPrintRouteOverrideRequest(PrintRoute? PrintRouteOverride);
 /// (PUT /api/pos/printers); both replace the whole list.</summary>
 [ApiController]
 [Route("api/admin")]
-[Authorize(Policy = "StaffOnly")]
+[Authorize(Policy = "StaffOrMainPos")]
+[RequireMainPosDevice(StaffAllowed = true)]
 public class PrintersController(AppDbContext db) : ControllerBase
 {
     [HttpGet("printers")]

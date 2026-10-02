@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Contracts;
+using Platform.Api.Filters;
 using Platform.Application.Common;
 using Platform.Domain.Entities;
 using Platform.Domain.Enums;
@@ -27,7 +28,8 @@ public record SetPinRequest(string Pin);
 /// <summary>Staff CRUD for the restaurant's Owner or Manager. A Manager can't touch Owners.</summary>
 [ApiController]
 [Route("api/admin/staff")]
-[Authorize(Policy = "StaffOnly")]
+[Authorize(Policy = "StaffOrMainPos")]
+[RequireMainPosDevice(StaffAllowed = true)]
 public class StaffController(AppDbContext db, UserManager<AppUser> userManager, ICurrentTenant currentTenant) : ControllerBase
 {
     private static readonly StaffRole[] PinOnlyRoles = [StaffRole.Waiter, StaffRole.Cashier];
@@ -172,9 +174,20 @@ public class StaffController(AppDbContext db, UserManager<AppUser> userManager, 
     /// applies immediately. Null unless Owner or Manager.</summary>
     private async Task<RestaurantStaff?> CallerAsync()
     {
-        if (!Guid.TryParse(User.FindFirstValue(JwtRegisteredClaimNames.Sub), out var userId))
-            return null;
-        var me = await db.RestaurantStaff.FirstOrDefaultAsync(s => s.UserId == userId && s.IsActive);
+        RestaurantStaff? me;
+        if (User.HasClaim("token_type", "device"))
+        {
+            // At the main POS the manager signed in with their PIN; the till names them here.
+            if (!Guid.TryParse(Request.Headers["X-Pos-Staff-Id"].ToString(), out var staffId))
+                return null;
+            me = await db.RestaurantStaff.FirstOrDefaultAsync(s => s.Id == staffId && s.IsActive);
+        }
+        else
+        {
+            if (!Guid.TryParse(User.FindFirstValue(JwtRegisteredClaimNames.Sub), out var userId))
+                return null;
+            me = await db.RestaurantStaff.FirstOrDefaultAsync(s => s.UserId == userId && s.IsActive);
+        }
         return me?.Role is StaffRole.Owner or StaffRole.Manager ? me : null;
     }
 
