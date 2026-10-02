@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/models.dart';
 import '../core/permissions.dart';
 import '../state/pos_state.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 void openOrder(BuildContext context, PosOrder order) =>
@@ -40,19 +41,25 @@ class _OrderScreenState extends State<OrderScreen> {
       showDragHandle: true,
       builder: (context) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(title: Text(line.name, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text(line.status == 'Pending' ? 'Not sent yet' : 'Sent')),
+          ListTile(title: Text(line.name, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text(line.status == 'Pending' ? 'Not sent yet' : line.status)),
           if (line.status == 'Pending') ...[
             ListTile(leading: const Icon(Icons.add), title: const Text('One more'), onTap: () => Navigator.pop(context, 'plus')),
             ListTile(leading: const Icon(Icons.remove), title: const Text('One less'), onTap: () => Navigator.pop(context, 'minus')),
             ListTile(leading: const Icon(Icons.edit_note), title: const Text('Note for the kitchen'), onTap: () => Navigator.pop(context, 'note')),
             ListTile(leading: const Icon(Icons.delete_outline), title: const Text('Remove'), onTap: () => Navigator.pop(context, 'remove')),
-          ] else if (!line.isVoid)
+          ] else if (!line.isVoid) ...[
+            if (line.status == 'Sent') ListTile(leading: const Icon(Icons.done), title: const Text('Ready'), onTap: () => Navigator.pop(context, 'ready')),
+            if (line.status == 'Sent' || line.status == 'Ready')
+              ListTile(leading: const Icon(Icons.room_service_outlined), title: const Text('Served'), onTap: () => Navigator.pop(context, 'served')),
             ListTile(leading: const Icon(Icons.block), title: const Text('Void (needs a reason)'), onTap: () => Navigator.pop(context, 'void')),
+          ],
         ]),
       ),
     );
     if (!mounted || action == null) return;
     switch (action) {
+      case 'ready' || 'served':
+        await guard(context, () async => state.setItemStatus(order, line.id, action == 'ready' ? 'Ready' : 'Served'));
       case 'plus':
         state.changeQty(order, line, 1);
       case 'minus':
@@ -275,7 +282,12 @@ class _Ticket extends StatelessWidget {
                           ),
                           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                             Text(money(l.totalPence), style: TextStyle(fontWeight: FontWeight.w600, color: muted, fontFeatures: tabular)),
-                            if (l.status == 'Pending') Text('new', style: TextStyle(color: scheme.primary, fontSize: 11, fontWeight: FontWeight.w700)),
+                            if (!l.isVoid)
+                              Text(l.status == 'Pending' ? 'new' : l.status.toLowerCase(),
+                                  style: TextStyle(
+                                      color: l.status == 'Ready' ? PosColors.occupied : (l.status == 'Served' ? scheme.onSurfaceVariant : scheme.primary),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700)),
                           ]),
                         ]),
                       ),

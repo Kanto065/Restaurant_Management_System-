@@ -264,6 +264,15 @@ class _TableTile extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Text(table.number, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: fg)),
+              if (o != null && o.lines.any((l) => l.status == 'Ready')) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
+                  child: Text('${o.lines.where((l) => l.status == 'Ready').length} ready',
+                      style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12)),
+                ),
+              ],
               const Spacer(),
               Icon(Icons.people_outline, size: 18, color: fg.withValues(alpha: 0.7)),
               const SizedBox(width: 4),
