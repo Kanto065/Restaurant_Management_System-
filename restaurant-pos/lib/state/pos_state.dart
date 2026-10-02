@@ -11,6 +11,7 @@ import '../core/permissions.dart';
 import '../core/printing.dart';
 import '../core/report.dart';
 import '../core/sync.dart';
+import '../hub/lan_server.dart';
 import '../printing/pos_receipts.dart';
 import '../printing/printer_windows.dart';
 
@@ -41,6 +42,9 @@ class PosState extends ChangeNotifier {
   SyncService? sync;
   late ThemeMode themeMode;
   StaffMember? staff;
+
+  /// Server for waiter tablets; only on the main POS (Windows), started in main().
+  LanServer? lan;
   Map<String, PosOrder> _orders = {};
 
   /// Tables whose bill has been printed and are waiting to pay (shown amber on the map).
@@ -144,6 +148,13 @@ class PosState extends ChangeNotifier {
 
   // ---- orders ---------------------------------------------------------------
 
+  /// Every change to an open order, for the waiter tablets: {type: order.updated|order.closed, order}.
+  final _events = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get events => _events.stream;
+
+  void _emit(PosOrder order, {bool closed = false}) =>
+      _events.add({'type': closed ? 'order.closed' : 'order.updated', 'order': order.toJson()});
+
   void _save(PosOrder order) {
     db.saveOrder(order);
     if (order.isClosed) {
@@ -151,6 +162,7 @@ class PosState extends ChangeNotifier {
     } else {
       _orders[order.clientId] = order;
     }
+    _emit(order, closed: order.isClosed);
     notifyListeners();
   }
 
@@ -160,16 +172,18 @@ class PosState extends ChangeNotifier {
     }
   }
 
-  PosOrder startOrder({TableInfo? table, int? guests, String? customerName}) {
+  /// [by] is who takes the order (a waiter on a tablet); defaults to whoever is signed in here.
+  PosOrder startOrder({TableInfo? table, int? guests, String? customerName, StaffMember? by}) {
     _requireCanSell();
     if (table != null && orderForTable(table.id) != null) throw PosError('Table ${table.number} already has an order.');
+    final who = by ?? staff;
     final order = PosOrder(
       orderType: table == null ? 'Collection' : 'DineIn',
       tableId: table?.id,
       tableName: table?.number,
       guestCount: guests,
-      staffUserId: staff?.userId,
-      staffName: staff?.name,
+      staffUserId: who?.userId,
+      staffName: who?.name,
       customerName: customerName,
     );
     _save(order);
@@ -186,6 +200,46 @@ class PosState extends ChangeNotifier {
       menuItemId: item.id, name: item.name, unitPence: item.pricePence, qty: qty, notes: notes, modifiers: modifiers,
       printRoute: routeFor(item),
     ));
+    _save(order);
+  }
+
+  /// Builds a line for a dish sent by id (from a tablet) without touching any order. Prices and
+  /// choices come from this till's menu, never from the request, and the modifier rules apply.
+  OrderLine lineFor(String menuItemId, {List<String> modifierIds = const [], String? notes, int qty = 1}) {
+    _requireCanSell();
+    final item = catalog.item(menuItemId);
+    if (item == null) throw const PosError('That dish is not on the menu any more.');
+    if (!item.isAvailable) throw PosError('${item.name} is not available.');
+    if (qty < 1 || qty > 99) throw const PosError('Quantity must be between 1 and 99.');
+    final groups = catalog.groupsFor(item.id);
+    final picked = <LineModifier>[];
+    for (final g in groups) {
+      final chosen = g.options.where((o) => modifierIds.contains(o.id)).toList();
+      if (chosen.length < g.required) throw PosError('Pick ${g.name} for ${item.name}.');
+      if (chosen.length > g.maxSelect) throw PosError('Up to ${g.maxSelect} ${g.name} for ${item.name}.');
+      picked.addAll(chosen.map((o) => LineModifier(id: o.id, name: o.name, deltaPence: o.deltaPence)));
+    }
+    if (picked.length != modifierIds.toSet().length) throw PosError('Some choices are not available for ${item.name}.');
+    final note = notes?.trim();
+    return OrderLine(
+      menuItemId: item.id, name: item.name, unitPence: item.pricePence, qty: qty, modifiers: picked,
+      notes: note == null || note.isEmpty ? null : note, printRoute: routeFor(item),
+    );
+  }
+
+  /// Adds lines built by [lineFor] in one save.
+  void addLines(PosOrder order, List<OrderLine> lines) {
+    lines.forEach(order.add);
+    _save(order);
+  }
+
+  /// Kitchen marks a dish Ready, the waiter marks it Served.
+  void setItemStatus(PosOrder order, String lineId, String status) {
+    final line = order.lines.where((l) => l.id == lineId).firstOrNull;
+    if (line == null) throw const PosError('That item is not on the order.');
+    const next = {'Ready': {'Sent'}, 'Served': {'Sent', 'Ready'}};
+    if (!(next[status]?.contains(line.status) ?? false)) throw PosError('${line.name} is ${line.status.toLowerCase()}, so it can’t be marked $status.');
+    line.status = status;
     _save(order);
   }
 
@@ -306,6 +360,7 @@ class PosState extends ChangeNotifier {
     if (order.lines.isNotEmpty) throw const PosError('Remove or void the items first.');
     db.deleteOrder(order.clientId);
     _orders.remove(order.clientId);
+    _emit(order, closed: true);
     notifyListeners();
   }
 
@@ -328,6 +383,7 @@ class PosState extends ChangeNotifier {
       });
       _orders.remove(order.clientId);
       if (order.tableId != null) billPrinted.remove(order.tableId);
+      _emit(order, closed: true);
       notifyListeners();
       printProblem = await _print(() async {
         if (order.payments.any((p) => p.provider == 'Cash')) await printers.printReceipt(drawerKick());

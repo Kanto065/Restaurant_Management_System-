@@ -28,7 +28,7 @@ class _OrderScreenState extends State<OrderScreen> {
       await guard(context, () async => state.addItem(order, item));
       return;
     }
-    final choice = await showDialog<_Choice>(context: context, builder: (_) => _ModifierDialog(item: item, groups: groups));
+    final choice = await showDialog<ItemChoice>(context: context, builder: (_) => ModifierDialog(item: item, groups: groups));
     if (choice != null && mounted) {
       await guard(context, () async => state.addItem(order, item, modifiers: choice.modifiers, notes: choice.notes, qty: choice.qty));
     }
@@ -165,7 +165,7 @@ class _OrderScreenState extends State<OrderScreen> {
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 190, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.35),
                       itemCount: items.length,
-                      itemBuilder: (context, i) => _ItemTile(item: items[i], onTap: () => _addItem(state, order, items[i])),
+                      itemBuilder: (context, i) => ItemTile(item: items[i], onTap: () => _addItem(state, order, items[i])),
                     ),
             ),
           ]),
@@ -190,8 +190,8 @@ class _OrderScreenState extends State<OrderScreen> {
   }
 }
 
-class _ItemTile extends StatelessWidget {
-  const _ItemTile({required this.item, required this.onTap});
+class ItemTile extends StatelessWidget {
+  const ItemTile({super.key, required this.item, required this.onTap});
   final MenuItem item;
   final VoidCallback onTap;
 
@@ -321,24 +321,24 @@ class _Ticket extends StatelessWidget {
       );
 }
 
-class _Choice {
-  _Choice(this.modifiers, this.notes, this.qty);
+class ItemChoice {
+  ItemChoice(this.modifiers, this.notes, this.qty);
   final List<LineModifier> modifiers;
   final String? notes;
   final int qty;
 }
 
 /// Pick options for a dish: one-of groups as choice chips, many-of groups up to their maximum.
-class _ModifierDialog extends StatefulWidget {
-  const _ModifierDialog({required this.item, required this.groups});
+class ModifierDialog extends StatefulWidget {
+  const ModifierDialog({super.key, required this.item, required this.groups});
   final MenuItem item;
   final List<ModifierGroup> groups;
 
   @override
-  State<_ModifierDialog> createState() => _ModifierDialogState();
+  State<ModifierDialog> createState() => _ModifierDialogState();
 }
 
-class _ModifierDialogState extends State<_ModifierDialog> {
+class _ModifierDialogState extends State<ModifierDialog> {
   late final Map<String, List<ModifierOption>> _picked = {
     for (final g in widget.groups) g.id: g.options.where((o) => o.isDefault).take(g.maxSelect).toList(),
   };
@@ -405,7 +405,7 @@ class _ModifierDialogState extends State<_ModifierDialog> {
               ? null
               : () => Navigator.pop(
                     context,
-                    _Choice([
+                    ItemChoice([
                       for (final g in widget.groups)
                         for (final o in _picked[g.id]!) LineModifier(id: o.id, name: o.name, deltaPence: o.deltaPence),
                     ], _notes.text.trim().isEmpty ? null : _notes.text.trim(), _qty),

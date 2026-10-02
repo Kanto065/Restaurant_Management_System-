@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'core/db.dart';
+import 'hub/lan_server.dart';
 import 'printing/printer_windows.dart';
 import 'state/pos_state.dart';
 import 'ui/home.dart';
@@ -17,7 +18,9 @@ Future<void> main() async {
   final db = LocalDb.open('${dir.path}${Platform.pathSeparator}pos.db');
   db.purgeClosed(const Duration(days: 60));
   PrinterService().init(db);
-  runApp(ChangeNotifierProvider(create: (_) => PosState(db), child: const PosApp()));
+  final state = PosState(db);
+  if (Platform.isWindows) state.lan = LanServer(state)..start(); // the main POS serves the waiter tablets
+  runApp(ChangeNotifierProvider.value(value: state, child: const PosApp()));
 }
 
 class PosApp extends StatelessWidget {

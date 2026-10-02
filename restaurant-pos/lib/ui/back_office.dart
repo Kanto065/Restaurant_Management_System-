@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../core/models.dart';
 import '../core/permissions.dart';
+import '../hub/lan_server.dart';
 import '../printing/printer_windows.dart';
 import '../state/pos_state.dart';
 import 'home.dart';
@@ -372,6 +373,10 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         ]),
         const SizedBox(height: 12),
+        if (state.lan case final lan?) ...[
+          section('Waiter tablets', [_TabletsPanel(lan: lan, manager: manager, enabled: state.hasFeature('pos.waiter'))]),
+          const SizedBox(height: 12),
+        ],
         section('Printers', [
           if (state.catalog.printers.isEmpty)
             Text('No printers set up in the admin yet, so receipts go to the printer picked below.', style: TextStyle(color: scheme.onSurfaceVariant))
@@ -442,5 +447,78 @@ class _SettingsPageState extends State<SettingsPage> {
         ]),
       ]),
     );
+  }
+}
+
+/// Pair a tablet: the till shows its address and a 6-digit code to type on the tablet.
+class _TabletsPanel extends StatefulWidget {
+  const _TabletsPanel({required this.lan, required this.manager, required this.enabled});
+  final LanServer lan;
+  final bool manager;
+  final bool enabled;
+
+  @override
+  State<_TabletsPanel> createState() => _TabletsPanelState();
+}
+
+class _TabletsPanelState extends State<_TabletsPanel> {
+  List<String> _addresses = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    LanServer.addresses().then((a) {
+      if (mounted) setState(() => _addresses = a);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final lan = widget.lan;
+    final code = lan.pairCode;
+    final tablets = lan.tablets;
+    if (!widget.enabled) {
+      return Text('Waiter tablets are not part of this restaurant’s plan.', style: TextStyle(color: scheme.onSurfaceVariant));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (lan.error != null) Text(lan.error!, style: TextStyle(color: scheme.error)),
+      if (code != null)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('On the tablet, choose “Waiter tablet” and enter:'),
+            const SizedBox(height: 8),
+            Text('Till address  ${_addresses.isEmpty ? '…' : _addresses.join('  or  ')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text('Code  $code', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 4, color: scheme.primary)),
+            Text('The code works once, for 10 minutes. Give the till a fixed IP on the router so tablets keep finding it.',
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
+          ]),
+        ),
+      for (final MapEntry(:key, :value) in tablets.entries)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.tablet_android_outlined),
+          title: Text(value['name'] ?? 'Tablet'),
+          subtitle: Text('Paired ${DateFormat('d MMM').format(DateTime.parse(value['pairedAt']))}'),
+          trailing: widget.manager
+              ? TextButton(
+                  onPressed: () async {
+                    await lan.unpairTablet(key);
+                    if (mounted) setState(() {});
+                  },
+                  child: const Text('Unpair'))
+              : null,
+        ),
+      if (tablets.isEmpty && code == null) Text('No tablets paired yet.', style: TextStyle(color: scheme.onSurfaceVariant)),
+      const SizedBox(height: 10),
+      OutlinedButton.icon(
+        icon: const Icon(Icons.add_link),
+        label: Text(code == null ? 'Pair a tablet' : 'New code'),
+        onPressed: widget.manager && lan.running ? () => setState(lan.newPairCode) : null,
+      ),
+    ]);
   }
 }

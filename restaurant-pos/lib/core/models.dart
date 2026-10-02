@@ -107,6 +107,8 @@ class Catalog {
       _rows('items').map(MenuItem.new).where((i) => i.categoryId == categoryId).toList()
         ..sort((a, b) => a.displayOrder != b.displayOrder ? a.displayOrder.compareTo(b.displayOrder) : a.name.compareTo(b.name));
 
+  MenuItem? item(String id) => switch (collections['items']?[id]) { final j? => MenuItem(j), _ => null };
+
   List<MenuItem> search(String q) {
     final s = q.toLowerCase();
     return _rows('items').map(MenuItem.new).where((i) => i.name.toLowerCase().contains(s)).toList();
