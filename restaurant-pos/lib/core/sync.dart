@@ -97,7 +97,7 @@ class SyncService {
   DateTime? lastSync;
   String? lastError;
   Timer? _timer;
-  bool _busy = false;
+  Future<void>? _round;
 
   Future<void> pullSnapshot() async {
     final data = await api.get('/api/pos/config-snapshot') as Map<String, dynamic>;
@@ -115,10 +115,22 @@ class SyncService {
 
   void stop() => _timer?.cancel();
 
-  /// One round: config changes, then the outbox. Safe to call any time (e.g. right after a sale).
+  /// One round: config changes, then the outbox. Safe to call any time (e.g. right after a sale
+  /// or an edit): if a round is already running it waits for it, then runs its own, so a change
+  /// made just now is always pulled.
   Future<void> syncNow() async {
-    if (_busy) return;
-    _busy = true;
+    while (_round != null) {
+      await _round;
+    }
+    final round = _round = _syncRound();
+    try {
+      await round;
+    } finally {
+      _round = null;
+    }
+  }
+
+  Future<void> _syncRound() async {
     try {
       final since = db.get('sync.since');
       if (since == null) {
@@ -145,7 +157,6 @@ class SyncService {
       online = false;
       lastError = 'No connection to the server.';
     } finally {
-      _busy = false;
       onChanged?.call();
     }
   }

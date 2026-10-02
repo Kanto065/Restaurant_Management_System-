@@ -103,6 +103,10 @@ class Catalog {
   List<MenuCategory> get categories =>
       _rows('categories').map(MenuCategory.new).where((c) => c.isActive).toList()..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
+  /// Every category, hidden ones too (for the Manage screen).
+  List<MenuCategory> get allCategories =>
+      _rows('categories').map(MenuCategory.new).toList()..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
   List<MenuItem> itemsIn(String categoryId) =>
       _rows('items').map(MenuItem.new).where((i) => i.categoryId == categoryId).toList()
         ..sort((a, b) => a.displayOrder != b.displayOrder ? a.displayOrder.compareTo(b.displayOrder) : a.name.compareTo(b.name));
@@ -115,10 +119,10 @@ class Catalog {
   }
 
   /// Groups attached to an item, in the item's order, each with its available options.
-  List<ModifierGroup> groupsFor(String menuItemId) {
+  List<ModifierGroup> groupsFor(String menuItemId, {bool includeUnavailable = false}) {
     final links = _rows('itemModifierGroups').where((l) => l['menuItemId'] == menuItemId).toList()
       ..sort((a, b) => (a['displayOrder'] ?? 0).compareTo(b['displayOrder'] ?? 0));
-    final options = _rows('modifierOptions').map(ModifierOption.new).where((o) => o.isAvailable).toList()
+    final options = _rows('modifierOptions').map(ModifierOption.new).where((o) => includeUnavailable || o.isAvailable).toList()
       ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
     return [
       for (final l in links)
@@ -134,6 +138,8 @@ class Catalog {
   }
 
   List<StaffMember> get staff => _rows('staff').map(StaffMember.new).toList();
+  /// Printer rows as stored, switched-off ones too (for the Manage screen).
+  List<Map<String, dynamic>> get printerRows => _rows('printers').toList();
   List<PrinterConfig> get printers => _rows('printers').map(PrinterConfig.new).where((p) => p.isActive).toList();
 
   /// First status the restaurant counts as completed ("Completed" by default).

@@ -29,6 +29,9 @@ class CloudApi {
   DateTime _tokenExpires = DateTime(2000);
   String? restaurantName;
 
+  /// The manager signed in at the till, sent with staff-management calls (X-Pos-Staff-Id).
+  String? actingStaffId;
+
   Future<void> login() async {
     final res = await _http
         .post(Uri.parse('$baseUrl/api/auth/device/login'),
@@ -48,7 +51,10 @@ class CloudApi {
   Future<dynamic> _send(String method, String path, [Object? body, bool retried = false]) async {
     if (_token == null || DateTime.now().isAfter(_tokenExpires)) await login();
     final req = http.Request(method, Uri.parse('$baseUrl$path'))
-      ..headers.addAll({'Authorization': 'Bearer $_token', 'Content-Type': 'application/json', 'X-App-Version': appVersion});
+      ..headers.addAll({
+        'Authorization': 'Bearer $_token', 'Content-Type': 'application/json', 'X-App-Version': appVersion,
+        'X-Pos-Staff-Id': ?actingStaffId,
+      });
     if (body != null) req.body = jsonEncode(body);
     final res = await http.Response.fromStream(await _http.send(req).timeout(const Duration(seconds: 30)));
     if (res.statusCode == 401 && !retried) {

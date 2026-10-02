@@ -96,6 +96,15 @@ void main() {
       await tester.tap(find.textContaining('Pay £'));
       await _shot(tester, '${theme}_5_payment');
       expect(find.byType(PaymentDialog), findsOneWidget);
+
+      final s2 = _state(theme: theme, withOrders: false);
+      await tester.pumpWidget(const SizedBox()); // drop the open payment dialog
+      await tester.pumpWidget(_app(s2));
+      await tester.tap(find.text('Manage'));
+      await _shot(tester, '${theme}_6_manage_menu');
+      await tester.tap(find.text('Chicken Tikka'));
+      await _shot(tester, '${theme}_7_manage_dish');
+      expect(find.text('Rice'), findsOneWidget);
     }, skip: !fonts);
   }
 }

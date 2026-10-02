@@ -9,6 +9,7 @@ import '../core/permissions.dart';
 import '../core/sync.dart';
 import '../state/pos_state.dart';
 import 'back_office.dart';
+import 'manage_page.dart';
 import 'order_screen.dart';
 import 'start_screens.dart';
 import 'theme.dart';
@@ -33,12 +34,13 @@ class _HomeShellState extends State<HomeShell> {
       (Icons.takeout_dining_outlined, 'Takeaway', const TakeawayPage()),
       (Icons.receipt_long_outlined, 'Orders', const OrdersPage()),
       (Icons.bar_chart_rounded, 'Day report', const ReportPage()),
+      if (state.access(Perm.settings) == Access.allowed) (Icons.tune_rounded, 'Manage', const ManagePage()),
       (Icons.settings_outlined, 'Settings', const SettingsPage()),
     ];
     return Scaffold(
       body: Row(children: [
         NavigationRail(
-          selectedIndex: _tab,
+          selectedIndex: _tab.clamp(0, pages.length - 1),
           onDestinationSelected: (i) => setState(() => _tab = i),
           labelType: NavigationRailLabelType.all,
           minWidth: 88,
@@ -71,7 +73,7 @@ class _HomeShellState extends State<HomeShell> {
           child: Column(children: [
             const LicenceBanner(),
             const PrintBanner(),
-            Expanded(child: pages[_tab].$3),
+            Expanded(child: pages[_tab.clamp(0, pages.length - 1)].$3),
           ]),
         ),
       ]),
