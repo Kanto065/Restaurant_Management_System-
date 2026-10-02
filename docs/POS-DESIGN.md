@@ -461,3 +461,38 @@ M1 (backend foundation) is on `feature/pos-m1-backend`. Where it differs from or
 - **PIN hashes:** `pbkdf2-sha256$10000$<salt b64>$<hash b64>`, unique per restaurant, so a PIN alone identifies the person at the till.
 - **Reports** count an order on `ClosedAt` (POS) or `CreatedAt` (web), by local day in the restaurant's time zone.
 - **Roles:** reports and refunds allow Owner, Manager and the existing Staff role. Staff management is Owner/Manager only.
+
+---
+
+## 15. M3 build notes (2026-10-03)
+
+M3 (tablet and kitchen) is on `feature/pos-m3`, branched from `feature/pos-m1-backend`. It changes only the app in `restaurant-pos/`; the backend endpoints it uses already shipped in M1. Where it differs from or adds to the sections above:
+
+- **Kitchen and bar tickets:**
+  - *Send* queues one ticket per station, split by route (the item's override, otherwise its category's route).
+  - Only stations whose feature is on print: `pos.kitchenPrint`, `pos.barPrint`.
+  - Voiding a dish that was already sent prints a **VOID** ticket to its station.
+  - Tickets wait in a SQLite `print_jobs` table until their printer answers. The till retries every 15 seconds and shows a red banner with **Retry**.
+  - One failing printer never holds up the others.
+- **LAN server:**
+  - Uses `dart:io` HTTP and WebSocket on port 8787. No `shelf` dependency was needed.
+  - Starts only on the main till.
+  - The events feed is reduced to two messages, `order.updated` and `order.closed`, each carrying the whole order. Tablets work out table and dish status from those.
+- **Pairing a tablet:**
+  - The till shows its address and a **6-digit code**. The code works once, for 10 minutes, and dies after 5 wrong tries.
+  - The tablet types it in. There is no QR scanning yet, because that needs a camera plugin.
+  - Pairing registers the tablet in the cloud (`POST /api/pos/devices/tablets`), so the till must be online to pair one.
+- **Tablet security and validation:**
+  - Each tablet has a bearer key, plus a staff session from a PIN login that lasts 12 hours.
+  - Five wrong PINs lock that tablet out for 30 seconds.
+  - Prices and modifier rules always come from the till's menu, never from the tablet. A request with one invalid dish changes nothing.
+- **App mode:** the same app runs as till or tablet. Android starts as a tablet, Windows as a till, and an unpaired device can switch on its first screen.
+- **Status on the till:**
+  - The till's order screen shows each dish as sent, ready or served.
+  - The table map shows "n ready".
+  - Without a kitchen screen, the till itself can mark a dish Ready or Served.
+- **Not in M3:**
+  - Printing web orders in the kitchen (`pos.printOnlineOrders`).
+  - A kitchen display screen (KDS).
+  - The Windows firewall rule for port 8787. Windows asks once on first run; the installer will add the rule in M5.
+  - **The Android build**, which is blocked on this machine because the only JDKs are Java 25 and Gradle 8.10 needs ≤ 24. The fix is to install JDK 17/21 or upgrade the Android Gradle setup (M5).
