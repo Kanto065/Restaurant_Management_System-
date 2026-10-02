@@ -496,3 +496,53 @@ M3 (tablet and kitchen) is on `feature/pos-m3`, branched from `feature/pos-m1-ba
   - A kitchen display screen (KDS).
   - The Windows firewall rule for port 8787. Windows asks once on first run; the installer will add the rule in M5.
   - **The Android build**, which is blocked on this machine because the only JDKs are Java 25 and Gradle 8.10 needs ≤ 24. The fix is to install JDK 17/21 or upgrade the Android Gradle setup (M5).
+
+---
+
+## 16. Till-only restaurants and M5 (2026-10-03)
+
+### Managing the restaurant from the till
+
+The client confirmed that a restaurant may buy the till **without** the admin site, so everything needed to run must also be editable from the till: the menu (categories, dishes, options), tables, staff with PINs, and printers.
+
+- **On the till:** a **Manage** screen for Owners and Managers. Edits need the internet, because the cloud stays the one copy; selling never does.
+- **Backend:** no new endpoints. The six admin controllers (menu categories, menu items, modifier groups, tables, staff, printers) changed from `StaffOnly` to the policy `StaffOrMainPos`, plus `[RequireMainPosDevice(StaffAllowed = true)]`. The effect for each token type:
+  - Staff tokens get exactly what they had before (a test checks this for every role).
+  - Main-till device tokens are allowed.
+  - Sunmi terminals get 403 `FORBIDDEN_DEVICE`.
+  - Everything else gets 401 or 403.
+
+  This was verified on UAT.
+- **Staff management from the till:**
+  - The till sends the PIN-signed-in manager as `X-Pos-Staff-Id`.
+  - The cloud reads that person's role from the database, so the same Owner and Manager rules apply as on the website.
+- **Website-only fields are kept:**
+  - Updates start from the cloud's current record, so fields the till doesn't show (photos, allergens, descriptions) are never wiped.
+  - After each edit the till pulls the change back straight away.
+  - Sync rounds now queue instead of skipping.
+
+### M5 hardening
+
+- **Till backup:**
+  - `VACUUM INTO` writes `backups/pos-YYYY-MM-DD.db` in the app folder once a day, keeping 14 copies.
+  - The check runs at start-up and hourly.
+- **Outbox:** it drains in batches of 200 until empty or stuck. The offline soak test takes 250 sales offline and then syncs them all, each once.
+- **Tablet retries:** each send carries a `requestId`. The till replays its earlier answer, so a retry after a lost reply never prints the dishes twice.
+- **End-to-end test:** section 8 steps 1–15 run in one test: real tablet client → LAN server → simulated printers → payment → report → fake cloud.
+- **Installer 2.0.0** ("Restaurant POS"):
+  - It keeps the same AppId, so it upgrades My POS in place.
+  - It adds the inbound TCP 8787 firewall rule (private and domain profiles, this exe only) and removes it on uninstall.
+- **Android build:**
+  - Gradle is upgraded 8.10.2 → 8.14.3, the Android Gradle Plugin 8.7.0 → 8.11.1, and Kotlin 1.8.22 → 2.2.20. These are Flutter 3.47's minimums.
+  - The root build file gives old plugins a namespace.
+  - The build needs JDK 17–24; Java 25 is too new for Gradle 8.14. On this machine: `flutter config --jdk-dir=<JDK 17>`, or run `gradlew assembleRelease` with `JAVA_HOME` pointing at JDK 17.
+- **Restore drill (2026-10-03):**
+  1. Took a fresh live `pg_dump` (`--no-owner --no-privileges`).
+  2. Restored it into a throwaway database on `uat-postgres` (2 s).
+  3. Compared row counts: all 44 tables identical.
+  4. Dropped the throwaway database.
+- **Live database backups: not scheduled.**
+  - The VPS crontab is empty; `deploy/backup-postgres.sh` exists but was never put on cron.
+  - Until it is, the only live backups are the dumps made by hand before releases.
+  - Nightly cron and off-site copies (e.g. Backblaze B2 through rclone) need the owner's go-ahead and a storage account.
+- **UAT sign-off on real hardware:** see `docs/POS-UAT-CHECKLIST.md`.
