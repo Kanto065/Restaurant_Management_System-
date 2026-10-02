@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/ids.dart';
 import '../core/models.dart';
 import '../ui/order_screen.dart' show ItemChoice, ItemTile, ModifierDialog;
 import '../ui/theme.dart';
@@ -310,6 +311,9 @@ class _TabletOrderScreenState extends State<TabletOrderScreen> {
   int _guests = 2;
   bool _sending = false;
 
+  /// Same id for retries of the same basket; a new one once the basket changes or is sent.
+  String _requestId = newGuid();
+
   Future<void> _pick(TabletState state, MenuItem item) async {
     if (!item.isAvailable) return showMessage(context, '${item.name} is not available.', error: true);
     final groups = state.catalog.groupsFor(item.id);
@@ -321,6 +325,7 @@ class _TabletOrderScreenState extends State<TabletOrderScreen> {
     }
     final line = OrderLine(menuItemId: item.id, name: item.name, unitPence: item.pricePence, qty: choice.qty, notes: choice.notes, modifiers: choice.modifiers);
     setState(() {
+      _requestId = newGuid();
       final same = _basket.where((l) => l.sameAs(line)).firstOrNull;
       if (same != null) {
         same.qty += line.qty;
@@ -334,13 +339,16 @@ class _TabletOrderScreenState extends State<TabletOrderScreen> {
     setState(() => _sending = true);
     final ok = await guard(context, () async {
       final isNew = state.orderForTable(widget.table.id) == null;
-      await state.placeOrder(tableId: widget.table.id, guests: isNew ? _guests : null, basket: _basket);
+      await state.placeOrder(tableId: widget.table.id, guests: isNew ? _guests : null, basket: _basket, requestId: _requestId);
       return true;
     });
     if (!mounted) return;
     setState(() {
       _sending = false;
-      if (ok == true) _basket.clear();
+      if (ok == true) {
+        _basket.clear();
+        _requestId = newGuid();
+      }
     });
     if (ok == true) showMessage(context, 'Sent to the kitchen.');
   }
@@ -441,6 +449,7 @@ class _TabletOrderScreenState extends State<TabletOrderScreen> {
       sending: _sending,
       onGuests: (g) => setState(() => _guests = g),
       onBasketQty: (l, d) => setState(() {
+        _requestId = newGuid();
         l.qty += d;
         if (l.qty <= 0) _basket.remove(l);
       }),

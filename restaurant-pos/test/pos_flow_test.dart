@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -65,6 +66,7 @@ PosState till({String licence = 'active'}) {
 }
 
 void main() {
+  backupTests();
   test('catalog: categories in order, routes resolve (item override beats category)', () {
     final s = till();
     expect(s.catalog.categories.map((c) => c.name), ['Mains', 'Drinks']);
@@ -210,6 +212,7 @@ void main() {
     db.enqueue('order', 'a', {'clientId': 'a'});
     db.enqueue('order', 'b', {'clientId': 'b'});
     db.enqueue('refund', 'c', {'clientId': 'c'});
+    var batches = 0;
     final api = CloudApi(
       baseUrl: 'https://test',
       deviceId: 'd',
@@ -219,15 +222,18 @@ void main() {
           return http.Response(jsonEncode({'success': true, 'data': {'accessToken': 't', 'expiresAt': '2099-01-01T00:00:00Z', 'restaurantName': 'R'}}), 200);
         }
         final body = jsonDecode(req.body);
-        expect((body['orders'] as List).length, 2);
-        return http.Response(jsonEncode({'success': true, 'data': [
-          {'kind': 'order', 'clientId': 'a', 'ok': true, 'id': 'x'},
-          {'kind': 'order', 'clientId': 'b', 'ok': false, 'error': 'Total mismatch', 'errorCode': 'VALIDATION'},
-          {'kind': 'refund', 'clientId': 'c', 'ok': false, 'error': 'not synced', 'errorCode': 'ORDER_NOT_FOUND'},
-        ]}), 200);
+        batches++;
+        const answers = {
+          'a': {'kind': 'order', 'clientId': 'a', 'ok': true, 'id': 'x'},
+          'b': {'kind': 'order', 'clientId': 'b', 'ok': false, 'error': 'Total mismatch', 'errorCode': 'VALIDATION'},
+          'c': {'kind': 'refund', 'clientId': 'c', 'ok': false, 'error': 'not synced', 'errorCode': 'ORDER_NOT_FOUND'},
+        };
+        final sent = [...(body['orders'] as List), ...(body['refunds'] as List)].map((r) => r['clientId']);
+        return http.Response(jsonEncode({'success': true, 'data': [for (final id in sent) answers[id]]}), 200);
       }),
     );
     await SyncService(db, api).drainOutbox();
+    expect(batches, 2); // the waiting refund is tried once more, then the drain stops (no progress)
     expect(db.outbox().map((e) => e.clientId), ['c']); // the refund waits for its order
     expect(db.outbox(parked: true).single.lastError, 'Total mismatch');
   });
@@ -239,5 +245,28 @@ void main() {
     final warning = applyConfig(db, {...snapshot(), 'licence': forged}, full: true);
     expect(warning, isNotNull);
     expect(db.getJson('licence')!['access'], 'Active');
+  });
+}
+
+void backupTests() {
+  test('nightly backup: one readable copy a day, oldest dropped', () async {
+    final s = till();
+    final o = s.startOrder();
+    s.addItem(o, s.catalog.itemsIn('c2').single);
+    await s.takePayment(o, 'Cash', o.duePence);
+
+    final dir = Directory.systemTemp.createTempSync('pos-backup');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final first = s.db.backupDaily(dir.path, keep: 2, now: DateTime(2026, 10, 1))!;
+    expect(s.db.backupDaily(dir.path, keep: 2, now: DateTime(2026, 10, 1, 23)), isNull); // once a day
+    s.db.backupDaily(dir.path, keep: 2, now: DateTime(2026, 10, 2));
+    s.db.backupDaily(dir.path, keep: 2, now: DateTime(2026, 10, 3));
+    expect(dir.listSync().map((f) => f.uri.pathSegments.last).toList()..sort(), ['pos-2026-10-02.db', 'pos-2026-10-03.db']);
+    expect(File(first).existsSync(), isFalse);
+
+    final copy = LocalDb.open('${dir.path}/pos-2026-10-03.db');
+    expect(copy.closedSince(DateTime(2000)).single.clientId, o.clientId);
+    expect(copy.outbox().single.clientId, o.clientId);
+    copy.close();
   });
 }

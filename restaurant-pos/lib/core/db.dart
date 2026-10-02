@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:sqlite3/sqlite3.dart';
@@ -149,6 +150,25 @@ class LocalDb {
 
   void printJobFailed(int id, String error) =>
       _db.execute('UPDATE print_jobs SET attempts = attempts + 1, last_error = ? WHERE id = ?', [error, id]);
+
+  // ---- backups -----------------------------------------------------------------------
+
+  /// One consistent copy a day (`VACUUM INTO`, safe while the till is in use) in [dir],
+  /// keeping the newest [keep]. Returns the file written, or null if today's already exists.
+  String? backupDaily(String dir, {int keep = 14, DateTime? now}) {
+    final d = now ?? DateTime.now();
+    final day = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final folder = Directory(dir)..createSync(recursive: true);
+    final file = File('${folder.path}${Platform.pathSeparator}pos-$day.db');
+    if (file.existsSync()) return null;
+    _db.execute('VACUUM INTO ?', [file.path]);
+    final old = folder.listSync().whereType<File>().where((f) => RegExp(r'pos-\d{4}-\d{2}-\d{2}\.db$').hasMatch(f.path)).toList()
+      ..sort((a, b) => b.path.compareTo(a.path));
+    for (final f in old.skip(keep)) {
+      f.deleteSync();
+    }
+    return file.path;
+  }
 
   void transaction(void Function() body) {
     _db.execute('BEGIN');

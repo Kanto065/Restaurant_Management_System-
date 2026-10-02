@@ -46,6 +46,10 @@ class LanServer {
   final _pinFailures = <String, (int, DateTime)>{};
   final _random = Random.secure();
 
+  /// Answers to recent order requests by requestId: a tablet that lost the reply on a Wi-Fi
+  /// blip and sends the same basket again gets the same answer, not a second kitchen ticket.
+  final _replies = <String, Map<String, dynamic>>{};
+
   /// Why the server isn't running (e.g. the port is taken), shown in Settings.
   String? error;
   bool get running => _server != null;
@@ -165,8 +169,8 @@ class LanServer {
       final data = switch ((req.method, route)) {
         ('GET', ['tables']) => _tables(),
         ('GET', ['orders']) => [for (final o in state.openOrders) o.toJson()],
-        ('POST', ['orders']) => await _createOrder(who, body),
-        ('POST', ['orders', final id, 'items']) => await _addItems(who, _order(id), body),
+        ('POST', ['orders']) => await _once(body, () => _createOrder(who, body)),
+        ('POST', ['orders', final id, 'items']) => await _once(body, () => _addItems(who, _order(id), body)),
         ('POST', ['orders', final id, 'send']) => await _send(who, _order(id)),
         ('PUT', ['orders', final id, 'items', final itemId, 'status']) => _setStatus(who, _order(id), itemId, body),
         ('POST', ['orders', final id, 'items', final itemId, 'void']) => await _void(who, _order(id), itemId, body),
@@ -256,6 +260,17 @@ class LanServer {
             modifierIds: [for (final m in (i['modifierIds'] as List? ?? const [])) m as String],
             notes: i['notes'] as String?, qty: (i['qty'] as num?)?.toInt() ?? 1),
     ];
+  }
+
+  Future<Map<String, dynamic>> _once(Map<String, dynamic> body, Future<Map<String, dynamic>> Function() run) async {
+    final id = body['requestId'] as String?;
+    if (id != null && _replies[id] != null) return _replies[id]!;
+    final reply = await run();
+    if (id != null) {
+      _replies[id] = reply;
+      if (_replies.length > 200) _replies.remove(_replies.keys.first);
+    }
+    return reply;
   }
 
   /// New order for a table (or takeaway). If the table already has one, the items go onto it.

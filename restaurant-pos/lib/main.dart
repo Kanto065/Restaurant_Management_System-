@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -18,6 +19,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final dir = await getApplicationSupportDirectory();
   final db = LocalDb.open('${dir.path}${Platform.pathSeparator}pos.db');
+  // Nightly copy of the till's own data (design section 10); the cloud also has every synced order.
+  final backups = '${dir.path}${Platform.pathSeparator}backups';
+  void backup() {
+    try {
+      db.backupDaily(backups);
+    } catch (_) {} // ponytail: a failed backup is retried next hour; surface it in Settings if it ever matters
+  }
+  backup();
+  Timer.periodic(const Duration(hours: 1), (_) => backup());
   runApp(RootApp(db: db));
 }
 

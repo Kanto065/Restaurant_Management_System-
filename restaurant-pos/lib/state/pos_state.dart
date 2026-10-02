@@ -54,7 +54,7 @@ class PosState extends ChangeNotifier {
   String get restaurantName => catalog.restaurant['name'] ?? 'POS';
   List<PosOrder> get openOrders => _orders.values.toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
   PosOrder? orderForTable(String tableId) => _orders.values.where((o) => o.tableId == tableId).firstOrNull;
-  PrinterRouter get printers => PrinterRouter(catalog.printers);
+  PrinterRouter get printers => PrinterRouter(catalog.printers, sender: printSender);
 
   LicenceState get licenceState => licence?.stateAt(DateTime.now()) ?? LicenceState.active;
   bool hasFeature(String key) => licence?.has(key) ?? false;

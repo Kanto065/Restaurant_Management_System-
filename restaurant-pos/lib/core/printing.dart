@@ -7,8 +7,9 @@ import 'models.dart';
 /// USB/Windows printers by name through the existing PrinterService. With no receipt printer
 /// configured in the admin, the receipt goes to the printer picked on this till.
 class PrinterRouter {
-  PrinterRouter(this.printers);
+  PrinterRouter(this.printers, {this.sender = PrinterRouter.send});
   final List<PrinterConfig> printers;
+  final Future<void> Function(PrinterConfig, List<int>) sender;
 
   PrinterConfig? get receiptPrinter => printers.where((p) => p.role == 'Receipt').firstOrNull;
   int get receiptColumns => receiptPrinter?.columns ?? 42;
@@ -20,7 +21,7 @@ class PrinterRouter {
       if (!await PrinterService().sendBytes(bytes)) throw const PrinterException('No receipt printer is set up or it is not answering.');
       return;
     }
-    await send(p, bytes);
+    await sender(p, bytes);
   }
 
   static Future<void> send(PrinterConfig p, List<int> bytes) async {

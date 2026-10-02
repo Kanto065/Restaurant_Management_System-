@@ -164,8 +164,17 @@ class SyncService {
   /// Sends queued orders/refunds in one batch. Each record succeeds or fails on its own: a
   /// rejected record is parked (shown in Settings) and never blocks the others.
   Future<void> drainOutbox() async {
+    // A long offline spell can leave hundreds queued: send batches until empty or stuck.
+    for (var batch = 0; batch < 50; batch++) {
+      if (!await _drainBatch()) return;
+    }
+  }
+
+  /// Sends one batch (up to 200). Returns whether anything left the queue.
+  Future<bool> _drainBatch() async {
     final entries = db.outbox();
-    if (entries.isEmpty) return;
+    if (entries.isEmpty) return false;
+    final before = db.pendingCount;
     final results = await api.post('/api/pos/orders/sync', {
       'orders': [for (final e in entries.where((e) => e.kind == 'order')) e.payload],
       'refunds': [for (final e in entries.where((e) => e.kind == 'refund')) e.payload],
@@ -182,5 +191,6 @@ class SyncService {
         }
       }
     });
+    return db.pendingCount < before;
   }
 }

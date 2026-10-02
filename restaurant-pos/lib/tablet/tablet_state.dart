@@ -192,8 +192,12 @@ class TabletState extends ChangeNotifier {
 
   /// Sends the waiter's basket to the till (new order for the table, or onto its open one)
   /// and on to the kitchen and bar.
-  Future<PosOrder> placeOrder({String? tableId, int? guests, required List<OrderLine> basket}) async {
-    final r = await _call('POST', '/orders', {'tableId': tableId, 'guests': guests, 'send': true, 'items': basket.map(_item).toList()});
+  /// [requestId] stays the same while the waiter retries the same basket, so a repeat after a
+  /// lost reply doesn't send the dishes twice.
+  Future<PosOrder> placeOrder({String? tableId, int? guests, required List<OrderLine> basket, String? requestId}) async {
+    final r = await _call('POST', '/orders', {
+      'tableId': tableId, 'guests': guests, 'send': true, 'items': basket.map(_item).toList(), 'requestId': ?requestId,
+    });
     return _apply(r);
   }
 
