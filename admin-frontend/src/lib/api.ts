@@ -8,7 +8,7 @@ interface ApiResponse<T = any> {
 }
 
 export class ApiError extends Error {
-  constructor(public statusCode: number, message: string) {
+  constructor(public statusCode: number, message: string, public errorCode?: string) {
     super(message);
     this.name = 'ApiError';
   }
@@ -120,7 +120,7 @@ async function request<T = any>(
     const data = await response.json();
 
     if (!response.ok) {
-      throw new ApiError(response.status, extractErrorMessage(data, 'Request failed'));
+      throw new ApiError(response.status, extractErrorMessage(data, 'Request failed'), data?.errorCode);
     }
 
     return data;

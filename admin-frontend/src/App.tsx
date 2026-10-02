@@ -22,6 +22,10 @@ import Devices from "./pages/Devices";
 import { PosGuard } from "./hooks/usePosEnabled";
 import ChangePassword from "./pages/ChangePassword";
 import Takeout from "./pages/Takeout";
+import Staff from "./pages/Staff";
+import Printers from "./pages/Printers";
+import Reports from "./pages/Reports";
+import PosSettings from "./pages/PosSettings";
 import DashboardLayout from "./layouts/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -53,6 +57,10 @@ const App = () => (
                 <Route path="configurations" element={<Configurations />} />
                 <Route path="devices" element={<PosGuard><Devices /></PosGuard>} />
                 <Route path="takeout" element={<Takeout />} />
+                <Route path="staff" element={<Staff />} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="printers" element={<PosGuard><Printers /></PosGuard>} />
+                <Route path="pos-settings" element={<PosGuard><PosSettings /></PosGuard>} />
                 <Route path="change-password" element={<ChangePassword />} />
               </Route>
               <Route path="*" element={<NotFound />} />

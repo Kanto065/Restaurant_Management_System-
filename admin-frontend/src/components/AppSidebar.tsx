@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, UtensilsCrossed, ShoppingBag, Table2, LogOut, User, Lock, Bell, BookOpen, PackageOpen, Star, Ticket, Clock3, Truck, Smartphone, Settings2, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Settings, UtensilsCrossed, ShoppingBag, Table2, LogOut, User, Lock, Bell, BookOpen, PackageOpen, Star, Ticket, Clock3, Truck, Smartphone, Settings2, Sun, Moon, Users, BarChart3, Printer, MonitorSmartphone } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
@@ -39,12 +39,16 @@ const menuItems = [
   { title: 'Menu Items', url: '/dashboard/menu', icon: UtensilsCrossed },
   { title: 'Categories', url: '/dashboard/menus', icon: BookOpen },
   { title: 'Orders', url: '/dashboard/orders', icon: ShoppingBag },
+  { title: 'Reports', url: '/dashboard/reports', icon: BarChart3 },
   { title: 'Reviews', url: '/dashboard/reviews', icon: Star },
   { title: 'Vouchers', url: '/dashboard/vouchers', icon: Ticket },
   { title: 'Delivery Zones', url: '/dashboard/delivery-zones', icon: Truck },
   { title: 'Opening Hours', url: '/dashboard/opening-hours', icon: Clock3 },
   { title: 'Configurations', url: '/dashboard/configurations', icon: Settings2 },
+  { title: 'Staff', url: '/dashboard/staff', icon: Users },
   { title: 'POS Terminals', url: '/dashboard/devices', icon: Smartphone },
+  { title: 'POS Settings', url: '/dashboard/pos-settings', icon: MonitorSmartphone },
+  { title: 'Printers', url: '/dashboard/printers', icon: Printer },
   { title: 'Notifications', url: '/dashboard/notifications', icon: Bell },
 ];
 
@@ -63,7 +67,8 @@ export function AppSidebar() {
   const logoUrl = restaurant?.data?.logoUrl;
   const { name: restaurantName } = useBranding();
   const posEnabled = usePosEnabled() === true;
-  const visibleMenuItems = posEnabled ? menuItems : menuItems.filter((item) => item.url !== '/dashboard/devices');
+  const posOnly = ['/dashboard/devices', '/dashboard/pos-settings', '/dashboard/printers'];
+  const visibleMenuItems = posEnabled ? menuItems : menuItems.filter((item) => !posOnly.includes(item.url));
 
   return (
     <Sidebar className={collapsed ? 'w-14' : 'w-64'} collapsible="icon">
