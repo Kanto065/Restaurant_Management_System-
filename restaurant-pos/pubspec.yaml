@@ -12,11 +12,12 @@ dependencies:
   cupertino_icons: ^1.0.8
   provider: ^6.1.2
   intl: ^0.20.2
-  shared_preferences: ^2.3.3
-  firebase_core: ^3.8.0
-  firebase_database: ^11.1.6
   flutter_pos_printer_platform: ^1.4.2
   esc_pos_utils_plus: 2.0.1
+  http: ^1.6.0
+  sqlite3: ^3.7.0
+  pointycastle: ^4.0.0
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:

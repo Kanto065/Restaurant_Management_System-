@@ -16,6 +16,7 @@ class SimulatedPrinter {
   final List<PrintedLine> lines = [];
   final List<String> errors = [];
   bool cut = false;
+  bool drawerOpened = false;
 
   int _align = 0;
   bool _bold = false;
@@ -65,6 +66,9 @@ class SimulatedPrinter {
           case 0x52: // ESC R n
             if (arg(2) != 0) errors.add('international charset ${arg(2)} remaps ASCII');
             i += 3;
+          case 0x70: // ESC p m t1 t2 (cash drawer pulse)
+            drawerOpened = true;
+            i += 5;
           case 0x64: // ESC d n
             _newline();
             for (int k = 1; k < arg(2); k++) {

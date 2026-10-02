@@ -79,6 +79,9 @@ class ReceiptBuilder {
     }
   }
 
+  /// Pulses the cash drawer on pin 2 (ESC p 0 25 250), wired to the receipt printer.
+  void openDrawer() => _bytes.addAll([_esc, 0x70, 0x00, 0x19, 0xFA]);
+
   /// Feeds paper past the cutter, then full cut (GS V 0).
   void cut({int feedLines = 5}) {
     _bytes.addAll([_esc, 0x64, feedLines, _gs, 0x56, 0x30]);
