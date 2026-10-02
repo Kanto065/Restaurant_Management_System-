@@ -13,14 +13,21 @@ public static class StaffRoles
     /// "restaurant" claim - keeps the access it had before these roles existed.</summary>
     public static bool CanUseAdminPanel(ClaimsPrincipal user)
     {
-        var active = user.FindFirstValue("active_restaurant_id");
-        if (active is null)
-            return true;
-
-        var role = user.FindAll("restaurant")
-            .Select(c => c.Value.Split(':'))
-            .FirstOrDefault(parts => parts.Length == 2 && parts[0] == active)?[1];
-
+        var role = ActiveRoleName(user);
         return role is null || !PosOnly.Contains(role);
+    }
+
+    /// <summary>The token's role at its active restaurant, or null if it has none.</summary>
+    public static StaffRole? ActiveRole(ClaimsPrincipal user) =>
+        Enum.TryParse<StaffRole>(ActiveRoleName(user), out var role) ? role : null;
+
+    private static string? ActiveRoleName(ClaimsPrincipal user)
+    {
+        var active = user.FindFirstValue("active_restaurant_id");
+        return active is null
+            ? null
+            : user.FindAll("restaurant")
+                .Select(c => c.Value.Split(':'))
+                .FirstOrDefault(parts => parts.Length == 2 && parts[0] == active)?[1];
     }
 }

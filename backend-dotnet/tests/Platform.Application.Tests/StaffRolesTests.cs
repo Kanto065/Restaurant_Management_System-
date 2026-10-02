@@ -35,3 +35,27 @@ public class StaffRolesTests
     public void TokenWithoutRestaurantClaims_KeepsAccess() =>
         Assert.True(StaffRoles.CanUseAdminPanel(Staff()));
 }
+
+public class PinHasherTests
+{
+    [Theory]
+    [InlineData("1234", true)]
+    [InlineData("123456", true)]
+    [InlineData("123", false)]
+    [InlineData("1234567", false)]
+    [InlineData("12a4", false)]
+    [InlineData(null, false)]
+    public void PinFormat(string? pin, bool valid) =>
+        Assert.Equal(valid, Platform.Infrastructure.Pos.PinHasher.IsValidPin(pin));
+
+    [Fact]
+    public void HashVerifies_OnlyForTheSamePin()
+    {
+        var hash = Platform.Infrastructure.Pos.PinHasher.Hash("4321");
+        Assert.StartsWith("pbkdf2-sha256$10000$", hash);
+        Assert.True(Platform.Infrastructure.Pos.PinHasher.Verify("4321", hash));
+        Assert.False(Platform.Infrastructure.Pos.PinHasher.Verify("1234", hash));
+        Assert.False(Platform.Infrastructure.Pos.PinHasher.Verify("4321", null));
+        Assert.NotEqual(hash, Platform.Infrastructure.Pos.PinHasher.Hash("4321")); // salted
+    }
+}
