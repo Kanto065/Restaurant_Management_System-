@@ -1,0 +1,42 @@
+name: my_pos
+description: "My POS"
+publish_to: 'none'
+version: 1.0.1+2
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.2
+  intl: ^0.20.2
+  shared_preferences: ^2.3.3
+  firebase_core: ^3.8.0
+  firebase_database: ^11.1.6
+  flutter_pos_printer_platform: ^1.4.2
+  esc_pos_utils_plus: 2.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  # Only used by the test-side printer simulator to render receipt_simulation.png.
+  image: ^3.3.0
+
+# flutter_star_prnt 2.4.1 (pulled in transitively by flutter_pos_printer_platform)
+# calls ViewConfiguration(size: ...), a Flutter API removed in current Flutter SDKs.
+# This vendored copy patches that one call site; see third_party/flutter_star_prnt.
+#
+# esc_pos_utils_plus 2.0.1 ships its bundled asset under the wrong package name
+# (packages/esc_pos_utils/... instead of packages/esc_pos_utils_plus/...) in both
+# its pubspec.yaml and capability_profile.dart; see third_party/esc_pos_utils_plus.
+dependency_overrides:
+  flutter_star_prnt:
+    path: third_party/flutter_star_prnt
+  esc_pos_utils_plus:
+    path: third_party/esc_pos_utils_plus
+
+flutter:
+  uses-material-design: true
