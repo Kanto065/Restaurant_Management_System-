@@ -25,7 +25,7 @@ PosState _state({bool signedIn = true, bool withOrders = true, String theme = 'l
   db.setJson('device', {'server': 'https://test', 'deviceId': 'd', 'secret': 's'});
   db.set('theme', theme);
   final s = PosState(db);
-  s.sync?.stop();
+  s.stop();
   if (signedIn) s.staff = s.catalog.staff.first;
   if (withOrders) {
     final o = s.startOrder(table: s.catalog.tables.first, guests: 3);

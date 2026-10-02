@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:sqlite3/sqlite3.dart';
 
@@ -19,6 +20,18 @@ class OutboxEntry {
   final bool parked;
 }
 
+/// A kitchen or bar ticket waiting for its printer. Kept until it prints, so a printer that is
+/// off or out of paper gets the ticket once it's back.
+class PrintJob {
+  PrintJob(this.id, this.printer, this.title, this.bytes, this.attempts, this.lastError);
+  final int id;
+  final String printer;
+  final String title;
+  final Uint8List bytes;
+  final int attempts;
+  final String? lastError;
+}
+
 /// The till's own SQLite file (WAL, so a crash or power cut never loses a committed write).
 /// Holds the mirrored catalog, every order taken on this till, and the outbox to the cloud.
 class LocalDb {
@@ -33,6 +46,9 @@ class LocalDb {
       CREATE TABLE IF NOT EXISTS outbox (
         id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, client_id TEXT NOT NULL, payload TEXT NOT NULL,
         attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, parked INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS print_jobs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, printer TEXT NOT NULL, title TEXT NOT NULL, bytes BLOB NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, created_at TEXT NOT NULL);
     ''');
   }
 
@@ -115,6 +131,24 @@ class LocalDb {
 
   /// Puts a parked record back in the queue (after fixing the cause in the admin).
   void retryParked(int id) => _db.execute('UPDATE outbox SET parked = 0, last_error = NULL WHERE id = ?', [id]);
+
+  // ---- kitchen/bar print queue -------------------------------------------------
+
+  void addPrintJob(String printer, String title, List<int> bytes) => _db.execute(
+        'INSERT INTO print_jobs(printer, title, bytes, created_at) VALUES(?, ?, ?, ?)',
+        [printer, title, Uint8List.fromList(bytes), DateTime.now().toUtc().toIso8601String()],
+      );
+
+  List<PrintJob> printJobs() => [
+        for (final r in _db.select('SELECT * FROM print_jobs ORDER BY id'))
+          PrintJob(r['id'] as int, r['printer'] as String, r['title'] as String, r['bytes'] as Uint8List, r['attempts'] as int,
+              r['last_error'] as String?),
+      ];
+
+  void printJobDone(int id) => _db.execute('DELETE FROM print_jobs WHERE id = ?', [id]);
+
+  void printJobFailed(int id, String error) =>
+      _db.execute('UPDATE print_jobs SET attempts = attempts + 1, last_error = ? WHERE id = ?', [error, id]);
 
   void transaction(void Function() body) {
     _db.execute('BEGIN');

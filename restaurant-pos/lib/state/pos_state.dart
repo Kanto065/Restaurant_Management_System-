@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:isolate';
 
 import 'package:flutter/material.dart';
@@ -59,6 +60,18 @@ class PosState extends ChangeNotifier {
   void _connect(String server, String deviceId, String secret) {
     final api = CloudApi(baseUrl: server, deviceId: deviceId, secret: secret);
     sync = SyncService(db, api, onChanged: _reloadConfig)..start();
+    _printTimer?.cancel();
+    _printTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (db.printJobs().isNotEmpty) drainPrints();
+    });
+  }
+
+  Timer? _printTimer;
+
+  /// Stops the background sync and print retries (unpairing, tests).
+  void stop() {
+    sync?.stop();
+    _printTimer?.cancel();
   }
 
   void _reloadConfig() {
@@ -95,7 +108,7 @@ class PosState extends ChangeNotifier {
   /// Forget the pairing (e.g. moving the till to another restaurant). Orders not yet sent stay
   /// in the outbox and go up after pairing again with the same restaurant.
   void unpair() {
-    sync?.stop();
+    stop();
     sync = null;
     staff = null;
     db.set('device', null);
@@ -196,21 +209,87 @@ class PosState extends ChangeNotifier {
   }
 
   /// Sent lines can't just disappear: they're voided with a reason (and a manager's say-so).
-  void voidLine(PosOrder order, OrderLine line, String reason, {StaffMember? approvedBy}) {
+  Future<void> voidLine(PosOrder order, OrderLine line, String reason, {StaffMember? approvedBy}) async {
+    final wasSent = line.status != 'Pending' && line.status != 'Void';
     line.status = 'Void';
     line.voidReason = approvedBy == null ? reason : '$reason (OK ${approvedBy.name})';
     if (order.discountPence > order.subtotalPence) order.discountPence = order.subtotalPence;
+    if (wasSent) _queueTickets(order, [line], voided: true); // the kitchen must hear it's off
     _save(order);
+    if (wasSent) await drainPrints();
   }
 
-  /// Marks unsent lines as sent. (Kitchen and bar tickets print from here in M3.)
-  void send(PosOrder order) {
+  /// Marks unsent lines as sent and queues one ticket per station (kitchen, bar) for them.
+  Future<void> send(PosOrder order) {
     final now = DateTime.now();
-    for (final l in order.lines.where((l) => l.status == 'Pending')) {
+    final pending = order.lines.where((l) => l.status == 'Pending').toList();
+    for (final l in pending) {
       l.status = 'Sent';
       l.sentAt = now;
     }
+    db.transaction(() {
+      db.saveOrder(order);
+      _queueTickets(order, pending);
+    });
     _save(order);
+    return drainPrints();
+  }
+
+  static const _stations = {'Kitchen': 'pos.kitchenPrint', 'Bar': 'pos.barPrint'};
+
+  /// Problem with kitchen/bar printing, shown as a banner until the queue is empty.
+  String? printAlert;
+  int get pendingPrints => db.printJobs().length;
+
+  /// How tickets reach a printer; swapped out in tests.
+  Future<void> Function(PrinterConfig, List<int>) printSender = PrinterRouter.send;
+  bool _printing = false;
+
+  void _queueTickets(PosOrder order, List<OrderLine> lines, {bool voided = false}) {
+    for (final MapEntry(key: station, value: feature) in _stations.entries) {
+      final forStation = lines.where((l) => l.printRoute == station).toList();
+      if (forStation.isEmpty || !hasFeature(feature)) continue;
+      final printer = catalog.printers.where((p) => p.role == station).firstOrNull;
+      if (printer == null) {
+        printAlert = 'No ${station.toLowerCase()} printer is set up. Add one under Printers in the admin.';
+        continue;
+      }
+      db.addPrintJob(printer.name, '${voided ? 'Void' : station} - ${order.tableName == null ? order.orderNumber : 'Table ${order.tableName}'}',
+          buildStationTicket(order, forStation, station, columns: printer.columns, voided: voided));
+    }
+  }
+
+  /// Prints queued tickets in order. A printer that fails keeps its tickets for the next try
+  /// (every 15 seconds on the hub, or "Retry"); other printers carry on.
+  Future<void> drainPrints() async {
+    if (_printing) return;
+    _printing = true;
+    String? problem;
+    try {
+      final failed = <String>{};
+      for (final job in db.printJobs()) {
+        if (failed.contains(job.printer)) continue;
+        final printer = catalog.printers.where((p) => p.name == job.printer).firstOrNull;
+        try {
+          if (printer == null) throw PrinterException('${job.printer} is no longer set up in the admin.');
+          await printSender(printer, job.bytes);
+          db.printJobDone(job.id);
+        } catch (e) {
+          failed.add(job.printer);
+          db.printJobFailed(job.id, e.toString());
+          problem = '${job.title} has not printed: $e';
+        }
+      }
+    } finally {
+      _printing = false;
+    }
+    printAlert = problem ?? (printAlert?.startsWith('No ') == true ? printAlert : null);
+    notifyListeners();
+  }
+
+  void dismissPrintAlert() {
+    printAlert = null;
+    notifyListeners();
   }
 
   void applyDiscount(PosOrder order, int pence, String? reason, {StaffMember? approvedBy}) {

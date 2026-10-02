@@ -70,6 +70,7 @@ class _HomeShellState extends State<HomeShell> {
         Expanded(
           child: Column(children: [
             const LicenceBanner(),
+            const PrintBanner(),
             Expanded(child: pages[_tab].$3),
           ]),
         ),
@@ -103,6 +104,31 @@ class LicenceBanner extends StatelessWidget {
           const Icon(Icons.warning_amber_rounded, color: Colors.white),
           const SizedBox(width: 12),
           Expanded(child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+        ]),
+      ),
+    );
+  }
+}
+
+/// A kitchen or bar ticket that hasn't printed. Stays until the queue empties or it's dismissed.
+class PrintBanner extends StatelessWidget {
+  const PrintBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<PosState>();
+    final alert = state.printAlert;
+    if (alert == null) return const SizedBox.shrink();
+    return Material(
+      color: PosColors.danger,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 8, 6),
+        child: Row(children: [
+          const Icon(Icons.print_disabled_outlined, color: Colors.white),
+          const SizedBox(width: 12),
+          Expanded(child: Text(alert, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+          TextButton(onPressed: state.drainPrints, style: TextButton.styleFrom(foregroundColor: Colors.white), child: const Text('Retry')),
+          IconButton(tooltip: 'Dismiss', color: Colors.white, icon: const Icon(Icons.close), onPressed: state.dismissPrintAlert),
         ]),
       ),
     );

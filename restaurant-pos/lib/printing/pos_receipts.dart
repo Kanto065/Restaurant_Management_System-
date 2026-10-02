@@ -97,6 +97,28 @@ ReceiptBuilder buildDayReport(DayReport rep, Map<String, dynamic> restaurant, {i
   return r;
 }
 
+/// Kitchen or bar ticket: big item text, no prices. [voided] prints the lines struck off.
+List<int> buildStationTicket(PosOrder order, List<OrderLine> lines, String station, {int columns = 42, bool voided = false}) {
+  final r = ReceiptBuilder(width: columns)..reset();
+  r.text(voided ? 'VOID - ${station.toUpperCase()}' : station.toUpperCase(), align: ReceiptAlign.center, bold: true, doubleWidth: true, doubleHeight: true);
+  r.text(order.orderType == 'DineIn' ? 'TABLE ${order.tableName ?? '-'}' : 'TAKEAWAY${order.customerName == null ? '' : ' - ${order.customerName}'}',
+      align: ReceiptAlign.center, bold: true, doubleWidth: true, doubleHeight: true);
+  r.leftRight(order.orderNumber, DateFormat('h:mm a').format(DateTime.now()));
+  r.leftRight(order.staffName ?? '', order.guestCount == null ? '' : 'Guests: ${order.guestCount}');
+  r.divider();
+  for (final l in lines) {
+    r.text('${l.qty} x ${l.name}', bold: true, doubleHeight: true);
+    for (final m in l.modifiers) {
+      r.text('   + ${m.name}', doubleHeight: true);
+    }
+    if (l.notes != null && l.notes!.trim().isNotEmpty) r.text('   ** ${l.notes}', bold: true);
+    if (voided && l.voidReason != null) r.text('   (${l.voidReason})');
+  }
+  r.divider();
+  r.cut();
+  return r.bytes;
+}
+
 /// Just the drawer pulse, for cash payments and "No sale".
 List<int> drawerKick() => (ReceiptBuilder()..openDrawer()).bytes;
 

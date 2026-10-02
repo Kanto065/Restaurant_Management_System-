@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:my_pos/core/api.dart';
 import 'package:my_pos/core/db.dart';
 import 'package:my_pos/core/models.dart';
+import 'package:my_pos/core/printing.dart';
 import 'package:my_pos/core/sync.dart';
 import 'package:my_pos/state/pos_state.dart';
 
@@ -141,6 +142,48 @@ void main() {
     s.voidLine(order, order.lines.single, 'Wrong drink');
     expect(order.totalPence, 0);
     expect(order.lines.single.status, 'Void');
+  });
+
+  test('send prints one ticket per station; a dead printer keeps its tickets until it is back', () async {
+    final db = LocalDb.memory();
+    applyConfig(db, {
+      ...snapshot(),
+      'printers': [
+        {'name': 'Kitchen', 'role': 'Kitchen', 'connection': 'Network', 'address': '10.0.0.5'},
+        {'name': 'Bar', 'role': 'Bar', 'connection': 'Network', 'address': '10.0.0.6'},
+      ],
+    }, full: true);
+    final s = PosState(db)..staff = db.loadCatalog().staff.first;
+    final printed = <String>[];
+    var barUp = false;
+    s.printSender = (p, bytes) async {
+      if (p.role == 'Bar' && !barUp) throw const PrinterException('Bar (10.0.0.6) is not answering.');
+      printed.add('${p.name}: ${latin1.decode(bytes, allowInvalid: true)}');
+    };
+
+    final o = s.startOrder(table: s.catalog.tables.first, guests: 2);
+    final tikka = s.catalog.itemsIn('c1').firstWhere((i) => i.id == 'i1');
+    s.addItem(o, tikka, modifiers: [LineModifier(id: 'o1', name: 'Pilau', deltaPence: 100)], notes: 'Medium');
+    s.addItem(o, s.catalog.itemsIn('c2').single);
+    s.addItem(o, s.catalog.itemsIn('c1').firstWhere((i) => i.id == 'i3')); // override: Bar
+    await s.send(o);
+
+    expect(printed.single, allOf(startsWith('Kitchen'), contains('TABLE 1'), contains('1 x Chicken Tikka'), contains('+ Pilau'),
+        contains('** Medium'), isNot(contains('Cobra'))));
+    expect(s.pendingPrints, 1);
+    expect(s.printAlert, contains('not answering'));
+
+    barUp = true;
+    await s.drainPrints();
+    expect(printed.last, allOf(startsWith('Bar'), contains('1 x Cobra'), contains('1 x Dessert wine'), isNot(contains('Tikka'))));
+    expect(s.pendingPrints, 0);
+    expect(s.printAlert, isNull);
+
+    // Sending again prints nothing new; voiding a sent dish tells its station.
+    await s.send(o);
+    expect(printed.length, 2);
+    await s.voidLine(o, o.lines.first, 'Customer changed mind');
+    expect(printed.last, allOf(startsWith('Kitchen'), contains('VOID - KITCHEN'), contains('Chicken Tikka')));
   });
 
   test('sync: changes upsert rows, liveIds drop deleted ones, outbox parks rejections only', () async {
