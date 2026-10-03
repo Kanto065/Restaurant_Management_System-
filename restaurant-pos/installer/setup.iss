@@ -7,8 +7,8 @@
 #define SystemDir GetEnv("SystemRoot") + "\Sysnative"
 
 [Setup]
-; Same AppId as the old "My POS" installer, so 2.0 upgrades it in place (same folder).
-AppId={{59B65A57-D509-45CC-9722-BC2084355A51}
+; Its own AppId, so it installs side by side with the old "My POS" (they used to share one).
+AppId={{FBA97589-048B-414B-A351-9350F6D2C790}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
