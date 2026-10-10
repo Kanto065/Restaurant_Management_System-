@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Platform.Api.Controllers.PlatformAdmin;
 using Platform.Api.Controllers.Public;
 using Platform.Application.Common;
+using Platform.Application.Orders;
 using Platform.Domain.Common;
 using Platform.Domain.Entities;
 using Platform.Domain.Enums;
@@ -65,7 +66,9 @@ public class BackwardCompatGuardTests
         await db.SaveChangesAsync();
 
         var notifier = new RecordingNotifier();
-        var controller = new PublicOrdersController(db, tenant, notifier, new NoStripe(), new DeliveryQuoteService(db, null!))
+        var controller = new PublicOrdersController(
+            new PlaceOrderHandler(db, tenant, notifier, new CardPayments(new NoStripe()), new DeliveryQuoteService(db, null!)),
+            new TrackOrderHandler(db))
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };

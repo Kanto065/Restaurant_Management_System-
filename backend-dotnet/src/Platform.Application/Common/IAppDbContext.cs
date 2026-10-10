@@ -11,6 +11,14 @@ public interface IAppDbContext
     DbSet<Order> Orders { get; }
     DbSet<OrderStatusHistory> OrderStatusHistories { get; }
     DbSet<OrderStatusDefinition> OrderStatusDefinitions { get; }
+    DbSet<PaymentStatusDefinition> PaymentStatusDefinitions { get; }
+    DbSet<Restaurant> Restaurants { get; }
+    DbSet<MenuItem> MenuItems { get; }
+    DbSet<Table> Tables { get; }
+    DbSet<Customer> Customers { get; }
+    DbSet<CustomerAddress> CustomerAddresses { get; }
+    DbSet<LoyaltyTransaction> LoyaltyTransactions { get; }
+    DbSet<Voucher> Vouchers { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

@@ -136,6 +136,8 @@ public static class DependencyInjection
             c.Timeout = TimeSpan.FromSeconds(8);
         });
         services.AddScoped<DeliveryQuoteService>();
+        services.AddScoped<IDeliveryQuoteService>(sp => sp.GetRequiredService<DeliveryQuoteService>());
+        services.AddScoped<ICardPayments, CardPayments>();
         services.AddScoped<PostcodeGrid>();
         services.AddHttpClient(NamedAreaLookup.NominatimClient, c =>
         {

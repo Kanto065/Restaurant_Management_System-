@@ -163,4 +163,43 @@ public class CleanArchitectureTests
         Assert.True(rotated.IsReplay(now.AddMinutes(5)));                        // copied token
         Assert.False(new RefreshToken { RevokedAt = now.AddHours(-1) }.IsReplay(now)); // plain sign-out
     }
+
+    private static async Task<(ServiceProvider Sp, Guid ItemId)> CheckoutSetup()
+    {
+        var (sp, rid, _) = Setup();
+        var db = sp.GetRequiredService<AppDbContext>();
+        var category = new MenuCategory { Name = "Mains" };
+        var item = new MenuItem { CategoryId = category.Id, Name = "Tikka", BasePrice = 10m };
+        db.AddRange(
+            new Restaurant { Id = rid, Name = "R", Slug = "r", AddressLine1 = "1", City = "C", Postcode = "SA1 1AA" },
+            category, item,
+            new OrderStatusDefinition { Name = "Pending", IsDefault = true },
+            new PaymentStatusDefinition { Name = "Pending", IsDefault = true },
+            new Voucher { Code = "TEN", IsActive = true, DiscountType = VoucherDiscountType.Percentage, DiscountValue = 10, MinimumOrderAmount = 15m });
+        await db.SaveChangesAsync();
+        return (sp, item.Id);
+    }
+
+    private static Task<Result<CreatedOrderDto>> Place(ServiceProvider sp, Guid itemId, int qty = 2, string? voucher = null, OrderType type = OrderType.Collection) =>
+        sp.GetRequiredService<ICommandHandler<PlaceOrderCommand, CreatedOrderDto>>().Handle(new PlaceOrderCommand(
+            new CreatePublicOrderRequest(type, null, "G", null, null, null,
+                [new CreateOrderItemRequest(itemId, qty, [], null)], null, PaymentMethod.Cash, voucher), null), default);
+
+    [Fact]
+    public async Task Checkout_AppliesPercentageVoucherToServerSidePrices()
+    {
+        var (sp, itemId) = await CheckoutSetup();
+        var r = await Place(sp, itemId, qty: 2, voucher: "TEN");
+        Assert.Equal((20m, 2m, 18m), (r.Value!.Subtotal, r.Value.DiscountAmount, r.Value.TotalAmount));
+    }
+
+    [Fact]
+    public async Task Checkout_RejectsVoucherBelowMinimum_AndUnknownItems_AndTablelessDineIn()
+    {
+        var (sp, itemId) = await CheckoutSetup();
+        Assert.Equal(ErrorType.Validation, (await Place(sp, itemId, qty: 1, voucher: "TEN")).Error!.Type);
+        Assert.Equal(ErrorType.Validation, (await Place(sp, Guid.NewGuid())).Error!.Type);
+        Assert.Equal(ErrorType.Validation, (await Place(sp, itemId, type: OrderType.DineIn)).Error!.Type);
+        Assert.Equal(ErrorType.Validation, (await Place(sp, itemId, qty: 0)).Error!.Type);
+    }
 }
