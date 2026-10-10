@@ -39,4 +39,11 @@ public class RefreshToken
     public Guid? RestaurantId { get; set; }
 
     public bool IsActive => RevokedAt is null && DateTimeOffset.UtcNow < ExpiresAt;
+
+    /// <summary>Presented again after it was rotated away, beyond the grace for two tabs refreshing
+    /// at once: the token was copied, so the whole session should be killed.</summary>
+    public bool IsReplay(DateTimeOffset now) =>
+        ReplacedByTokenHash is not null && RevokedAt is { } at && now - at > ReplayGrace;
+
+    public static readonly TimeSpan ReplayGrace = TimeSpan.FromSeconds(60);
 }

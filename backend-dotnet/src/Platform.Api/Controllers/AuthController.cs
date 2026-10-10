@@ -258,7 +258,17 @@ public class AuthController(
         var hash = tokenService.HashRefreshToken(request.RefreshToken);
         var stored = await db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash);
 
-        if (stored is null || !stored.IsActive)
+        if (stored is null)
+            return Unauthorized(ApiResponse<TokenResponse>.Fail("Refresh token is invalid or expired.", 401));
+
+        if (stored.IsReplay(DateTimeOffset.UtcNow))
+        {
+            var live = await db.RefreshTokens.Where(t => t.UserId == stored.UserId && t.RevokedAt == null).ToListAsync();
+            foreach (var t in live) t.RevokedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+        }
+
+        if (!stored.IsActive)
             return Unauthorized(ApiResponse<TokenResponse>.Fail("Refresh token is invalid or expired.", 401));
 
         var user = await userManager.FindByIdAsync(stored.UserId.ToString());
