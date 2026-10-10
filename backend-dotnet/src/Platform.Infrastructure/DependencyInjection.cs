@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -25,6 +26,8 @@ public static class DependencyInjection
     {
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("Postgres")));
+
+        services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 
         services.AddMemoryCache();
 
@@ -114,6 +117,10 @@ public static class DependencyInjection
             .AddPolicy("StaffOrDevice", p => p.RequireAssertion(ctx =>
                 ctx.User.HasClaim("token_type", "device") ||
                 (ctx.User.HasClaim("token_type", "staff") && StaffRoles.CanUseAdminPanel(ctx.User))));
+
+        // [HasPermission("x")] endpoints: policy built on demand, checked against Permissions.
+        services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+        services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
 
         services.AddSingleton<SseConnectionManager>();
         services.AddScoped<IOrderNotifier, OrderNotifier>();
