@@ -10,7 +10,7 @@ using Platform.Infrastructure.Identity;
 namespace Platform.Infrastructure.Persistence;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant currentTenant, ICurrentActor currentActor)
-    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options)
+    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options), IAppDbContext
 {
     private readonly ICurrentTenant _currentTenant = currentTenant;
     private readonly ICurrentActor _currentActor = currentActor;

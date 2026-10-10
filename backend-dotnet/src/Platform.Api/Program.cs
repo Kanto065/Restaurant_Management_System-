@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
 using Platform.Api.Filters;
+using Platform.Application;
 using Platform.Infrastructure;
 using Platform.Infrastructure.Identity;
 using Platform.Infrastructure.Multitenancy;
@@ -24,6 +25,7 @@ builder.Services.AddControllers(options => options.Filters.Add<RequireTenantFilt
 });
 builder.Services.AddEndpointsApiExplorer();
 
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.Configure<SeedOptions>(builder.Configuration.GetSection(SeedOptions.SectionName));
 

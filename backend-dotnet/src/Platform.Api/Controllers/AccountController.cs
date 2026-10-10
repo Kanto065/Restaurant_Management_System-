@@ -1,3 +1,4 @@
+using Platform.Application.Orders;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
@@ -242,11 +243,11 @@ public class AccountController(AppDbContext db, UserManager<AppUser> userManager
 
     /// <summary>The reference site's "My Last Order" quick-reorder — returns full item detail, not just the summary.</summary>
     [HttpGet("orders/last")]
-    public async Task<ActionResult<ApiResponse<Admin.OrderDetailDto>>> LastOrder()
+    public async Task<ActionResult<ApiResponse<OrderDetailDto>>> LastOrder()
     {
         var customerId = await CurrentCustomerIdAsync();
         if (customerId is null)
-            return NotFound(ApiResponse<Admin.OrderDetailDto>.Fail("Customer account not found.", 404));
+            return NotFound(ApiResponse<OrderDetailDto>.Fail("Customer account not found.", 404));
 
         var order = await db.Orders
             .Include(o => o.Items).ThenInclude(i => i.Modifiers)
@@ -257,22 +258,22 @@ public class AccountController(AppDbContext db, UserManager<AppUser> userManager
             .FirstOrDefaultAsync();
 
         if (order is null)
-            return NotFound(ApiResponse<Admin.OrderDetailDto>.Fail("No previous orders.", 404));
+            return NotFound(ApiResponse<OrderDetailDto>.Fail("No previous orders.", 404));
 
-        var dto = new Admin.OrderDetailDto(
+        var dto = new OrderDetailDto(
             order.Id, order.OrderNumber, order.OrderType, order.Status, order.PaymentStatus, order.PaymentMethod,
             order.Subtotal, order.DeliveryFee, order.ProcessingFee, order.DiscountAmount, order.TotalAmount,
             order.CustomerName, order.CustomerPhone, order.CustomerEmail, order.SpecialRequests,
-            order.DeliveryAddress is null ? null : new Admin.OrderDeliveryAddressDto(order.DeliveryAddress.Line1, order.DeliveryAddress.Line2, order.DeliveryAddress.City, order.DeliveryAddress.Postcode),
+            order.DeliveryAddress is null ? null : new OrderDeliveryAddressDto(order.DeliveryAddress.Line1, order.DeliveryAddress.Line2, order.DeliveryAddress.City, order.DeliveryAddress.Postcode),
             order.EstimatedReadyAt, order.CreatedAt,
-            order.Items.Select(i => new Admin.OrderItemDto(
+            order.Items.Select(i => new OrderItemDto(
                 i.Id, i.NameSnapshot, i.UnitPriceSnapshot, i.Quantity, i.SpecialInstructions, i.LineTotal,
-                i.Modifiers.Select(m => new Admin.OrderItemModifierDto(m.Id, m.NameSnapshot, m.PriceDeltaSnapshot)).ToList())).ToList(),
-            order.StatusHistory.OrderBy(h => h.Timestamp).Select(h => new Admin.OrderStatusHistoryDto(h.Status, h.Note, h.Timestamp)).ToList(),
+                i.Modifiers.Select(m => new OrderItemModifierDto(m.Id, m.NameSnapshot, m.PriceDeltaSnapshot)).ToList())).ToList(),
+            order.StatusHistory.OrderBy(h => h.Timestamp).Select(h => new OrderStatusHistoryDto(h.Status, h.Note, h.Timestamp)).ToList(),
             order.EstimatedMinutes,
             order.DeliveryZoneName);
 
-        return Ok(ApiResponse<Admin.OrderDetailDto>.Ok(dto));
+        return Ok(ApiResponse<OrderDetailDto>.Ok(dto));
     }
 
     [HttpGet("favourites")]
