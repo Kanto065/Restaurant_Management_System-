@@ -15,10 +15,10 @@
 	# path-style S3 addressing means GET /uploads/{key} on MinIO IS the object,
 	# so this proxies straight there instead of through the API.
 	handle /uploads/* {
-		reverse_proxy minio:9000
+		reverse_proxy platform-minio:9000
 	}
 	handle {
-		reverse_proxy api:8080
+		reverse_proxy platform-api:8080
 	}
 }
 
@@ -28,25 +28,25 @@
 	# always serves the latest one without the link itself ever changing.
 	handle /download/pos {
 		rewrite * /uploads/pos/porttennanttandoori-pos.apk
-		reverse_proxy minio:9000
+		reverse_proxy platform-minio:9000
 	}
 	# UpdateChecker polls this instead of GitHub's Releases API - works the same whether this
 	# repo is public or private, since it never touches GitHub at runtime.
 	handle /download/pos-version {
 		rewrite * /uploads/pos/version.json
-		reverse_proxy minio:9000
+		reverse_proxy platform-minio:9000
 	}
 	# Same-origin API + uploads, like the storefront block: the admin build calls /api on
 	# whatever admin domain it's served from, and the API resolves the restaurant from that
 	# Host (a Domain row with Kind=Admin), so one admin build serves every restaurant.
 	handle /api/* {
-		reverse_proxy api:8080
+		reverse_proxy platform-api:8080
 	}
 	handle /uploads/* {
-		reverse_proxy minio:9000
+		reverse_proxy platform-minio:9000
 	}
 	handle {
-		reverse_proxy admin-frontend:80
+		reverse_proxy platform-admin-frontend:80
 	}
 }
 
@@ -58,16 +58,16 @@
 	# text/event-stream responses and disables buffering automatically, so SSE
 	# needs no special config here. Everything else is the static SPA.
 	handle /api/* {
-		reverse_proxy api:8080
+		reverse_proxy platform-api:8080
 	}
 	# Admin-uploaded images are referenced as relative /uploads/... URLs in
 	# storefront content, so they need the same same-origin proxy treatment as
 	# /api/* - straight to MinIO, same as the API_HOST block above.
 	handle /uploads/* {
-		reverse_proxy minio:9000
+		reverse_proxy platform-minio:9000
 	}
 	handle {
-		reverse_proxy storefront:80
+		reverse_proxy platform-storefront:80
 	}
 }
 
@@ -77,10 +77,10 @@
 {$SUPERADMIN_HOST} {
 	header X-Robots-Tag "noindex, nofollow"
 	handle /api/* {
-		reverse_proxy api:8080
+		reverse_proxy platform-api:8080
 	}
 	handle {
-		reverse_proxy superadmin-frontend:80
+		reverse_proxy platform-superadmin-frontend:80
 	}
 }
 
@@ -125,7 +125,7 @@
 }
 
 {$STARSPICE_HOST} {
-	import starspice_storefront api minio storefront-starspice
+	import starspice_storefront platform-api platform-minio platform-storefront-starspice
 }
 
 www.{$STARSPICE_HOST} {
@@ -133,7 +133,7 @@ www.{$STARSPICE_HOST} {
 }
 
 {$STARSPICE_ADMIN_HOST} {
-	import tenant_admin api minio admin-frontend
+	import tenant_admin platform-api platform-minio platform-admin-frontend
 }
 
 {$STARSPICE_UAT_HOST} {

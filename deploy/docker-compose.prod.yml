@@ -10,7 +10,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks: [internal]
+    networks:
+      internal:
+        aliases: [platform-postgres]
     # Deliberately no "ports:" mapping — Postgres is reachable only from other
     # containers on the internal network, never from the host/public internet.
 
@@ -23,7 +25,9 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - minio_data:/data
-    networks: [internal]
+    networks:
+      internal:
+        aliases: [platform-minio]
     # No published ports — the S3 API (9000) is reached only via the api container (as an S3
     # client) and the Caddy /uploads/* proxy (as a public GET route, see Caddyfile); the admin
     # console (9001) is deliberately not exposed anywhere.
@@ -35,7 +39,7 @@ services:
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-platform};Username=${POSTGRES_USER:-platform};Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__Postgres: "Host=platform-postgres;Port=5432;Database=${POSTGRES_DB:-platform};Username=${POSTGRES_USER:-platform};Password=${POSTGRES_PASSWORD}"
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -55,12 +59,14 @@ services:
       Cors__AllowedOrigins__0: https://${SEED_HOST:-www.porttennanttandoori.co.uk}
       Cors__AllowedOrigins__1: https://${ADMIN_HOST}
       Storage__Provider: S3
-      Storage__S3__ServiceUrl: http://minio:9000
+      Storage__S3__ServiceUrl: http://platform-minio:9000
       Storage__S3__AccessKey: ${MINIO_ROOT_USER}
       Storage__S3__SecretKey: ${MINIO_ROOT_PASSWORD}
       Storage__S3__Bucket: uploads
     depends_on: [postgres, minio]
-    networks: [internal]
+    networks:
+      internal:
+        aliases: [platform-api]
     # No published ports — only reachable via the Caddy reverse proxy.
     # No Redis: realtime is now Server-Sent Events fanned out in-memory
     # (see SseConnectionManager) - fine for a single API replica. If this
@@ -73,14 +79,18 @@ services:
       context: ../admin-frontend
       dockerfile: Dockerfile
     restart: unless-stopped
-    networks: [internal]
+    networks:
+      internal:
+        aliases: [platform-admin-frontend]
 
   storefront:
     build:
       context: ../storefront
       dockerfile: Dockerfile
     restart: unless-stopped
-    networks: [internal]
+    networks:
+      internal:
+        aliases: [platform-storefront]
     # No VITE_API_BASE_URL build arg - the storefront calls /api and /hubs on its
     # OWN origin (the tenant's branded domain), which Caddy splits to the api
     # container below. This keeps the Host header the tenant-resolution
@@ -93,7 +103,9 @@ services:
       context: ..
       dockerfile: storefront-starspice/Dockerfile
     restart: unless-stopped
-    networks: [internal]
+    networks:
+      internal:
+        aliases: [platform-storefront-starspice]
 
   # Platform owner's panel for creating/managing restaurants (superadmin.* host).
   # UAT has its own copy (uat-superadmin-frontend) against the UAT API.
@@ -102,7 +114,9 @@ services:
       context: ../superadmin-frontend
       dockerfile: Dockerfile
     restart: unless-stopped
-    networks: [internal]
+    networks:
+      internal:
+        aliases: [platform-superadmin-frontend]
 
   caddy:
     image: caddy:2-alpine
@@ -142,6 +156,10 @@ services:
     networks: [internal]
 
 networks:
+  # Other projects on this VPS (merchio, bsd, ...) join this network too, and Docker gives
+  # every container its compose service name as an alias - so a bare "api" or "minio" can
+  # resolve to ANOTHER project's container (2026-11: the POS got merchio's Go 404s).
+  # Always address our own services by their unique platform-* alias, never the bare name.
   internal:
 
 volumes:
